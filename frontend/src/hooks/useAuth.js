@@ -12,7 +12,11 @@ export const useAuth = () => {
         const currentUser = await authService.getCurrentUser()
         setUser(currentUser)
       } catch (error) {
-        console.error('Error al obtener usuario actual:', error)
+        // No mostrar error en consola si no hay sesión (es normal)
+        if (!error.message.includes('Auth session missing')) {
+          console.error('Error al obtener usuario actual:', error)
+        }
+        setUser(null)
       } finally {
         setLoading(false)
       }
