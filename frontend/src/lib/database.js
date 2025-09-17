@@ -1,5 +1,4 @@
 import { supabase } from './supabase'
-import type { Categoria, Posicion, EquipoInterno, Jugador, RolUsuario, Usuario } from './supabase'
 
 // =====================================================
 // FUNCIONES DE CATEGORÍAS
@@ -7,7 +6,7 @@ import type { Categoria, Posicion, EquipoInterno, Jugador, RolUsuario, Usuario }
 
 export const categoriasService = {
   // Obtener todas las categorías activas
-  async getAll(): Promise<Categoria[]> {
+  async getAll() {
     const { data, error } = await supabase
       .from('categorias')
       .select('*')
@@ -19,7 +18,7 @@ export const categoriasService = {
   },
 
   // Obtener una categoría por ID
-  async getById(id: number): Promise<Categoria | null> {
+  async getById(id) {
     const { data, error } = await supabase
       .from('categorias')
       .select('*')
@@ -31,7 +30,7 @@ export const categoriasService = {
   },
 
   // Crear nueva categoría
-  async create(categoria: Omit<Categoria, 'id' | 'created_at' | 'updated_at'>): Promise<Categoria> {
+  async create(categoria) {
     const { data, error } = await supabase
       .from('categorias')
       .insert(categoria)
@@ -43,7 +42,7 @@ export const categoriasService = {
   },
 
   // Actualizar categoría
-  async update(id: number, updates: Partial<Categoria>): Promise<Categoria> {
+  async update(id, updates) {
     const { data, error } = await supabase
       .from('categorias')
       .update(updates)
@@ -56,7 +55,7 @@ export const categoriasService = {
   },
 
   // Eliminar categoría (soft delete)
-  async delete(id: number): Promise<void> {
+  async delete(id) {
     const { error } = await supabase
       .from('categorias')
       .update({ activa: false })
@@ -72,7 +71,7 @@ export const categoriasService = {
 
 export const posicionesService = {
   // Obtener todas las posiciones activas
-  async getAll(): Promise<Posicion[]> {
+  async getAll() {
     const { data, error } = await supabase
       .from('posiciones')
       .select('*')
@@ -84,7 +83,7 @@ export const posicionesService = {
   },
 
   // Obtener posiciones obligatorias
-  async getObligatorias(): Promise<Posicion[]> {
+  async getObligatorias() {
     const { data, error } = await supabase
       .from('posiciones')
       .select('*')
@@ -103,7 +102,7 @@ export const posicionesService = {
 
 export const equiposInternosService = {
   // Obtener todos los equipos activos
-  async getAll(): Promise<EquipoInterno[]> {
+  async getAll() {
     const { data, error } = await supabase
       .from('equipos_internos')
       .select(`
@@ -123,7 +122,7 @@ export const equiposInternosService = {
   },
 
   // Obtener equipos por categoría
-  async getByCategoria(categoriaId: number): Promise<EquipoInterno[]> {
+  async getByCategoria(categoriaId) {
     const { data, error } = await supabase
       .from('equipos_internos')
       .select(`
@@ -144,7 +143,7 @@ export const equiposInternosService = {
   },
 
   // Obtener un equipo por ID
-  async getById(id: number): Promise<EquipoInterno | null> {
+  async getById(id) {
     const { data, error } = await supabase
       .from('equipos_internos')
       .select(`
@@ -164,7 +163,7 @@ export const equiposInternosService = {
   },
 
   // Crear nuevo equipo
-  async create(equipo: Omit<EquipoInterno, 'id' | 'created_at' | 'updated_at'>): Promise<EquipoInterno> {
+  async create(equipo) {
     const { data, error } = await supabase
       .from('equipos_internos')
       .insert(equipo)
@@ -176,7 +175,7 @@ export const equiposInternosService = {
   },
 
   // Actualizar equipo
-  async update(id: number, updates: Partial<EquipoInterno>): Promise<EquipoInterno> {
+  async update(id, updates) {
     const { data, error } = await supabase
       .from('equipos_internos')
       .update(updates)
@@ -195,7 +194,7 @@ export const equiposInternosService = {
 
 export const jugadoresService = {
   // Obtener todos los jugadores activos
-  async getAll(): Promise<Jugador[]> {
+  async getAll() {
     const { data, error } = await supabase
       .from('jugadores')
       .select(`
@@ -220,7 +219,7 @@ export const jugadoresService = {
   },
 
   // Obtener jugadores por equipo
-  async getByEquipo(equipoId: number): Promise<Jugador[]> {
+  async getByEquipo(equipoId) {
     const { data, error } = await supabase
       .from('jugadores')
       .select(`
@@ -246,7 +245,7 @@ export const jugadoresService = {
   },
 
   // Obtener jugadores por categoría
-  async getByCategoria(categoriaId: number): Promise<Jugador[]> {
+  async getByCategoria(categoriaId) {
     const { data, error } = await supabase
       .from('jugadores')
       .select(`
@@ -272,7 +271,7 @@ export const jugadoresService = {
   },
 
   // Obtener un jugador por ID
-  async getById(id: number): Promise<Jugador | null> {
+  async getById(id) {
     const { data, error } = await supabase
       .from('jugadores')
       .select(`
@@ -297,7 +296,7 @@ export const jugadoresService = {
   },
 
   // Crear nuevo jugador
-  async create(jugador: Omit<Jugador, 'id' | 'edad' | 'created_at' | 'updated_at'>): Promise<Jugador> {
+  async create(jugador) {
     const { data, error } = await supabase
       .from('jugadores')
       .insert(jugador)
@@ -309,7 +308,7 @@ export const jugadoresService = {
   },
 
   // Actualizar jugador
-  async update(id: number, updates: Partial<Jugador>): Promise<Jugador> {
+  async update(id, updates) {
     const { data, error } = await supabase
       .from('jugadores')
       .update(updates)
@@ -322,7 +321,7 @@ export const jugadoresService = {
   },
 
   // Eliminar jugador (soft delete)
-  async delete(id: number): Promise<void> {
+  async delete(id) {
     const { error } = await supabase
       .from('jugadores')
       .update({ activo: false })
@@ -345,7 +344,7 @@ export const authService = {
   },
 
   // Iniciar sesión
-  async signIn(email: string, password: string) {
+  async signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -361,12 +360,7 @@ export const authService = {
   },
 
   // Registrar nuevo usuario
-  async signUp(email: string, password: string, userData: {
-    nombre: string
-    apellido_paterno: string
-    apellido_materno?: string
-    telefono?: string
-  }) {
+  async signUp(email, password, userData) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -379,7 +373,7 @@ export const authService = {
   },
 
   // Escuchar cambios de autenticación
-  onAuthStateChange(callback: (event: string, session: any) => void) {
+  onAuthStateChange(callback) {
     return supabase.auth.onAuthStateChange(callback)
   }
 }
@@ -390,7 +384,7 @@ export const authService = {
 
 export const rolesService = {
   // Obtener todos los roles
-  async getAll(): Promise<RolUsuario[]> {
+  async getAll() {
     const { data, error } = await supabase
       .from('roles_usuario')
       .select('*')
@@ -402,7 +396,7 @@ export const rolesService = {
   },
 
   // Obtener roles de un usuario
-  async getByUsuario(usuarioId: string) {
+  async getByUsuario(usuarioId) {
     const { data, error } = await supabase
       .from('usuario_roles')
       .select(`

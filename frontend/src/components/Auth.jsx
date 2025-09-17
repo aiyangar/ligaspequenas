@@ -1,11 +1,7 @@
 import React, { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 
-interface AuthProps {
-  onAuthSuccess?: () => void
-}
-
-export const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
+export const Auth = ({ onAuthSuccess }) => {
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,7 +14,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
 
   const { signIn, signUp } = useAuth()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)

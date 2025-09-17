@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { categoriasService, equiposInternosService, jugadoresService } from '../lib/database'
-import type { Categoria, EquipoInterno, Jugador } from '../lib/supabase'
 
-export const Dashboard: React.FC = () => {
+export const Dashboard = () => {
   const { user, signOut } = useAuth()
-  const [categorias, setCategorias] = useState<Categoria[]>([])
-  const [equipos, setEquipos] = useState<EquipoInterno[]>([])
-  const [jugadores, setJugadores] = useState<Jugador[]>([])
+  const [categorias, setCategorias] = useState([])
+  const [equipos, setEquipos] = useState([])
+  const [jugadores, setJugadores] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -24,7 +23,7 @@ export const Dashboard: React.FC = () => {
         setCategorias(categoriasData)
         setEquipos(equiposData)
         setJugadores(jugadoresData)
-      } catch (err: any) {
+      } catch (err) {
         setError(err.message || 'Error al cargar los datos')
       } finally {
         setLoading(false)

@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
-import { User } from '@supabase/supabase-js'
 import { authService } from '../lib/database'
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -32,30 +31,25 @@ export const useAuth = () => {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email, password) => {
     try {
       setLoading(true)
       const { user } = await authService.signIn(email, password)
       setUser(user)
       return { success: true, user }
-    } catch (error: any) {
+    } catch (error) {
       return { success: false, error: error.message }
     } finally {
       setLoading(false)
     }
   }
 
-  const signUp = async (email: string, password: string, userData: {
-    nombre: string
-    apellido_paterno: string
-    apellido_materno?: string
-    telefono?: string
-  }) => {
+  const signUp = async (email, password, userData) => {
     try {
       setLoading(true)
       const { user } = await authService.signUp(email, password, userData)
       return { success: true, user }
-    } catch (error: any) {
+    } catch (error) {
       return { success: false, error: error.message }
     } finally {
       setLoading(false)
@@ -68,7 +62,7 @@ export const useAuth = () => {
       await authService.signOut()
       setUser(null)
       return { success: true }
-    } catch (error: any) {
+    } catch (error) {
       return { success: false, error: error.message }
     } finally {
       setLoading(false)
