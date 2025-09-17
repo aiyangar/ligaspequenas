@@ -359,8 +359,14 @@ export const authService = {
     if (error) throw error
   },
 
-  // Registrar nuevo usuario
+  // Registrar nuevo usuario (solo SuperAdmin)
   async signUp(email, password, userData) {
+    // Verificar que el usuario actual sea SuperAdmin
+    const currentUser = await this.getCurrentUser()
+    if (!currentUser || currentUser.email !== 'ing.gustavo.cardenas@gmail.com') {
+      throw new Error('No tienes permisos para crear usuarios. Solo el SuperAdministrador puede crear usuarios.')
+    }
+    
     const { data, error } = await supabase.auth.signUp({
       email,
       password,

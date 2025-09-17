@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import { categoriasService, equiposInternosService, jugadoresService } from '../lib/database'
 
 export const Dashboard = () => {
-  const { user, signOut } = useAuth()
+  const { user, signOut, isSuperAdmin } = useAuth()
   const [categorias, setCategorias] = useState([])
   const [equipos, setEquipos] = useState([])
   const [jugadores, setJugadores] = useState([])
@@ -76,6 +76,11 @@ export const Dashboard = () => {
             </h1>
             <p className="text-surface-600 mt-1">
               Bienvenido, {user?.email}
+              {isSuperAdmin && (
+                <span className="ml-2 px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full">
+                  SuperAdmin
+                </span>
+              )}
             </p>
           </div>
           <div className="mt-4 md:mt-0">
@@ -263,6 +268,35 @@ export const Dashboard = () => {
           <p className="text-surface-500 text-center py-8">No hay jugadores registrados</p>
         )}
       </div>
+
+      {/* Sección de Administración - Solo para SuperAdmin */}
+      {isSuperAdmin && (
+        <div className="material-card p-6">
+          <h3 className="text-xl font-semibold text-surface-900 mb-6">
+            Administración del Sistema
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border border-surface-200 rounded-lg p-4 hover:border-primary-300 transition-colors duration-200">
+              <h4 className="font-semibold text-surface-900 mb-2">Gestión de Usuarios</h4>
+              <p className="text-sm text-surface-600 mb-4">
+                Crear y administrar usuarios del sistema
+              </p>
+              <button className="material-button-primary text-sm">
+                Gestionar Usuarios
+              </button>
+            </div>
+            <div className="border border-surface-200 rounded-lg p-4 hover:border-primary-300 transition-colors duration-200">
+              <h4 className="font-semibold text-surface-900 mb-2">Configuración del Sistema</h4>
+              <p className="text-sm text-surface-600 mb-4">
+                Configurar parámetros generales del sistema
+              </p>
+              <button className="material-button-primary text-sm">
+                Configuración
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
