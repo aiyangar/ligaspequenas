@@ -82,10 +82,16 @@ export const UserCard = ({ user, onEdit, onDelete, onCardClick, isExpanded }) =>
           >
             <svg 
               className={getMenuIconClasses(showMenu)} 
-              fill="currentColor" 
-              viewBox="0 0 20 20"
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
             >
-              <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M4 6h16M4 12h16M4 18h16" 
+              />
             </svg>
           </button>
 

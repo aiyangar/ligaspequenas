@@ -1,5 +1,6 @@
 /* Navbar específico */
 .navbar {
+  position: relative;
   background-color: #ffffff;
   border-bottom: 1px solid #e5e7eb;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
@@ -59,26 +60,16 @@
   font-size: 1.25rem;
 }
 
-/* Desktop Menu */
-.navbar-desktop-menu {
-  display: none;
+/* Sección derecha: Bienvenida + Menú */
+.navbar-right-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-@media (min-width: 1280px) {
-  .navbar-desktop-menu {
-    display: block;
-  }
-}
-
-/* Mobile Menu Button */
-.navbar-mobile-button {
+/* Menú hamburguesa para todos los tamaños */
+.navbar-hamburger-menu {
   display: block;
-}
-
-@media (min-width: 1280px) {
-  .navbar-mobile-button {
-    display: none;
-  }
 }
 
 .navbar-hamburger {
@@ -86,9 +77,12 @@
   align-items: center;
   justify-content: center;
   padding: 0.5rem;
+  background-color: transparent;
+  border: none;
   border-radius: 9999px;
   color: #374151;
   transition: all 0.2s;
+  cursor: pointer;
 }
 
 .navbar-hamburger:hover {
@@ -98,7 +92,7 @@
 
 .navbar-hamburger:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+  box-shadow: none;
 }
 
 .navbar-hamburger svg {
@@ -108,21 +102,23 @@
 }
 
 /* Mobile Menu */
-.navbar-mobile-menu {
+.navbar-dropdown-menu {
   display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 50;
 }
 
-@media (min-width: 1280px) {
-  .navbar-mobile-menu {
-    display: none !important;
-  }
-}
-
-.navbar-mobile-menu.open {
+.navbar-dropdown-menu.open {
   display: block;
 }
 
-.navbar-mobile-content {
+.navbar-dropdown-content {
   padding: 0.5rem 0.75rem 0.75rem 0.75rem;
   background-color: white;
   border-top: 1px solid #e5e7eb;
@@ -356,14 +352,12 @@
 /* User Info in Navbar */
 .navbar-user-info {
   display: none;
-  margin-left: 1rem;
   flex-shrink: 0;
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 640px) {
   .navbar-user-info {
     display: block;
-    margin-left: 1.5rem;
   }
 }
 
@@ -373,7 +367,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 250px;
+  max-width: 200px;
   font-size: 0.875rem;
   color: #757575;
   line-height: 1.25rem;

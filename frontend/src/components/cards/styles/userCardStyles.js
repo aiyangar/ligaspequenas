@@ -113,7 +113,7 @@ export const getAvatarClasses = (cardStyles) => {
  * @returns {string} Clases CSS para el botón del menú
  */
 export const getMenuButtonClasses = (showMenu) => {
-  const baseClasses = 'p-2 rounded-full transition-all duration-200'
+  const baseClasses = 'p-2 rounded-full transition-all duration-200 border-none outline-none focus:outline-none focus:ring-0'
   const stateClasses = showMenu 
     ? 'bg-blue-100 text-blue-600 shadow-sm' 
     : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'
@@ -122,13 +122,13 @@ export const getMenuButtonClasses = (showMenu) => {
 }
 
 /**
- * Obtiene las clases CSS para el icono del menú
+ * Obtiene las clases CSS para el icono del menú hamburguesa
  * @param {boolean} showMenu - Si el menú está visible
  * @returns {string} Clases CSS para el icono
  */
 export const getMenuIconClasses = (showMenu) => {
-  const baseClasses = 'w-5 h-5 transition-transform duration-200'
-  const stateClasses = showMenu ? 'rotate-90' : ''
+  const baseClasses = 'w-5 h-5 transition-all duration-200'
+  const stateClasses = showMenu ? 'rotate-180' : ''
   
   return `${baseClasses} ${stateClasses}`
 }
