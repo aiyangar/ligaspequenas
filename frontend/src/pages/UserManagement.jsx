@@ -174,16 +174,7 @@ export const UserManagement = ({ onNavigate }) => {
       <div className="material-card p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="flex items-center mb-2">
-              {onNavigate && (
-                <button
-                  onClick={() => onNavigate('dashboard')}
-                  className="nav-button mr-4"
-                  title="Volver al Dashboard"
-                >
-                  ← Volver
-                </button>
-              )}
+            <div className="mb-2">
               <h1 className="text-3xl font-bold text-surface-900">
                 Gestión de Usuarios
               </h1>
@@ -192,7 +183,18 @@ export const UserManagement = ({ onNavigate }) => {
               Administra los usuarios del sistema y sus roles
             </p>
           </div>
-          <div className="mt-4 md:mt-0">
+          <div className="mt-4 md:mt-0 flex flex-col items-end justify-center relative">
+            {/* Botón Volver - Posicionado más arriba */}
+            {onNavigate && (
+              <button
+                onClick={() => onNavigate('dashboard')}
+                className="nav-button absolute -top-8 right-0"
+                title="Volver al Dashboard"
+              >
+                ← Volver
+              </button>
+            )}
+            {/* Botón Nuevo Usuario - Centrado verticalmente */}
             <button
               onClick={() => {
                 resetForm()
