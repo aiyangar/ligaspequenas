@@ -20,13 +20,13 @@ function App() {
 
   return (
     <div className="App">
-      {user ? (
-        <Layout>
+      <Layout>
+        {user ? (
           <Dashboard />
-        </Layout>
-      ) : (
-        <Auth />
-      )}
+        ) : (
+          <Auth />
+        )}
+      </Layout>
     </div>
   )
 }

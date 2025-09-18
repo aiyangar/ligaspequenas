@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import { categoriasService, equiposInternosService, jugadoresService } from '../lib/database'
 
 export const Dashboard = () => {
-  const { user, signOut, isSuperAdmin } = useAuth()
+  const { isSuperAdmin } = useAuth()
   const [categorias, setCategorias] = useState([])
   const [equipos, setEquipos] = useState([])
   const [jugadores, setJugadores] = useState([])
@@ -33,9 +33,6 @@ export const Dashboard = () => {
     loadData()
   }, [])
 
-  const handleSignOut = async () => {
-    await signOut()
-  }
 
   if (loading) {
     return (
@@ -69,36 +66,9 @@ export const Dashboard = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="material-card p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-surface-900">
-              Dashboard
-            </h1>
-            <p className="text-surface-600 mt-1">
-              Bienvenido, {user?.email}
-              {isSuperAdmin && (
-                <span className="ml-2 px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full">
-                  SuperAdmin
-                </span>
-              )}
-            </p>
-          </div>
-          <div className="mt-4 md:mt-0">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                <span className="text-primary-600 font-medium">
-                  {user?.email?.charAt(0).toUpperCase()}
-                </span>
-              </div>
-              <button
-                onClick={handleSignOut}
-                className="material-button bg-red-600 hover:bg-red-700 text-white"
-              >
-                Cerrar Sesión
-              </button>
-            </div>
-          </div>
-        </div>
+        <h1 className="text-3xl font-bold text-surface-900">
+          Dashboard
+        </h1>
       </div>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
