@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { categoriasService, equiposInternosService, jugadoresService } from '../lib/database'
 
-export const Dashboard = () => {
+export const Dashboard = ({ onNavigate }) => {
   const { isSuperAdmin } = useAuth()
   const [categorias, setCategorias] = useState([])
   const [equipos, setEquipos] = useState([])
@@ -251,7 +251,10 @@ export const Dashboard = () => {
               <p className="text-sm text-surface-600 mb-4">
                 Crear y administrar usuarios del sistema
               </p>
-              <button className="material-button-primary text-sm">
+              <button 
+                onClick={() => onNavigate('usuarios')}
+                className="material-button-primary text-sm"
+              >
                 Gestionar Usuarios
               </button>
             </div>

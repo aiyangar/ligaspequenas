@@ -1,7 +1,7 @@
 import React from 'react'
 import { useAuth } from './hooks/useAuth'
 import { Auth } from './components/Auth'
-import { Dashboard } from './components/Dashboard'
+import { Router } from './components/Router'
 import { Layout } from './components/Layout'
 
 function App() {
@@ -20,13 +20,13 @@ function App() {
 
   return (
     <div className="App">
-      <Layout>
-        {user ? (
-          <Dashboard />
-        ) : (
+      {user ? (
+        <Router />
+      ) : (
+        <Layout>
           <Auth />
-        )}
-      </Layout>
+        </Layout>
+      )}
     </div>
   )
 }

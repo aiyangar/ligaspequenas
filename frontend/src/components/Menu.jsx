@@ -1,7 +1,7 @@
 import React from 'react'
 import { useAuth } from '../hooks/useAuth'
 
-export const Menu = ({ isMobile = false, isOpen = false, onClose }) => {
+export const Menu = ({ isMobile = false, isOpen = false, onClose, onNavigate }) => {
   const { user, isSuperAdmin, signOut } = useAuth()
 
   const handleSignOut = async () => {
@@ -10,30 +10,40 @@ export const Menu = ({ isMobile = false, isOpen = false, onClose }) => {
   }
 
   const menuItems = [
-    { name: 'Dashboard', href: '#', icon: '🏠' },
-    { name: 'Categorías', href: '#', icon: '📋' },
-    { name: 'Equipos', href: '#', icon: '⚾' },
-    { name: 'Jugadores', href: '#', icon: '👥' },
-    { name: 'Partidos', href: '#', icon: '🏟️' }
+    { name: 'Dashboard', page: 'dashboard', icon: '🏠' },
+    { name: 'Categorías', page: 'categorias', icon: '📋' },
+    { name: 'Equipos', page: 'equipos', icon: '⚾' },
+    { name: 'Jugadores', page: 'jugadores', icon: '👥' },
+    { name: 'Partidos', page: 'partidos', icon: '🏟️' }
   ]
 
   const adminItems = [
-    { name: 'Administración', href: '#', icon: '⚙️', isAdmin: true }
+    { name: 'Gestión de Usuarios', page: 'usuarios', icon: '👥', isAdmin: true },
+    { name: 'Configuración', page: 'configuracion', icon: '⚙️', isAdmin: true }
   ]
 
   const renderMenuItem = (item, index) => {
     const className = item.isAdmin ? "menu-item admin" : "menu-item"
 
+    const handleClick = (e) => {
+      e.preventDefault()
+      if (onNavigate) {
+        onNavigate(item.page)
+      }
+      if (isMobile && onClose) {
+        onClose()
+      }
+    }
+
     return (
-      <a
+      <button
         key={index}
-        href={item.href}
+        onClick={handleClick}
         className={className}
-        onClick={isMobile ? onClose : undefined}
       >
         {isMobile && <span className="menu-item-icon">{item.icon}</span>}
         {item.name}
-      </a>
+      </button>
     )
   }
 

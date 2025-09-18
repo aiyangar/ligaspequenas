@@ -3,7 +3,7 @@ import { Menu } from './Menu'
 import { Logo } from './Logo'
 import { useAuth } from '../hooks/useAuth'
 
-export const Navbar = () => {
+export const Navbar = ({ onNavigate }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const { user, isSuperAdmin } = useAuth()
 
@@ -22,10 +22,10 @@ export const Navbar = () => {
           {/* Logo */}
           <Logo size="default" showText={true} />
 
-          {/* Desktop Menu */}
-          <div className="navbar-desktop-menu">
-            <Menu isMobile={false} />
-          </div>
+            {/* Desktop Menu */}
+            <div className="navbar-desktop-menu">
+              <Menu isMobile={false} onNavigate={onNavigate} />
+            </div>
 
           {/* User Info - Solo en desktop */}
           {user && (
@@ -82,12 +82,12 @@ export const Navbar = () => {
         </div>
       </div>
 
-      {/* Mobile/Tablet menu */}
-      <div className={`navbar-mobile-menu ${isMenuOpen ? 'open' : ''}`}>
-        <div className="navbar-mobile-content">
-          <Menu isMobile={true} isOpen={isMenuOpen} onClose={closeMenu} />
+        {/* Mobile/Tablet menu */}
+        <div className={`navbar-mobile-menu ${isMenuOpen ? 'open' : ''}`}>
+          <div className="navbar-mobile-content">
+            <Menu isMobile={true} isOpen={isMenuOpen} onClose={closeMenu} onNavigate={onNavigate} />
+          </div>
         </div>
-      </div>
     </nav>
   )
 }

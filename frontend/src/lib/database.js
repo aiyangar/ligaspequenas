@@ -430,3 +430,208 @@ export const rolesService = {
     return data || []
   }
 }
+
+// =====================================================
+// SERVICIO DE GESTIÓN DE USUARIOS
+// =====================================================
+
+export const usuariosService = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select(`
+        *,
+        usuario_roles!inner(
+          rol_id,
+          categoria_id,
+          equipo_interno_id,
+          roles_usuario!inner(nombre, nivel_permisos),
+          categorias(nombre),
+          equipos_internos(nombre)
+        )
+      `)
+      .eq('activo', true)
+    
+    if (error) throw error
+    
+    // Transformar los datos para facilitar el uso
+    return data.map(usuario => ({
+      ...usuario,
+      rol: usuario.usuario_roles[0]?.roles_usuario?.nombre || 'Sin rol',
+      categoria_nombre: usuario.usuario_roles[0]?.categorias?.nombre,
+      equipo_nombre: usuario.usuario_roles[0]?.equipos_internos?.nombre
+    }))
+  },
+
+  async getById(id) {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select(`
+        *,
+        usuario_roles!inner(
+          rol_id,
+          categoria_id,
+          equipo_interno_id,
+          roles_usuario!inner(nombre, nivel_permisos),
+          categorias(nombre),
+          equipos_internos(nombre)
+        )
+      `)
+      .eq('id', id)
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  async create(userData) {
+    const { rol, categoria_id, equipo_interno_id, ...userInfo } = userData
+    
+    // Crear el usuario en Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: userInfo.email,
+      password: userInfo.password,
+      email_confirm: true,
+      user_metadata: {
+        nombre: userInfo.nombre,
+        apellido_paterno: userInfo.apellido_paterno,
+        apellido_materno: userInfo.apellido_materno,
+        telefono: userInfo.telefono
+      }
+    })
+    
+    if (authError) throw authError
+    
+    // Obtener el ID del rol
+    const { data: rolData, error: rolError } = await supabase
+      .from('roles_usuario')
+      .select('id')
+      .eq('nombre', this.getRoleName(rol))
+      .single()
+    
+    if (rolError) throw rolError
+    
+    // Crear el registro en la tabla usuarios
+    const { data: usuarioData, error: usuarioError } = await supabase
+      .from('usuarios')
+      .insert({
+        id: authData.user.id,
+        email: userInfo.email,
+        nombre: userInfo.nombre,
+        apellido_paterno: userInfo.apellido_paterno,
+        apellido_materno: userInfo.apellido_materno,
+        telefono: userInfo.telefono,
+        activo: true,
+        email_verificado: true
+      })
+      .select()
+      .single()
+    
+    if (usuarioError) throw usuarioError
+    
+    // Asignar el rol al usuario
+    const { error: rolAsignacionError } = await supabase
+      .from('usuario_roles')
+      .insert({
+        usuario_id: authData.user.id,
+        rol_id: rolData.id,
+        categoria_id: categoria_id || null,
+        equipo_interno_id: equipo_interno_id || null,
+        activo: true
+      })
+    
+    if (rolAsignacionError) throw rolAsignacionError
+    
+    return usuarioData
+  },
+
+  async update(id, updates) {
+    const { rol, categoria_id, equipo_interno_id, password, ...userInfo } = updates
+    
+    // Actualizar información del usuario
+    const { data, error } = await supabase
+      .from('usuarios')
+      .update({
+        ...userInfo,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (error) throw error
+    
+    // Si se cambió la contraseña, actualizarla en Auth
+    if (password) {
+      const { error: passwordError } = await supabase.auth.admin.updateUserById(id, {
+        password: password
+      })
+      if (passwordError) throw passwordError
+    }
+    
+    // Si se cambió el rol, actualizar la asignación
+    if (rol) {
+      const { data: rolData, error: rolError } = await supabase
+        .from('roles_usuario')
+        .select('id')
+        .eq('nombre', this.getRoleName(rol))
+        .single()
+      
+      if (rolError) throw rolError
+      
+      // Desactivar roles anteriores
+      await supabase
+        .from('usuario_roles')
+        .update({ activo: false })
+        .eq('usuario_id', id)
+      
+      // Crear nueva asignación de rol
+      const { error: rolAsignacionError } = await supabase
+        .from('usuario_roles')
+        .insert({
+          usuario_id: id,
+          rol_id: rolData.id,
+          categoria_id: categoria_id || null,
+          equipo_interno_id: equipo_interno_id || null,
+          activo: true
+        })
+      
+      if (rolAsignacionError) throw rolAsignacionError
+    }
+    
+    return data
+  },
+
+  async delete(id) {
+    // Desactivar usuario en lugar de eliminar
+    const { data, error } = await supabase
+      .from('usuarios')
+      .update({ 
+        activo: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (error) throw error
+    
+    // Desactivar roles del usuario
+    await supabase
+      .from('usuario_roles')
+      .update({ activo: false })
+      .eq('usuario_id', id)
+    
+    return data
+  },
+
+  getRoleName(rol) {
+    const roleMap = {
+      'admin_liga': 'Administrador de Liga',
+      'admin_categoria': 'Administrador de Categoría',
+      'admin_equipo': 'Administrador de Equipo',
+      'padre_tutor': 'Padre de Familia'
+    }
+    return roleMap[rol] || rol
+  }
+}

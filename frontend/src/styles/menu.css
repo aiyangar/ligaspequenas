@@ -33,6 +33,11 @@
   transition: color 0.2s;
   display: flex;
   align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
 }
 
 .menu-item:hover {
