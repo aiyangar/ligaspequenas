@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { categoriasService, equiposInternosService, usuariosService } from '../lib/database'
 import { UserForm } from '../components/forms'
+import { UserCard } from '../components/cards'
 
 export const UserManagement = ({ onNavigate }) => {
   const { isSuperAdmin } = useAuth()
@@ -12,6 +13,7 @@ export const UserManagement = ({ onNavigate }) => {
   const [error, setError] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
+  const [expandedUserId, setExpandedUserId] = useState(null)
 
   // Estados del formulario
   const [formData, setFormData] = useState({
@@ -125,6 +127,10 @@ export const UserManagement = ({ onNavigate }) => {
     }
   }
 
+  const handleCardClick = (user) => {
+    setExpandedUserId(expandedUserId === user.id ? null : user.id)
+  }
+
   const getRoleDisplayName = (rol) => {
     const roles = {
       'admin_liga': 'Administrador de Liga',
@@ -226,97 +232,26 @@ export const UserManagement = ({ onNavigate }) => {
         />
       )}
 
-      {/* Users List */}
-      <div className="material-card p-6">
-        <h2 className="text-xl font-semibold text-surface-900 mb-6">
-          Lista de Usuarios
-        </h2>
+      {/* Users Cards */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-surface-900">
+            Usuarios ({users.length})
+          </h2>
+        </div>
         
         {users.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-surface-200">
-              <thead className="bg-surface-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-surface-500 uppercase tracking-wider">
-                    Usuario
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-surface-500 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-surface-500 uppercase tracking-wider">
-                    Rol
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-surface-500 uppercase tracking-wider">
-                    Asignación
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-surface-500 uppercase tracking-wider">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-surface-500 uppercase tracking-wider">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-surface-200">
-                {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-surface-50 transition-colors duration-200">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                          <span className="text-primary-600 font-medium">
-                            {user.nombre?.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-surface-900">
-                            {user.nombre} {user.apellido_paterno} {user.apellido_materno}
-                          </div>
-                          <div className="text-sm text-surface-500">
-                            {user.telefono || 'Sin teléfono'}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-surface-500">
-                      {user.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                        {getRoleDisplayName(user.rol)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-surface-500">
-                      {user.categoria_nombre || user.equipo_nombre || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        user.activo 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {user.activo ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleEdit(user)}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => handleDelete(user.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {users.map((user) => (
+              <UserCard
+                key={user.id}
+                user={user}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onCardClick={handleCardClick}
+                isExpanded={expandedUserId === user.id}
+              />
+            ))}
           </div>
         ) : (
           <div className="text-center py-12">

@@ -487,26 +487,28 @@ export const usuariosService = {
   async create(userData) {
     const { rol, categoria_id, equipo_interno_id, ...userInfo } = userData
     
-    // Crear el usuario en Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    // Crear el usuario usando signUp (método estándar)
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email: userInfo.email,
       password: userInfo.password,
-      email_confirm: true,
-      user_metadata: {
-        nombre: userInfo.nombre,
-        apellido_paterno: userInfo.apellido_paterno,
-        apellido_materno: userInfo.apellido_materno,
-        telefono: userInfo.telefono
+      options: {
+        data: {
+          nombre: userInfo.nombre,
+          apellido_paterno: userInfo.apellido_paterno,
+          apellido_materno: userInfo.apellido_materno,
+          telefono: userInfo.telefono
+        }
       }
     })
     
     if (authError) throw authError
     
     // Obtener el ID del rol
+    const roleName = this.getRoleName(rol)
     const { data: rolData, error: rolError } = await supabase
       .from('roles_usuario')
       .select('id')
-      .eq('nombre', this.getRoleName(rol))
+      .eq('nombre', roleName)
       .single()
     
     if (rolError) throw rolError
@@ -522,7 +524,8 @@ export const usuariosService = {
         apellido_materno: userInfo.apellido_materno,
         telefono: userInfo.telefono,
         activo: true,
-        email_verificado: true
+        email_verificado: true,
+        password_hash: 'managed_by_supabase_auth' // Valor temporal para satisfacer la constraint
       })
       .select()
       .single()
@@ -571,10 +574,11 @@ export const usuariosService = {
     
     // Si se cambió el rol, actualizar la asignación
     if (rol) {
+      const roleName = this.getRoleName(rol)
       const { data: rolData, error: rolError } = await supabase
         .from('roles_usuario')
         .select('id')
-        .eq('nombre', this.getRoleName(rol))
+        .eq('nombre', roleName)
         .single()
       
       if (rolError) throw rolError
