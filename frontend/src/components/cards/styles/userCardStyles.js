@@ -39,45 +39,45 @@ export const getRoleDisplayName = (rol) => {
 export const getRoleCardStyles = (rol) => {
   const styles = {
     'admin_liga': {
-      border: 'border-purple-200',
-      shadow: 'shadow-purple-100',
-      hoverShadow: 'hover:shadow-purple-200',
-      ring: 'ring-purple-300',
-      hoverRing: 'hover:ring-purple-200',
+      border: 'border-2 border-purple-300',
+      shadow: 'shadow-lg shadow-purple-200/50',
+      hoverShadow: 'hover:shadow-xl hover:shadow-purple-300/60',
+      ring: 'ring-purple-400',
+      hoverRing: 'hover:ring-purple-300',
       avatar: 'from-purple-500 to-purple-600'
     },
     'admin_categoria': {
-      border: 'border-blue-200',
-      shadow: 'shadow-blue-100',
-      hoverShadow: 'hover:shadow-blue-200',
-      ring: 'ring-blue-300',
-      hoverRing: 'hover:ring-blue-200',
+      border: 'border-2 border-blue-300',
+      shadow: 'shadow-lg shadow-blue-200/50',
+      hoverShadow: 'hover:shadow-xl hover:shadow-blue-300/60',
+      ring: 'ring-blue-400',
+      hoverRing: 'hover:ring-blue-300',
       avatar: 'from-blue-500 to-blue-600'
     },
     'admin_equipo': {
-      border: 'border-green-200',
-      shadow: 'shadow-green-100',
-      hoverShadow: 'hover:shadow-green-200',
-      ring: 'ring-green-300',
-      hoverRing: 'hover:ring-green-200',
+      border: 'border-2 border-green-300',
+      shadow: 'shadow-lg shadow-green-200/50',
+      hoverShadow: 'hover:shadow-xl hover:shadow-green-300/60',
+      ring: 'ring-green-400',
+      hoverRing: 'hover:ring-green-300',
       avatar: 'from-green-500 to-green-600'
     },
     'padre_tutor': {
-      border: 'border-orange-200',
-      shadow: 'shadow-orange-100',
-      hoverShadow: 'hover:shadow-orange-200',
-      ring: 'ring-orange-300',
-      hoverRing: 'hover:ring-orange-200',
+      border: 'border-2 border-orange-300',
+      shadow: 'shadow-lg shadow-orange-200/50',
+      hoverShadow: 'hover:shadow-xl hover:shadow-orange-300/60',
+      ring: 'ring-orange-400',
+      hoverRing: 'hover:ring-orange-300',
       avatar: 'from-orange-500 to-orange-600'
     }
   }
   
   return styles[rol] || {
-    border: 'border-gray-200',
-    shadow: 'shadow-gray-100',
-    hoverShadow: 'hover:shadow-gray-200',
-    ring: 'ring-gray-300',
-    hoverRing: 'hover:ring-gray-200',
+    border: 'border-2 border-gray-300',
+    shadow: 'shadow-lg shadow-gray-200/50',
+    hoverShadow: 'hover:shadow-xl hover:shadow-gray-300/60',
+    ring: 'ring-gray-400',
+    hoverRing: 'hover:ring-gray-300',
     avatar: 'from-gray-500 to-gray-600'
   }
 }
@@ -89,11 +89,11 @@ export const getRoleCardStyles = (rol) => {
  * @returns {string} Clases CSS completas para la card
  */
 export const getCardClasses = (cardStyles, isExpanded) => {
-  const baseClasses = 'material-card p-6 cursor-pointer transition-all duration-200 border'
+  const baseClasses = 'material-card p-6 cursor-pointer transition-all duration-300 ease-in-out'
   const dynamicClasses = `${cardStyles.border} ${cardStyles.shadow} ${cardStyles.hoverShadow}`
   const stateClasses = isExpanded 
-    ? `ring-2 ${cardStyles.ring}` 
-    : `hover:ring-1 ${cardStyles.hoverRing}`
+    ? `ring-2 ${cardStyles.ring} transform scale-[1.02]` 
+    : `hover:ring-1 ${cardStyles.hoverRing} hover:transform hover:scale-[1.01]`
   
   return `${baseClasses} ${dynamicClasses} ${stateClasses}`
 }
@@ -113,7 +113,7 @@ export const getAvatarClasses = (cardStyles) => {
  * @returns {string} Clases CSS para el botón del menú
  */
 export const getMenuButtonClasses = (showMenu) => {
-  const baseClasses = 'p-2 rounded-full transition-all duration-200 border-none outline-none focus:outline-none focus:ring-0'
+  const baseClasses = 'w-8 h-8 rounded-full transition-all duration-200 border-none outline-none focus:outline-none focus:ring-0 flex items-center justify-center'
   const stateClasses = showMenu 
     ? 'bg-blue-100 text-blue-600 shadow-sm' 
     : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'
@@ -122,13 +122,13 @@ export const getMenuButtonClasses = (showMenu) => {
 }
 
 /**
- * Obtiene las clases CSS para el icono del menú hamburguesa
+ * Obtiene las clases CSS para el icono del menú de tres puntos
  * @param {boolean} showMenu - Si el menú está visible
  * @returns {string} Clases CSS para el icono
  */
 export const getMenuIconClasses = (showMenu) => {
-  const baseClasses = 'w-5 h-5 transition-all duration-200'
-  const stateClasses = showMenu ? 'rotate-180' : ''
+  const baseClasses = 'w-4 h-4 transition-all duration-200'
+  const stateClasses = showMenu ? 'scale-110' : ''
   
   return `${baseClasses} ${stateClasses}`
 }
