@@ -49,10 +49,12 @@ export const UserCard = ({ user, onEdit, onDelete, onCardClick, isExpanded }) =>
   }
 
   const cardStyles = getRoleCardStyles(user.rol)
+  const cardClasses = getCardClasses(cardStyles, isExpanded)
 
   return (
     <div 
-      className={getCardClasses(cardStyles, isExpanded)}
+      className={cardClasses.className}
+      style={cardClasses.style}
       onClick={() => onCardClick(user)}
     >
       {/* Header de la Card */}
