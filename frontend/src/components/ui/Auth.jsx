@@ -1,6 +1,6 @@
 import React from 'react'
-import { useAuth } from '../hooks/useAuth'
-import { LoginForm } from './forms'
+import { useAuth } from '../../hooks/useAuth'
+import { LoginForm } from '../forms'
 
 export const Auth = ({ onAuthSuccess }) => {
   const { signIn } = useAuth()

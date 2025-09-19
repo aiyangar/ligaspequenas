@@ -1,8 +1,10 @@
 import React from 'react'
-import { useAuth } from '../hooks/useAuth'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../hooks/useAuth'
 
 export const Menu = ({ isMobile = false, isOpen = false, onClose, onNavigate }) => {
   const { user, isSuperAdmin, signOut } = useAuth()
+  const navigate = useNavigate()
 
   const handleSignOut = async () => {
     await signOut()
@@ -27,9 +29,20 @@ export const Menu = ({ isMobile = false, isOpen = false, onClose, onNavigate }) 
 
     const handleClick = (e) => {
       e.preventDefault()
-      if (onNavigate) {
-        onNavigate(item.page)
+      // Usar React Router para navegación
+      const routeMap = {
+        'dashboard': '/dashboard',
+        'usuarios': '/usuarios',
+        'categorias': '/categorias',
+        'equipos': '/equipos',
+        'jugadores': '/jugadores',
+        'partidos': '/partidos',
+        'configuracion': '/configuracion'
       }
+      
+      const route = routeMap[item.page] || '/dashboard'
+      navigate(route)
+      
       if (isMobile && onClose) {
         onClose()
       }

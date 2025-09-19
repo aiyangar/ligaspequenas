@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Menu } from './Menu'
-import { Logo } from './Logo'
-import { useAuth } from '../hooks/useAuth'
+import { Logo } from '../ui'
+import { useAuth } from '../../hooks/useAuth'
 
 export const Navbar = ({ onNavigate }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const { user, isSuperAdmin } = useAuth()
+  const navigate = useNavigate()
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)

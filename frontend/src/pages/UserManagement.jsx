@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import { categoriasService, equiposInternosService, usuariosService } from '../lib/database'
 import { UserForm } from '../components/forms'
 import { UserCard } from '../components/cards'
+import { PageHeader } from '../components/headers'
 
 export const UserManagement = ({ onNavigate }) => {
   const { isSuperAdmin } = useAuth()
@@ -171,43 +172,23 @@ export const UserManagement = ({ onNavigate }) => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="material-card p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="mb-2">
-              <h1 className="text-3xl font-bold text-surface-900">
-                Gestión de Usuarios
-              </h1>
-            </div>
-            <p className="text-surface-600 mt-1">
-              Administra los usuarios del sistema y sus roles
-            </p>
-          </div>
-          <div className="mt-4 md:mt-0 flex flex-col items-end justify-center relative">
-            {/* Botón Volver - Posicionado más arriba */}
-            {onNavigate && (
-              <button
-                onClick={() => onNavigate('dashboard')}
-                className="nav-button absolute -top-8 right-0"
-                title="Volver al Dashboard"
-              >
-                ← Volver
-              </button>
-            )}
-            {/* Botón Nuevo Usuario - Centrado verticalmente */}
-            <button
-              onClick={() => {
-                resetForm()
-                setEditingUser(null)
-                setShowCreateForm(true)
-              }}
-              className="material-button-primary"
-            >
-              + Nuevo Usuario
-            </button>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Gestión de Usuarios"
+        subtitle="Administra los usuarios del sistema y sus roles"
+        onNavigate={onNavigate}
+        actions={
+          <button
+            onClick={() => {
+              resetForm()
+              setEditingUser(null)
+              setShowCreateForm(true)
+            }}
+            className="material-button-primary"
+          >
+            + Nuevo Usuario
+          </button>
+        }
+      />
 
       {/* Error Message */}
       {error && (
