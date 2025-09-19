@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { useAuth } from '../../hooks/useAuth'
-import { categoriasService, equiposInternosService, jugadoresService } from '../../lib/database'
+import { useAuth } from '../hooks/useAuth'
+import { categoriasService, equiposInternosService, jugadoresService } from '../lib/database'
 
 export const Dashboard = ({ onNavigate }) => {
   const { isSuperAdmin } = useAuth()
