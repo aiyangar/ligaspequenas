@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { categoriasService, equiposInternosService, jugadoresService } from '../lib/database'
 
 export const Dashboard = ({ onNavigate }) => {
   const { isSuperAdmin } = useAuth()
+  const navigate = useNavigate()
   const [categorias, setCategorias] = useState([])
   const [equipos, setEquipos] = useState([])
   const [jugadores, setJugadores] = useState([])
@@ -252,7 +254,7 @@ export const Dashboard = ({ onNavigate }) => {
                 Crear y administrar usuarios del sistema
               </p>
               <button 
-                onClick={() => onNavigate('usuarios')}
+                onClick={() => navigate('/usuarios')}
                 className="material-button-primary text-sm"
               >
                 Gestionar Usuarios
