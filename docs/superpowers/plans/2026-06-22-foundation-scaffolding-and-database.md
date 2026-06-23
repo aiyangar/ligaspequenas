@@ -38,6 +38,8 @@ Authoritative DB workflow for Tasks 2–6:
 
 **Blanket substitution:** throughout Tasks 2–6, wherever a step says `supabase start`, `pnpm db:reset`, `pnpm db:test`, `pnpm db:diff`, "the branch", or `merge_branch`, substitute "apply to `main` via MCP + verify via the two-statement pgTAP query above." The `package.json` DB scripts and `supabase test db` harness are **not used** (kept only as optional future tooling if the project is ever linked for `supabase db push`).
 
+**Migration numbering (revised):** a Task-4 security hardening was inserted as `0003_private_helpers.sql` (moves the RLS helpers to a non-exposed `private` schema, clearing advisor lints 0028/0029). It shifts the later files: **Task 5 seed → `0004_seed_ligamtyac.sql`** (test `0004_seed.test.sql`) and **Task 6 view → `0005_players_with_category_view.sql`** (test `0005_category.test.sql`). RLS policies now call `private.current_tenant_id()` / `private.is_admin()`.
+
 ## Roadmap (this plan is #1 of a sequence)
 
 1. **Foundation — scaffolding + database** *(this plan)*
