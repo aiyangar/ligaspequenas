@@ -143,3 +143,6 @@ vite.config.ts.timestamp-*
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Superpowers SDD scratch
+.superpowers/

@@ -192,25 +192,29 @@ git commit -m "Scaffold Vite + React + TS strict + Tailwind with Vitest smoke te
 
 ---
 
-### Task 2: Initialize Supabase CLI and link the existing project
+### Task 2: Initialize Supabase CLI (local stack only)
 
 **Files:**
 - Create: `supabase/config.toml` (generated), `supabase/migrations/` (dir), `supabase/tests/` (dir)
-- Modify: `package.json` (add db scripts)
+- Modify: `package.json` (add `supabase` dev dependency + db scripts)
 
 **Interfaces:**
-- Consumes: project ref `eksbaugyypadtanyjcje`.
-- Produces: a local Supabase stack (`supabase start`), a migrations dir, and `pnpm db:test` running pgTAP.
+- Consumes: nothing from prior tasks.
+- Produces: a local Supabase stack (`pnpm exec supabase start`), a migrations dir, and `pnpm db:test` running pgTAP.
 
-- [ ] **Step 1: Verify the Supabase CLI is installed and you are the right account**
+> Note: Plan 1 is local-only. We do NOT link or push to the remote project (`eksbaugyypadtanyjcje`) here — that is deferred to the deploy phase, which requires account verification per project rules. The Supabase CLI is installed as a project dev dependency (no brew, no global install). Docker must be running for the local stack.
 
-Run: `supabase --version`
-If missing: `brew install supabase/tap/supabase`
+- [ ] **Step 1: Install the Supabase CLI as a dev dependency**
+
+```bash
+pnpm add -D supabase
+pnpm exec supabase --version
+```
 Expected: a version string prints.
 
 - [ ] **Step 2: Initialize Supabase in the repo**
 
-Run: `supabase init`
+Run: `pnpm exec supabase init`
 Expected: creates `supabase/config.toml` and `supabase/` folders. Answer "N" if asked to generate VS Code settings.
 
 - [ ] **Step 3: Create the tests directory**
@@ -221,7 +225,7 @@ mkdir -p supabase/tests
 
 - [ ] **Step 4: Start the local stack**
 
-Run: `supabase start`
+Run: `pnpm exec supabase start`
 Expected: prints local API URL, anon key, and DB URL. (Docker must be running.)
 
 - [ ] **Step 5: Add database scripts** to `package.json` `"scripts"`
@@ -591,8 +595,7 @@ git commit -m "Add RLS helpers and per-table tenant+role policies"
 
 **Files:**
 - Create: `supabase/migrations/0003_seed_ligamtyac.sql`
-- Modify: `supabase/tests/0001_schema.test.sql` is unaffected; add new test file below.
-- Test: append seed assertions to a new `supabase/tests/0003_category.test.sql` is created in Task 6; here add a small seed test inline in `0002`-style. Use a dedicated file `supabase/tests/0003_seed.test.sql`.
+- Test: `supabase/tests/0003_seed.test.sql` (new file; the category-computation tests live separately in `supabase/tests/0004_category.test.sql`, created in Task 6).
 
 **Interfaces:**
 - Consumes: tables from Task 3.
