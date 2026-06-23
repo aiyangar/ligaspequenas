@@ -6,7 +6,7 @@
 
 **Architecture:** A pnpm-managed Vite + React + TS (strict) + Tailwind app talks to Supabase (Postgres + Auth + Storage). The database is multi-tenant from day one (`tenant_id` on every league table) and authorization is enforced entirely by RLS. Category is a derived field computed by the `players_with_category` view against the active season — never stored.
 
-**Tech Stack:** Vite, React 18, TypeScript (strict), Tailwind CSS, pnpm, Supabase (Postgres 15+, supabase CLI), Vitest + React Testing Library (frontend tests), pgTAP run against a remote Supabase preview branch via MCP `execute_sql` (database tests; no local Docker stack — see Execution Update).
+**Tech Stack:** Vite, React 18, TypeScript (strict), Tailwind CSS, pnpm, Supabase (Postgres 15+, supabase CLI), Vitest + React Testing Library (frontend tests), pgTAP run against the main Supabase project via MCP `execute_sql` (database tests; no local Docker stack — see Execution Update).
 
 ## Global Constraints
 
@@ -20,20 +20,23 @@
 - Age cutoff rule: `edad_liga = extract(year from age(active_season.cutoff_date, birth_date))`. Active season for Liga MTY AC: `2026-2027`, `cutoff_date = 2027-04-30`.
 - Supabase project already exists: `project_ref = eksbaugyypadtanyjcje`. GitHub remote: `aiyangar/ligaspequenas`.
 
-## Execution Update (2026-06-23): No Docker — remote preview branch
+## Execution Update (2026-06-23): No Docker — apply directly to `main`
 
-This plan was originally authored for a local Docker-based Supabase stack. Per the 2026-06-23 decision, **this project does not use Docker**. Database work is applied and tested **directly against Supabase**, using an isolated remote **preview branch** driven by the Supabase MCP tools. The migration/RLS/seed/view SQL below is unchanged — only *where and how it is applied and tested* changes.
+This plan was originally authored for a local Docker-based Supabase stack. Per the 2026-06-23 decision, **this project does not use Docker**. Database work is applied and tested **directly against Supabase** via the MCP tools. The migration/RLS/seed/view SQL below is unchanged — only *where and how it is applied and tested* changes.
+
+A remote **preview branch** was considered for isolation but is **not achievable with this MCP config** (see [[supabase-mcp-no-branching]]): `confirm_cost` is not exposed (so `create_branch` is uncallable) and `execute_sql`/`apply_migration` take no project param (they always hit `main`). Since `main` is a clean slate (0 tables, 0 production data), it serves as the dev environment and we apply directly to it.
 
 Authoritative DB workflow for Tasks 2–6:
 
 1. **Migrations stay as files** in `supabase/migrations/` (source of truth). No local stack, no `supabase start`.
-2. **Isolation via a remote preview branch.** Before applying the first migration (start of Task 3), create one preview branch with `mcp__supabase__create_branch` (billable — stop and confirm the cost gate). All migrations/tests run against this branch; `main` stays untouched until the foundation is validated.
-3. **Enable pgTAP once** on the branch: `create extension if not exists pgtap with schema extensions;` (verified available, v1.3.3).
-4. **Per migration (TDD):** (a) write the pgTAP test in `supabase/tests/000X_*.sql`; (b) **RED** — run that test SQL via `mcp__supabase__execute_sql` against the branch and confirm it fails (table/view/policy absent); (c) write the migration in `supabase/migrations/000X_*.sql`; (d) apply it with `mcp__supabase__apply_migration`; (e) **GREEN** — re-run the test SQL via `execute_sql` and confirm all assertions pass. pgTAP tests wrap in `begin; … rollback;`, so fixtures leave no residue.
-5. **Interpret TAP manually.** `execute_sql` returns the TAP result rows (`ok N` / `not ok N`); there is no `pg_prove`. A suite passes only if there are zero `not ok` rows.
-6. **Merge when green.** After Task 6, with all suites green on the branch, `mcp__supabase__merge_branch` brings the migrations into `main`. (Seed migration 0003 becomes real project data on merge — acceptable; it is league config, not personal data.)
+2. **Apply to `main` via MCP.** Each migration is applied with `mcp__supabase__apply_migration` (records project migration history). No branch, no merge step.
+3. **pgTAP enabled once** on `main` (in schema `extensions`, v1.3.3): `create extension if not exists pgtap with schema extensions;`. Call its functions schema-qualified, e.g. `extensions.has_table(...)`.
+4. **Per migration (TDD):** (a) write the canonical pgTAP test in `supabase/tests/000X_*.sql` (artifact for a future `supabase test db`); (b) **RED** — run an equivalent adapted query via `mcp__supabase__execute_sql` and confirm it fails (table/view/policy absent); (c) write the migration in `supabase/migrations/000X_*.sql`; (d) apply it with `apply_migration`; (e) **GREEN** — re-run the adapted query and confirm all assertions pass.
+5. **Execute_sql returns only the LAST statement's result set, and there is no `pg_prove`.** So run pgTAP as exactly two statements in one call: `select extensions.plan(N);` then a single `select extensions.<assertion>(...) union all select extensions.<assertion>(...) ...;` — all assertion rows come back in that one result set. A suite passes iff no returned row starts with `not ok`. (The canonical `.sql` test files keep the standard `begin; plan; …; finish; rollback;` form and are NOT run directly through `execute_sql`.)
+6. **Fixture-based suites (Tasks 4, 6)** persist their rows when run this way (no transactional rollback through `execute_sql`); insert fixtures, assert, then delete them by their identifiable values. RLS role simulation (`set local role` + jwt claims) must be confirmed to work over `execute_sql` when Task 4 is reached.
+7. **Run `get_advisors(security)` after each DDL** and resolve findings (RLS-disabled errors clear in Task 4; harden `set_updated_at` search_path in Task 4's migration).
 
-**Blanket substitution:** throughout Tasks 2–6, wherever a step says `supabase start`, `pnpm db:reset`, `pnpm db:test`, or `pnpm db:diff`, substitute the remote-branch apply/test flow above. The `package.json` DB scripts and `supabase test db` harness from Task 2 are **not used** (kept only as optional future tooling if the project is ever linked for `supabase db push`).
+**Blanket substitution:** throughout Tasks 2–6, wherever a step says `supabase start`, `pnpm db:reset`, `pnpm db:test`, `pnpm db:diff`, "the branch", or `merge_branch`, substitute "apply to `main` via MCP + verify via the two-statement pgTAP query above." The `package.json` DB scripts and `supabase test db` harness are **not used** (kept only as optional future tooling if the project is ever linked for `supabase db push`).
 
 ## Roadmap (this plan is #1 of a sequence)
 
@@ -215,7 +218,7 @@ git commit -m "Scaffold Vite + React + TS strict + Tailwind with Vitest smoke te
 
 **Interfaces:**
 - Consumes: nothing from prior tasks.
-- Produces: the Supabase CLI as a dev dependency, generated `supabase/config.toml`, and the `supabase/migrations/` + `supabase/tests/` directories. The remote preview branch (where migrations/tests actually run) is created in Task 3.
+- Produces: the Supabase CLI as a dev dependency, generated `supabase/config.toml`, and the `supabase/migrations/` + `supabase/tests/` directories. Migrations/tests run directly against the main Supabase project via MCP (no branch — see Execution Update).
 
 > Note (revised 2026-06-23): No Docker, no local stack. We do NOT link or push to the remote project here. The Supabase CLI is installed as a project dev dependency (no brew, no global install) only to manage migration files and config. Applying and testing migrations happens on a remote preview branch via MCP — see the Execution Update at the top of this plan.
 
@@ -240,7 +243,7 @@ mkdir -p supabase/tests
 
 - [ ] **Step 4: ~~Start the local stack~~ — SKIPPED (no Docker)**
 
-No local stack. The isolated remote **preview branch** is created at the start of Task 3 via `mcp__supabase__create_branch` (billable — confirm the cost gate). See Execution Update.
+No local stack and no preview branch (not achievable via this MCP config — see [[supabase-mcp-no-branching]]). Migrations are applied directly to `main` via MCP starting in Task 3. See Execution Update.
 
 - [ ] **Step 5: Create the migrations directory (tracked)**
 
