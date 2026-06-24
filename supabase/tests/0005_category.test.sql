@@ -1,5 +1,5 @@
 begin;
-select plan(8);
+select plan(12);
 
 -- insert fixtures into Liga MTY AC (tenant seeded in 0004)
 insert into players (tenant_id, full_name, birth_date, tutor_name, tutor_whatsapp) values
@@ -19,6 +19,11 @@ select is((select category_name from players_with_category where full_name='F3')
 select is((select category_name from players_with_category where full_name='F4'), 'Infantil', 'F4 Infantil (May boundary)');
 select is((select category_name from players_with_category where full_name='F6'), 'Infantil Mayor', 'F6 Infantil Mayor');
 select is((select category_year from players_with_category where full_name='F7'), 5, 'F7 Juvenil Superior Mayor 5to');
+
+select is((select edad_liga from players_with_category where full_name='F2'), 3, 'F2 edad liga 3 (Apr boundary)');
+select is((select edad_liga from players_with_category where full_name='F4'), 7, 'F4 edad liga 7 (May boundary)');
+select is((select edad_liga from players_with_category where full_name='F5'), 7, 'F5 edad liga 7 (Apr-30 boundary)');
+select is((select category_name from players_with_category where full_name='F5'), 'Infantil', 'F5 Infantil (Apr-30 boundary)');
 
 select * from finish();
 rollback;
