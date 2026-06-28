@@ -18,3 +18,14 @@ test('uses Dracula backgrounds and foreground', () => {
   expect(draculaTheme.palette.background.paper).toBe('#44475A')
   expect(draculaTheme.palette.text.primary).toBe('#F8F8F2')
 })
+
+test('sets readable contrast and muted tokens', () => {
+  expect(draculaTheme.palette.primary.contrastText).toBe('#282A36')
+  expect(draculaTheme.palette.secondary.contrastText).toBe('#282A36')
+  expect(draculaTheme.palette.error.contrastText).toBe('#282A36')
+  expect(draculaTheme.palette.warning.contrastText).toBe('#282A36')
+  expect(draculaTheme.palette.info.contrastText).toBe('#282A36')
+  expect(draculaTheme.palette.success.contrastText).toBe('#282A36')
+  expect(draculaTheme.palette.text.secondary).toBe('#6272A4')
+  expect(draculaTheme.palette.divider).toBe('rgba(98, 114, 164, 0.3)')
+})
