@@ -6,7 +6,7 @@
 
 **Architecture:** A Vite + React 19 + TS (strict) SPA gains `react-router-dom` v7. Two React contexts — `AuthContext` (raw Supabase session) and `TenantContext` (profile → tenant + role) — feed route guards and the shell. Authorization is enforced by the existing RLS (Foundation); the only server-side code is one Supabase Edge Function (`invite-user`) that runs with the service_role to create an `auth.user` + its `profiles` row, guarded so only a tenant admin can call it. Role changes go through the anon client under RLS. The first admin is bootstrapped once via a documented manual runbook.
 
-**Tech Stack:** Vite ^8, React 19, TypeScript ~6 (strict), Tailwind ^3, `react-router-dom` ^7, `@supabase/supabase-js` ^2.108, Vitest ^4 + React Testing Library ^16 (frontend), Deno (Edge Function runtime), Supabase MCP for migrations/deploy/live verification (no local Docker).
+**Tech Stack:** Vite ^8, React 19, TypeScript ~6 (strict), **MUI ^9 (Material UI + Emotion + `@fontsource/roboto`, installed in the 2026-06-28 Dracula-theme foundation — Tailwind was removed there)**, `react-router-dom` ^7, `@supabase/supabase-js` ^2.108, Vitest ^4 + React Testing Library ^16 (frontend), Deno (Edge Function runtime), Supabase MCP for migrations/deploy/live verification (no local Docker).
 
 ## Global Constraints
 
@@ -17,6 +17,8 @@
 - Never commit to `main` or `develop`. Execute this whole plan on one feature branch `feature/plan2-auth-tenant-shell-users`; checkpoint commits per task are allowed on that branch (Foundation precedent).
 - No secret/service keys in the client bundle or repo. Only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are public. The `service_role` key lives **only** in the Edge Function runtime (auto-injected as `SUPABASE_SERVICE_ROLE_KEY`).
 - RLS is already enabled on all tables (Foundation). UI role-gating is UX only; RLS + the Edge Function guard are the real authorization.
+- **UI is built with MUI v9 components consuming the Dracula theme** (`src/theme/dracula.ts`, installed in the 2026-06-28 foundation). `src/main.tsx` already wraps the app in `ThemeProvider` (draculaTheme) + `CssBaseline`; that wrapping stays. **No Tailwind** (removed in that foundation) — no utility classes, no `tailwind.config.js`.
+- Preserve the exact accessible labels, roles, placeholders, and visible text the tests assert when mapping to MUI: `TextField label="…"` for `getByLabelText`, `Button` for `getByRole('button')`, `Typography component="h1"` for headings, `Alert` for `getByRole('alert')`. Two MUI testing specifics this plan relies on: render role dropdowns as **native** selects (`TextField select SelectProps={{ native: true }} InputLabelProps={{ shrink: true }}`) so `userEvent.selectOptions` keeps working; and the success/status message keeps an explicit `role="status"` (MUI `Alert` defaults to `role="alert"`).
 - Roles are the `user_role` enum: exactly `'admin'` | `'readonly'`. There is no other role value.
 - `profiles` columns are `id uuid` (= `auth.users.id`), `tenant_id uuid NOT NULL`, `full_name text NOT NULL`, `role user_role NOT NULL default 'readonly'`. Any insert MUST set `tenant_id`, `full_name`, and (here) `role`.
 - Liga MTY AC tenant id (seeded in Foundation `0004_seed_ligamtyac.sql`): `00000000-0000-0000-0000-000000000001`.
@@ -45,9 +47,10 @@
 - `src/users/inviteUser.ts` + `.test.ts` — calls the Edge Function. **Created (Task 7).**
 - `src/users/UsersPage.tsx` + `.test.tsx` — invite + list + change role. **Created (Task 7).**
 - `src/app/routes.tsx` — route tree. **Created (Task 8).**
-- `src/App.tsx` — mounts providers + `RouterProvider`. **Rewritten (Task 8).**
+- `src/App.tsx` — mounts providers + `RouterProvider`. Currently the temporary MUI Dracula showcase from the 2026-06-28 foundation; **Rewritten (Task 8).**
 - `src/App.test.tsx` — smoke test adapted to the new shell. **Modified (Task 8).**
-- `src/main.tsx` — (exists) renders `<App/>`; unchanged unless needed.
+- `src/main.tsx` — (exists) **already wraps `<App/>` in `ThemeProvider` (draculaTheme) + `CssBaseline` + the Roboto font imports** (2026-06-28 foundation). **Unchanged by this plan** — App mounts inside that ThemeProvider.
+- `src/theme/dracula.ts` — (exists) the Dracula MUI theme, applied app-wide via `main.tsx`. Consumed implicitly by every MUI component; not modified here.
 - `supabase/functions/invite-user/authorize.ts` + `authorize.test.ts` — pure `checkAdmin` guard. **Created (Task 9).**
 - `supabase/functions/invite-user/index.ts` — Deno handler. **Created (Task 9).**
 - `supabase/config.toml` — add `[functions.invite-user]`. **Modified (Task 9).**
@@ -454,6 +457,12 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { Location } from 'react-router-dom'
+import Box from '@mui/material/Box'
+import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
+import Button from '@mui/material/Button'
+import Typography from '@mui/material/Typography'
+import Alert from '@mui/material/Alert'
 import { supabase } from '../lib/supabase'
 
 export function LoginPage() {
@@ -484,19 +493,25 @@ export function LoginPage() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h1>Iniciar sesión</h1>
-      <label>
-        Correo
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-      </label>
-      <label>
-        Contraseña
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-      </label>
-      {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={submitting}>Entrar</button>
-    </form>
+    <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 360, mx: 'auto', mt: 8, px: 2 }}>
+      <Stack spacing={2}>
+        <Typography variant="h4" component="h1">Iniciar sesión</Typography>
+        <TextField
+          label="Correo"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <TextField
+          label="Contraseña"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        {error && <Alert severity="error">{error}</Alert>}
+        <Button type="submit" variant="contained" disabled={submitting}>Entrar</Button>
+      </Stack>
+    </Box>
   )
 }
 ```
@@ -583,12 +598,13 @@ Expected: FAIL — `./RequireAuth` does not exist.
 
 ```tsx
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import Typography from '@mui/material/Typography'
 import { useAuth } from './AuthContext'
 
 export function RequireAuth() {
   const { session, loading } = useAuth()
   const location = useLocation()
-  if (loading) return <p>Cargando…</p>
+  if (loading) return <Typography sx={{ p: 2 }}>Cargando…</Typography>
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />
   return <Outlet />
 }
@@ -655,12 +671,13 @@ Expected: FAIL — `./RequireAdmin` does not exist.
 
 ```tsx
 import { Navigate, Outlet } from 'react-router-dom'
+import Typography from '@mui/material/Typography'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
 
 export function RequireAdmin() {
   const { role, status } = useTenant()
-  if (status === 'loading') return <p>Cargando…</p>
+  if (status === 'loading') return <Typography sx={{ p: 2 }}>Cargando…</Typography>
   if (!isAdmin(role)) return <Navigate to="/" replace />
   return <Outlet />
 }
@@ -713,12 +730,15 @@ Expected: FAIL — `./PlaceholderPage` does not exist.
 - [ ] **Step 3: Implement** `src/app/PlaceholderPage.tsx`
 
 ```tsx
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+
 export function PlaceholderPage({ title }: { title: string }) {
   return (
-    <section>
-      <h1>{title}</h1>
-      <p>Próximamente</p>
-    </section>
+    <Box>
+      <Typography variant="h4" component="h1" gutterBottom>{title}</Typography>
+      <Typography color="text.secondary">Próximamente</Typography>
+    </Box>
   )
 }
 ```
@@ -798,6 +818,14 @@ Expected: FAIL — `./AppLayout` does not exist.
 
 ```tsx
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import AppBar from '@mui/material/AppBar'
+import Toolbar from '@mui/material/Toolbar'
+import Box from '@mui/material/Box'
+import Container from '@mui/material/Container'
+import Button from '@mui/material/Button'
+import Typography from '@mui/material/Typography'
+import Stack from '@mui/material/Stack'
+import Alert from '@mui/material/Alert'
 import { supabase } from '../lib/supabase'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
@@ -811,7 +839,7 @@ export function AppLayout() {
     void navigate('/login', { replace: true })
   }
 
-  if (status === 'loading') return <p>Cargando…</p>
+  if (status === 'loading') return <Typography sx={{ p: 2 }}>Cargando…</Typography>
 
   if (status === 'no-profile' || status === 'error') {
     const message =
@@ -819,26 +847,32 @@ export function AppLayout() {
         ? 'Tu cuenta aún no tiene acceso. Contacta al administrador.'
         : 'Ocurrió un error al cargar tu perfil.'
     return (
-      <div>
-        <p>{message}</p>
-        <button onClick={handleLogout}>Salir</button>
-      </div>
+      <Container sx={{ mt: 8, maxWidth: 'sm' }}>
+        <Stack spacing={2} alignItems="flex-start">
+          <Alert severity={status === 'no-profile' ? 'warning' : 'error'}>{message}</Alert>
+          <Button variant="outlined" onClick={handleLogout}>Salir</Button>
+        </Stack>
+      </Container>
     )
   }
 
   return (
-    <div>
-      <header>
-        <span>{fullName}</span>
-        <nav>
-          <NavLink to="/">Jugadores</NavLink>
-          <NavLink to="/quien-debe">Quién debe</NavLink>
-          {isAdmin(role) && <NavLink to="/usuarios">Usuarios</NavLink>}
-        </nav>
-        <button onClick={handleLogout}>Salir</button>
-      </header>
-      <main><Outlet /></main>
-    </div>
+    <Box sx={{ minHeight: '100vh' }}>
+      <AppBar position="static">
+        <Toolbar>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>{fullName}</Typography>
+          <Button color="inherit" component={NavLink} to="/">Jugadores</Button>
+          <Button color="inherit" component={NavLink} to="/quien-debe">Quién debe</Button>
+          {isAdmin(role) && (
+            <Button color="inherit" component={NavLink} to="/usuarios">Usuarios</Button>
+          )}
+          <Button color="inherit" onClick={handleLogout}>Salir</Button>
+        </Toolbar>
+      </AppBar>
+      <Container component="main" sx={{ py: 3 }}>
+        <Outlet />
+      </Container>
+    </Box>
   )
 }
 ```
@@ -959,6 +993,12 @@ Expected: FAIL — `./AcceptInvitePage` does not exist.
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Box from '@mui/material/Box'
+import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
+import Button from '@mui/material/Button'
+import Typography from '@mui/material/Typography'
+import Alert from '@mui/material/Alert'
 import { supabase } from '../lib/supabase'
 
 export function AcceptInvitePage() {
@@ -993,18 +1033,22 @@ export function AcceptInvitePage() {
     void navigate('/', { replace: true })
   }
 
-  if (!ready) return <p>Validando invitación…</p>
+  if (!ready) return <Typography sx={{ p: 2 }}>Validando invitación…</Typography>
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h1>Crea tu contraseña</h1>
-      <label>
-        Nueva contraseña
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-      </label>
-      {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={submitting}>Guardar</button>
-    </form>
+    <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 360, mx: 'auto', mt: 8, px: 2 }}>
+      <Stack spacing={2}>
+        <Typography variant="h4" component="h1">Crea tu contraseña</Typography>
+        <TextField
+          label="Nueva contraseña"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        {error && <Alert severity="error">{error}</Alert>}
+        <Button type="submit" variant="contained" disabled={submitting}>Guardar</Button>
+      </Stack>
+    </Box>
   )
 }
 ```
@@ -1012,7 +1056,7 @@ export function AcceptInvitePage() {
 - [ ] **Step 4: Run the test (expect PASS)**
 
 Run: `pnpm test run src/auth/AcceptInvitePage.test.tsx`
-Expected: 3 passed.
+Expected: 4 passed.
 
 - [ ] **Step 5: Commit**
 
@@ -1187,6 +1231,17 @@ test('invites a user through the inviteUser client', async () => {
   expect(await screen.findByRole('status')).toHaveTextContent('Invitación enviada')
 })
 
+test('shows a friendly message when the email already exists', async () => {
+  mocks.inviteUser.mockResolvedValue({ ok: false, error: 'email_exists' })
+  const user = userEvent.setup()
+  render(<UsersPage />)
+  await screen.findByText(/Ana/)
+  await user.type(screen.getByPlaceholderText('Correo'), 'dup@b.com')
+  await user.type(screen.getByPlaceholderText('Nombre completo'), 'Dup')
+  await user.click(screen.getByRole('button', { name: 'Invitar' }))
+  expect(await screen.findByRole('status')).toHaveTextContent('ya está registrado')
+})
+
 test('changes a user role through an update', async () => {
   const user = userEvent.setup()
   render(<UsersPage />)
@@ -1208,6 +1263,15 @@ Expected: FAIL — `./UsersPage` does not exist.
 ```tsx
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import Box from '@mui/material/Box'
+import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
+import Button from '@mui/material/Button'
+import Typography from '@mui/material/Typography'
+import Alert from '@mui/material/Alert'
+import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
+import ListItemText from '@mui/material/ListItemText'
 import { supabase } from '../lib/supabase'
 import { inviteUser } from './inviteUser'
 
@@ -1217,6 +1281,12 @@ interface ProfileRow {
   id: string
   full_name: string
   role: Role
+}
+
+const INVITE_ERROR_MESSAGES: Record<string, string> = {
+  email_exists: 'Ese correo ya está registrado',
+  invalid_role: 'Rol inválido',
+  forbidden: 'No tienes permiso para invitar usuarios',
 }
 
 export function UsersPage() {
@@ -1240,7 +1310,9 @@ export function UsersPage() {
     setMessage(null)
     const result = await inviteUser({ email, fullName, role })
     if (!result.ok) {
-      setMessage(`Error: ${result.error}`)
+      const reason =
+        (result.error && INVITE_ERROR_MESSAGES[result.error]) || result.error || 'No se pudo enviar la invitación'
+      setMessage(`Error: ${reason}`)
       return
     }
     setMessage('Invitación enviada')
@@ -1255,34 +1327,78 @@ export function UsersPage() {
   }
 
   return (
-    <section>
-      <h1>Usuarios</h1>
-      <form onSubmit={handleInvite}>
-        <input type="email" placeholder="Correo" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        <input type="text" placeholder="Nombre completo" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-        <select value={role} onChange={(e) => setRole(e.target.value as Role)} aria-label="Rol de la invitación">
+    <Box sx={{ maxWidth: 640, mx: 'auto', mt: 4, px: 2 }}>
+      <Typography variant="h4" component="h1" gutterBottom>Usuarios</Typography>
+      <Stack
+        component="form"
+        onSubmit={handleInvite}
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={2}
+        useFlexGap
+        sx={{ flexWrap: 'wrap', alignItems: 'center' }}
+      >
+        <TextField
+          type="email"
+          placeholder="Correo"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <TextField
+          type="text"
+          placeholder="Nombre completo"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          required
+        />
+        <TextField
+          select
+          label="Rol de la invitación"
+          value={role}
+          onChange={(e) => setRole(e.target.value as Role)}
+          SelectProps={{ native: true }}
+          InputLabelProps={{ shrink: true }}
+          sx={{ minWidth: 160 }}
+        >
           <option value="readonly">Solo lectura</option>
           <option value="admin">Administrador</option>
-        </select>
-        <button type="submit">Invitar</button>
-      </form>
-      {message && <p role="status">{message}</p>}
-      <ul>
+        </TextField>
+        <Button type="submit" variant="contained">Invitar</Button>
+      </Stack>
+      {message && (
+        <Alert
+          role="status"
+          severity={message.startsWith('Error') ? 'error' : 'success'}
+          sx={{ mt: 2 }}
+        >
+          {message}
+        </Alert>
+      )}
+      <List sx={{ mt: 2 }}>
         {users.map((u) => (
-          <li key={u.id}>
-            {u.full_name} — {u.role}
-            <select
-              value={u.role}
-              aria-label={`Rol de ${u.full_name}`}
-              onChange={(e) => void changeRole(u.id, e.target.value as Role)}
-            >
-              <option value="readonly">Solo lectura</option>
-              <option value="admin">Administrador</option>
-            </select>
-          </li>
+          <ListItem
+            key={u.id}
+            secondaryAction={
+              <TextField
+                select
+                label={`Rol de ${u.full_name}`}
+                value={u.role}
+                onChange={(e) => void changeRole(u.id, e.target.value as Role)}
+                SelectProps={{ native: true }}
+                InputLabelProps={{ shrink: true }}
+                size="small"
+                sx={{ minWidth: 160 }}
+              >
+                <option value="readonly">Solo lectura</option>
+                <option value="admin">Administrador</option>
+              </TextField>
+            }
+          >
+            <ListItemText primary={`${u.full_name} — ${u.role}`} />
+          </ListItem>
         ))}
-      </ul>
-    </section>
+      </List>
+    </Box>
   )
 }
 ```
@@ -1290,7 +1406,7 @@ export function UsersPage() {
 - [ ] **Step 8: Run the `UsersPage` test (expect PASS)**
 
 Run: `pnpm test run src/users/UsersPage.test.tsx`
-Expected: 3 passed.
+Expected: 4 passed.
 
 - [ ] **Step 9: Commit**
 
@@ -1364,6 +1480,8 @@ export default function App() {
 }
 ```
 
+> Note: `ThemeProvider` (draculaTheme) + `CssBaseline` live in `src/main.tsx` (2026-06-28 foundation) and already wrap `<App/>`. App stays provider-only (Auth → Tenant → Router) — do **not** add a `ThemeProvider` here; the MUI components under it inherit the Dracula theme from `main.tsx`.
+
 - [ ] **Step 3: Replace the smoke test** in `src/App.test.tsx`
 
 ```tsx
@@ -1424,7 +1542,7 @@ git commit -m "Wire the router and mount auth + tenant providers in App"
 
 **Interfaces:**
 - Consumes: caller JWT (auto-attached by `supabase.functions.invoke`), service_role env (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`), `profiles` table.
-- Produces: a deployed `invite-user` function. Request body `{ email, fullName, role: 'admin'|'readonly', redirectTo }`. Responses: `200 { userId }`; `400 invalid_json|email_required|full_name_required|invalid_role|invite_failed`; `401 missing_authorization|invalid_token`; `403 forbidden`; `500 profile_lookup_failed|profile_insert_failed`. `checkAdmin(profile)` is the pure guard.
+- Produces: a deployed `invite-user` function. Request body `{ email, fullName, role: 'admin'|'readonly', redirectTo }`. Responses: `200 { userId }`; `400 invalid_json|email_required|full_name_required|invalid_role|invite_failed`; `401 missing_authorization|invalid_token`; `403 forbidden`; `409 email_exists`; `500 profile_lookup_failed|profile_insert_failed` (an insert failure rolls back the just-created auth user). `checkAdmin(profile)` is the pure guard.
 
 - [ ] **Step 1: Write the failing `checkAdmin` test** in `supabase/functions/invite-user/authorize.test.ts`
 
@@ -1528,6 +1646,12 @@ Deno.serve(async (req: Request) => {
     body.redirectTo ? { redirectTo: body.redirectTo } : undefined,
   )
   if (inviteError || !invited?.user) {
+    // GoTrue reports an already-registered address as code 'email_exists' (HTTP 422)
+    const duplicate =
+      inviteError?.code === 'email_exists' ||
+      inviteError?.status === 422 ||
+      /already.*registered/i.test(inviteError?.message ?? '')
+    if (duplicate) return json({ error: 'email_exists' }, 409)
     return json({ error: 'invite_failed', detail: inviteError?.message }, 400)
   }
 
@@ -1537,7 +1661,11 @@ Deno.serve(async (req: Request) => {
     full_name: fullName,
     role,
   })
-  if (insertError) return json({ error: 'profile_insert_failed', detail: insertError.message }, 500)
+  if (insertError) {
+    // compensating action: remove the just-created auth user so the email stays re-invitable, not orphaned
+    await serviceClient.auth.admin.deleteUser(invited.user.id)
+    return json({ error: 'profile_insert_failed', detail: insertError.message }, 500)
+  }
 
   return json({ userId: invited.user.id }, 200)
 })
@@ -1546,6 +1674,7 @@ Deno.serve(async (req: Request) => {
 Notes on the handler:
 - The `missing_authorization` and `invalid_token` 401 branches are **defense-in-depth**: with `verify_jwt = true` (Step 6) the Functions gateway already rejects requests without a valid JWT (401) before the handler runs. The real handler-level guard that the live verification targets is the `checkAdmin` **403**.
 - `data` is cast to `CallerProfile | null` before `checkAdmin` so the Deno deploy typecheck (no generated DB types) has a concrete input type; the type guard then narrows `profile.tenant_id` to `string` for the insert.
+- An already-registered email returns a **typed `409 email_exists`** (spec §6's "error tipado (email ya existe)") so `UsersPage` shows a clear reason; any other invite failure stays `400 invite_failed`. If the `profiles` insert fails after the auth user was created, the handler `deleteUser`s it (compensating action) so the address is re-invitable instead of orphaned.
 
 - [ ] **Step 6: Register the function** in `supabase/config.toml` — append:
 
@@ -1695,9 +1824,14 @@ Expected: only `.env.example` (no real env files).
 Then run `mcp__supabase__get_advisors` with type `security`.
 Expected: no new lints introduced by this plan.
 
-- [ ] **Step 5: Confirm manual follow-ups are listed**
+- [ ] **Step 5: Blocking owner-run verification of the Edge Function guard**
 
-Confirm the deferred manual verifications from Task 9 (admin/readonly/no-auth function calls + end-to-end invite email) are recorded for the user to run, and that the Auth redirect allowlist is configured before the end-to-end test. Do not claim the plan is verified end-to-end until these manual steps pass.
+The Edge Function runs with `service_role` (it bypasses RLS), so its **admin guard is the only thing standing between a non-admin and arbitrary user creation** (spec §8). That guard CANNOT be exercised over MCP (it needs real auth tokens + email delivery), so the repo owner runs it — but it is a **blocking completion gate, not an optional follow-up**. The plan is NOT complete until all three guard checks pass:
+  - [ ] admin token → `200 { userId }`
+  - [ ] readonly token → `403 forbidden`
+  - [ ] no `Authorization` header → `401` (rejected by `verify_jwt` before the handler)
+
+Use the exact `curl` recipe in the Task 9 hand-off note (after the first admin exists — Task 10 Step 1). Lower-risk follow-ups that are recorded but do **not** block this gate: the end-to-end invite email (invited user receives the mail, lands on `/accept-invite`, sets a password, reaches the app) and adding the `/accept-invite` URL to the Auth redirect allowlist before that end-to-end test. Do not claim the plan is verified end-to-end until the three guard checks above pass.
 
 ---
 
@@ -1708,10 +1842,10 @@ Confirm the deferred manual verifications from Task 9 (admin/readonly/no-auth fu
 - §3 feature structure (`auth`/`tenant`/`users`/`app`, shared pure authorize) → file layout across Tasks 1–9. ✅
 - §4 Auth + Session + TenantContext, two contexts, `no-profile` edge case → Tasks 1, 2, 5 (AppLayout no-profile screen). ✅
 - §5 routing + shell + guards + role-hidden nav + defense layers → Tasks 4, 5, 8. ✅
-- §6 UsersPage (invite + list + role change) + Edge Function + accept-invite → Tasks 6, 7, 9. ✅
+- §6 UsersPage (invite + list + role change) + Edge Function + accept-invite → Tasks 6, 7, 9. Typed "email already exists" (`409 email_exists`) surfaced to the admin as a friendly message (Task 7 `INVITE_ERROR_MESSAGES` + Task 9 handler). ✅
 - §7 bootstrap runbook → Task 10. ✅
-- §8 security: service_role only server-side, live function guard verification, redirect allowlist, RLS regression, pre-merge secret check → Tasks 9, 10. ✅
-- §9 testing strategy (authorize, TenantContext, guards, UsersPage, LoginPage, inviteUser unit; live function + RLS regression) → tests in Tasks 1–9. ✅
+- §8 security: service_role only server-side; RLS regression auto-verified over MCP (Task 9 Step 8); live function-guard checks (admin→200 / readonly→403 / no-auth→401) are a **blocking owner-run gate** (Task 10 Step 5) since they can't run over MCP; redirect allowlist + pre-merge secret check (Tasks 9, 10). ✅
+- §9 testing strategy (authorize, TenantContext, guards, UsersPage, LoginPage, inviteUser unit; live function + RLS regression) → tests in Tasks 1–9. The spec's "readonly no ve el form de invitar" is enforced at the **route layer** (`RequireAdmin` redirects non-admins — tested in Task 4 — and `/usuarios` only mounts `UsersPage` behind it in Task 8), so `UsersPage` assumes admin rather than self-gating. ✅
 - §10 deps + operational config (react-router, redirect URL, Supabase email) → Tasks 3, 10. ✅
 - §11 minor decisions resolved: `full_name` captured in the invite form (Task 7 + Edge Function insert); nav form left to implementation; `authorize.ts` duplicated minimally across Vite (`src/lib/authorize.ts`, role-only) and Deno (`supabase/functions/invite-user/authorize.ts`, role+tenant) per the sanctioned fallback. ✅
 
@@ -1722,3 +1856,7 @@ Confirm the deferred manual verifications from Task 9 (admin/readonly/no-auth fu
 **Note on edge-function testing:** `checkAdmin` is unit-tested via Vitest (plain TS, no Deno imports). `index.ts` (with `jsr:`/`npm:`/`Deno` globals) is outside the `src` TS project and is never imported by a test, so neither `tsc -b` nor Vitest parses it — its correctness rests on careful authoring + the live/manual verification in Task 9.
 
 **Adversarial review (2026-06-23):** the plan's code was scaffolded into an isolated workspace with the exact dependency set and `tsconfig.app.json` — `tsc -p tsconfig.app.json` exits 0 over all 26 `src` impl+test files and `vitest run` reports all tests passing (incl. the edge `authorize` test). One *important* defect was found and fixed: `supabase.functions.invoke` returns business errors as `FunctionsHttpError` (`data: null`, generic `message`), so `inviteUser` now reads `error.context.json()` to surface the specific reason and its test mocks the real non-2xx shape. Minor hardening folded in: chain-argument assertions in `TenantContext`/`UsersPage` tests, an `onAuthStateChange`-driven readiness test for `AcceptInvitePage`, a `CallerProfile` cast before `checkAdmin` for the Deno deploy typecheck, the live RLS regression rewritten to the Foundation `set_config` idiom (single transaction + admin positive control), and notes that the handler's 401 branches are defense-in-depth under `verify_jwt`.
+
+**Reconciliation (2026-06-28):** This plan was reconciled to the new UI base — **MUI v9 + the Dracula theme** installed in the 2026-06-28 foundation, **Tailwind removed**. The header (Tech Stack, Global Constraints, File Structure) and every UI component's implementation code (LoginPage, RequireAuth/RequireAdmin loading lines, PlaceholderPage, AppLayout, AcceptInvitePage, UsersPage) now use MUI components consuming the theme; `src/main.tsx` already wraps `<App/>` in `ThemeProvider` + `CssBaseline`, so `App.tsx` stays provider-only. The **test blocks were left unchanged on purpose**: each MUI mapping preserves the exact accessible labels/roles/placeholders/text the tests assert (`TextField label` → `getByLabelText`; role dropdowns use a native `<select>` via `SelectProps={{ native: true }}` so `userEvent.selectOptions` still works; the status message keeps `role="status"`; `Typography component="h1"` → heading role; MUI `Alert` → `getByRole('alert')`). The 2026-06-23 adversarial validation above predates this reconciliation; the MUI code is re-validated RED→GREEN per task plus the integration gates (Task 8 Step 5, Task 10 Step 3) at execution time.
+
+**Gap closure (2026-06-28, post-reconciliation):** Three spec-faithfulness fixes folded in after contrasting the plan against the design spec. (1) The Edge Function returns a typed `409 email_exists` for an already-registered address and `UsersPage` maps it (plus `forbidden`/`invalid_role`) to a clear Spanish message — closing spec §6's "error tipado (email ya existe)"; the handler also `deleteUser`s the just-created auth user if the `profiles` insert fails, so a half-created invite is re-invitable rather than orphaned. (2) The live function-guard verification (admin→200 / readonly→403 / no-auth→401) was promoted from a soft follow-up to a **blocking owner-run completion gate** (Task 10 Step 5), matching spec §8's "el guard … es la única barrera frente a su propio bypass". (3) Count fixes: `AcceptInvitePage` runs 4 tests (was mislabeled 3) and `UsersPage` now runs 4 (added the `email_exists` message test). **Mobile-first** nav (spec §3/§5) is the functional MUI `AppBar`/`Toolbar` baseline now; its responsive form (bottom bar vs. drawer) stays deferred to a later `frontend-design` pass per spec §11 — a visual refinement, not a functional gap.

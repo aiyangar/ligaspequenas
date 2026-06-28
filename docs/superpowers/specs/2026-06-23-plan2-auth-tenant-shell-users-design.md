@@ -10,6 +10,8 @@
 
 > Prerrequisito: el Plan 1 (Foundation) está completo y mergeado a `main` (esquema multi-tenant, RLS con doble candado tenant+rol vía `private.current_tenant_id()` / `private.is_admin()`, seed de Liga MTY AC, vista `players_with_category`). Este plan construye la primera capa de aplicación encima de esa base.
 
+> Prerrequisito de UI (2026-06-28): la fundación visual está mergeada a `main` — **MUI v9 + theme oscuro Dracula** (`src/theme/dracula.ts`), con `src/main.tsx` envolviendo `<App/>` en `ThemeProvider` + `CssBaseline` + Roboto local. **Tailwind fue retirado.** Toda la UI de este plan se construye con componentes MUI consumiendo ese theme (sin Tailwind, sin HTML plano para formularios/navegación).
+
 ---
 
 ## 1. Objetivo y alcance
@@ -78,7 +80,9 @@ src/
     AppLayout.tsx          shell + nav mobile-first
     routes.tsx             definición de rutas (react-router)
     PlaceholderPage.tsx    "Próximamente" para Jugadores / Quién debe
-  App.tsx                  monta AuthProvider > TenantProvider > RouterProvider
+  App.tsx                  monta AuthProvider > TenantProvider > RouterProvider (reemplaza el showcase Dracula temporal)
+  main.tsx                 (ya existe) envuelve <App/> en ThemeProvider(draculaTheme) + CssBaseline + Roboto — sin cambios aquí
+  theme/dracula.ts         (ya existe) theme oscuro Dracula (MUI), aplicado a toda la app vía main.tsx
 supabase/
   functions/
     invite-user/
@@ -125,9 +129,9 @@ Un `auth.user` válido puede no tener fila en `profiles` (p.ej. antes del bootst
   - `/quien-debe` → `PlaceholderPage`.
   - `/usuarios` → `UsersPage`, envuelta además en `RequireAdmin`.
   - Acción **Salir** en el nav (cierra sesión y redirige a `/login`).
-- **Nav mobile-first**: navegación simple (los ítems admin-only se ocultan para `readonly`).
+- **Nav mobile-first**: navegación simple con componentes MUI (`AppBar` / `Toolbar` / `Button`) consumiendo el theme Dracula (los ítems admin-only se ocultan para `readonly`).
 - **Capas de defensa** (de UX a candado real): `RequireAdmin` oculta la UI → el guard redirige si se navega directo → la **RLS** y el **guard de la Edge Function** bloquean de verdad cualquier escritura. La UI nunca es la barrera de seguridad; solo la de experiencia.
-- `App.tsx` deja de renderizar "Liga MTY AC" suelto y pasa a montar `AuthProvider > TenantProvider > RouterProvider`. El smoke test existente (`App.test.tsx`) se adapta a la nueva composición.
+- `App.tsx` deja de renderizar el showcase Dracula temporal (del 2026-06-28) y pasa a montar `AuthProvider > TenantProvider > RouterProvider`. El `ThemeProvider` + `CssBaseline` permanecen en `main.tsx` (envuelven a `<App/>`), así que `App.tsx` queda solo con providers. El smoke test existente (`App.test.tsx`) se adapta a la nueva composición.
 
 ---
 
@@ -211,7 +215,7 @@ No existe ningún code path en la app que auto-otorgue admin (fail-closed). A pa
 
 ## 10. Dependencias nuevas y configuración operativa
 
-- **Dependencia**: `react-router-dom` (^7).
+- **Dependencia nueva**: `react-router-dom` (^7) (+ `@testing-library/user-event` como devDependency para los tests de formularios). **MUI, Emotion, `@mui/icons-material` y `@fontsource/roboto` ya están instalados** (fundación 2026-06-28) — este plan no los reinstala.
 - **Operativo (documentado, no código)**:
   - Redirect URL en el allowlist de Supabase Auth.
   - Email integrado de Supabase para invitaciones en el v1 (rate-limited; SMTP propio se **difiere** a cuando haya volumen real).
@@ -222,7 +226,7 @@ No existe ningún code path en la app que auto-otorgue admin (fail-closed). A pa
 ## 11. Decisiones menores a fijar en el plan de implementación
 
 - **`full_name` en la invitación**: capturarlo en el form de invitar (admin lo escribe) **vs.** dejarlo provisional y que el invitado lo complete al aceptar. Recomendación: capturarlo en el form (un dato menos que pedir al invitado); ajustable en el plan.
-- **Forma del nav mobile-first** (barra inferior vs. menú): detalle visual, se concreta en implementación (eventual `frontend-design`).
+- **Forma del nav mobile-first** (barra inferior vs. menú): detalle visual, se concreta en implementación con componentes MUI + theme Dracula (eventual `frontend-design`).
 - **Reutilización de `authorize.ts`** entre `src/` (Vite/TS) y la Edge Function (Deno): si el import cruzado complica el build, se duplica la función pura mínima en `supabase/functions/invite-user/` y se testea por separado. Se decide en el plan.
 
 ---
