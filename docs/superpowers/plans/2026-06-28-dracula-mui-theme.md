@@ -10,12 +10,13 @@
 
 ## Global Constraints
 
-- **MUI v7**, React 19 — install without `--legacy-peer-deps` (MUI v7 supports React 19).
+- **MUI v9** (latest major; installed in Task 1), React 19 — installed without `--legacy-peer-deps`. The plan's APIs (createTheme/palette, ThemeProvider, CssBaseline, component default imports, Stack `useFlexGap`) are stable on v9.
+- **Package manager: pnpm** (repo has `pnpm-lock.yaml`). Use `pnpm build`, `pnpm lint`, `pnpm exec vitest run <path>` — not npm/npx.
 - **Dark only**: `palette.mode: 'dark'`. No light variant, no toggle.
 - **No external CDN**: Roboto served locally via `@fontsource/roboto`.
 - **No Tailwind** anywhere after Task 1.
 - Vitest globals are enabled (`vite.config.ts` → `test.globals: true`); tests use global `test`/`expect` with **no** `vitest` import, matching existing tests.
-- Run tests one-shot with `npx vitest run <path>` (`npm run test` is watch mode).
+- Run tests one-shot with `pnpm exec vitest run <path>` (`pnpm test` is watch mode).
 - All commits use English messages, end with the `Claude-Session:` trailer, and land on `feature/dracula-mui-theme` — never `main`/`develop`.
 
 ---
@@ -133,7 +134,7 @@ test('uses Dracula backgrounds and foreground', () => {
 
 Run:
 ```bash
-npx vitest run src/theme/dracula.test.ts
+pnpm exec vitest run src/theme/dracula.test.ts
 ```
 Expected: FAIL — cannot resolve `./dracula` (module does not exist yet).
 
@@ -163,7 +164,7 @@ export const draculaTheme = createTheme({
 
 Run:
 ```bash
-npx vitest run src/theme/dracula.test.ts
+pnpm exec vitest run src/theme/dracula.test.ts
 ```
 Expected: PASS (3 tests).
 
@@ -218,7 +219,7 @@ test('renders themed Material components', () => {
 
 Run:
 ```bash
-npx vitest run src/App.test.tsx
+pnpm exec vitest run src/App.test.tsx
 ```
 Expected: `renders themed Material components` FAILS (current `App` has no button); `renders the league name` still PASSES.
 
@@ -288,7 +289,7 @@ export default function App() {
 
 Run:
 ```bash
-npx vitest run src/App.test.tsx
+pnpm exec vitest run src/App.test.tsx
 ```
 Expected: PASS (2 tests).
 
@@ -321,15 +322,15 @@ createRoot(document.getElementById('root')!).render(
 
 Run:
 ```bash
-npm run build
-npx vitest run
-npm run lint
+pnpm build
+pnpm exec vitest run
+pnpm lint
 ```
 Expected: build succeeds; all tests pass; lint clean.
 
 - [ ] **Step 7: Manual browser verification**
 
-Run `npm run dev`, open `http://localhost:5173`. Confirm by eye:
+Run `pnpm dev`, open `http://localhost:5173`. Confirm by eye:
 - Page background is Dracula `#282A36`.
 - AppBar is purple `#BD93F9`; "Liga MTY AC" legible on it.
 - Primary button purple, Secondary button pink, Error button red.
