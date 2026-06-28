@@ -46,6 +46,13 @@ test('shows the no-access screen when the user has no profile', () => {
   expect(screen.getByText(/no tiene acceso/i)).toBeInTheDocument()
 })
 
+test('shows an error screen when profile loading fails', () => {
+  mocks.useTenant.mockReturnValue({ status: 'error', role: null, fullName: null })
+  renderLayout()
+  expect(screen.getByRole('alert')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Salir' })).toBeInTheDocument()
+})
+
 test('logging out signs out and redirects to /login', async () => {
   mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Ana' })
   const user = userEvent.setup()
