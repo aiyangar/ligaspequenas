@@ -1,6 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { LoginPage } from '../auth/LoginPage'
-import { AcceptInvitePage } from '../auth/AcceptInvitePage'
+import { AuthCallbackPage } from '../auth/AuthCallbackPage'
 import { RequireAuth } from '../auth/RequireAuth'
 import { RequireAdmin } from '../auth/RequireAdmin'
 import { AppLayout } from './AppLayout'
@@ -9,7 +9,7 @@ import { UsersPage } from '../users/UsersPage'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
-  { path: '/accept-invite', element: <AcceptInvitePage /> },
+  { path: '/auth/callback', element: <AuthCallbackPage /> },
   {
     element: <RequireAuth />,
     children: [
