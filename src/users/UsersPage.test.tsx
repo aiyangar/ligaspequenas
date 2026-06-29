@@ -44,7 +44,7 @@ test('invites a user through the inviteUser client', async () => {
     fullName: 'Nuevo',
     role: 'readonly',
   })
-  expect(await screen.findByRole('status')).toHaveTextContent('Invitación enviada')
+  expect(await screen.findByRole('status')).toHaveTextContent('enlace de acceso')
 })
 
 test('shows a friendly message when the email already exists', async () => {

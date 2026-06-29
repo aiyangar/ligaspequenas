@@ -52,7 +52,7 @@ export function UsersPage() {
       setMessage(`Error: ${reason}`)
       return
     }
-    setMessage('Invitación enviada')
+    setMessage('Usuario creado, se le envió un enlace de acceso')
     setEmail('')
     setFullName('')
     await loadUsers()
