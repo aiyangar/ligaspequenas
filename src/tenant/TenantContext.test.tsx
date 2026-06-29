@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { beforeEach, vi } from 'vitest'
-import { TenantProvider, useTenant } from './TenantContext'
+import { TenantProvider } from './TenantProvider'
+import { useTenant } from './TenantContext'
 
 const mocks = vi.hoisted(() => ({
   useAuth: vi.fn(),

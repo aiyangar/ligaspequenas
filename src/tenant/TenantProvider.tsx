@@ -1,21 +1,9 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthContext'
-
-type TenantStatus = 'loading' | 'ready' | 'no-profile' | 'error'
-type Role = 'admin' | 'readonly'
-
-interface TenantState {
-  tenantId: string | null
-  role: Role | null
-  fullName: string | null
-  status: TenantStatus
-}
-
-const EMPTY: TenantState = { tenantId: null, role: null, fullName: null, status: 'loading' }
-
-const TenantContext = createContext<TenantState | undefined>(undefined)
+import { TenantContext, EMPTY } from './TenantContext'
+import type { TenantState } from './TenantContext'
 
 export function TenantProvider({ children }: { children: ReactNode }) {
   const { session, loading: authLoading } = useAuth()
@@ -23,13 +11,13 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (authLoading) return
-    if (!session) {
-      setState(EMPTY)
-      return
-    }
     let active = true
-    setState((s) => ({ ...s, status: 'loading' }))
     void (async () => {
+      if (!session) {
+        if (active) setState(EMPTY)
+        return
+      }
+      setState((s) => ({ ...s, status: 'loading' }))
       const { data, error } = await supabase
         .from('profiles')
         .select('tenant_id, role, full_name')
@@ -52,10 +40,4 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   }, [session, authLoading])
 
   return <TenantContext.Provider value={state}>{children}</TenantContext.Provider>
-}
-
-export function useTenant(): TenantState {
-  const ctx = useContext(TenantContext)
-  if (ctx === undefined) throw new Error('useTenant must be used within TenantProvider')
-  return ctx
 }
