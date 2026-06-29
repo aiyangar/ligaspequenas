@@ -29,7 +29,7 @@ export function AppLayout() {
         : 'Ocurrió un error al cargar tu perfil.'
     return (
       <Container sx={{ mt: 8, maxWidth: 'sm' }}>
-        <Stack spacing={2} alignItems="flex-start">
+        <Stack spacing={2} sx={{ alignItems: 'flex-start' }}>
           <Alert severity={status === 'no-profile' ? 'warning' : 'error'}>{message}</Alert>
           <Button variant="outlined" onClick={handleLogout}>Salir</Button>
         </Stack>
