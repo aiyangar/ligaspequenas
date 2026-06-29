@@ -58,3 +58,12 @@ test('shows a generic error if sending throws', async () => {
   await user.click(screen.getByRole('button', { name: 'Enviar enlace de acceso' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo enviar')
 })
+
+test('still shows the neutral message when the request resolves with an error (anti-enumeration)', async () => {
+  mocks.signInWithOtp.mockResolvedValue({ data: {}, error: { message: 'Signups not allowed for otp' } })
+  const user = userEvent.setup()
+  renderLogin()
+  await user.type(screen.getByLabelText('Correo'), 'a@b.com')
+  await user.click(screen.getByRole('button', { name: 'Enviar enlace de acceso' }))
+  expect(await screen.findByRole('status')).toHaveTextContent('Si tu correo tiene acceso')
+})
