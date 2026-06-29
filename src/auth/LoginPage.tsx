@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import type { Location } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
@@ -11,30 +9,36 @@ import Alert from '@mui/material/Alert'
 import { supabase } from '../lib/supabase'
 
 export function LoginPage() {
-  const navigate = useNavigate()
-  const location = useLocation()
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [sent, setSent] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-
-  const from = (location.state as { from?: Location } | null)?.from?.pathname ?? '/'
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
-    if (!email || !password) {
-      setError('Correo y contraseña son obligatorios')
+    const trimmed = email.trim()
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) {
+      setError('Ingresa un correo válido')
       return
     }
     setSubmitting(true)
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-    setSubmitting(false)
-    if (signInError) {
-      setError('Credenciales inválidas')
-      return
+    try {
+      // Swallow the returned error on purpose: revealing "that email has no access"
+      // would leak which addresses exist. Only a thrown transport failure surfaces.
+      await supabase.auth.signInWithOtp({
+        email: trimmed,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+      setSent(true)
+    } catch {
+      setError('No se pudo enviar el enlace. Intenta de nuevo.')
+    } finally {
+      setSubmitting(false)
     }
-    void navigate(from, { replace: true })
   }
 
   return (
@@ -47,14 +51,15 @@ export function LoginPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <TextField
-          label="Contraseña"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
         {error && <Alert severity="error">{error}</Alert>}
-        <Button type="submit" variant="contained" disabled={submitting}>Entrar</Button>
+        {sent && (
+          <Alert role="status" severity="success">
+            Si tu correo tiene acceso, te enviamos un enlace.
+          </Alert>
+        )}
+        <Button type="submit" variant="contained" disabled={submitting}>
+          Enviar enlace de acceso
+        </Button>
       </Stack>
     </Box>
   )

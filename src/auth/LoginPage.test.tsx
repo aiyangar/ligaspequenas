@@ -1,55 +1,60 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { LoginPage } from './LoginPage'
 
-const mocks = vi.hoisted(() => ({ signInWithPassword: vi.fn() }))
+const mocks = vi.hoisted(() => ({ signInWithOtp: vi.fn() }))
 vi.mock('../lib/supabase', () => ({
-  supabase: { auth: { signInWithPassword: mocks.signInWithPassword } },
+  supabase: { auth: { signInWithOtp: mocks.signInWithOtp } },
 }))
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mocks.signInWithPassword.mockResolvedValue({ data: {}, error: null })
+  mocks.signInWithOtp.mockResolvedValue({ data: {}, error: null })
 })
 
 function renderLogin() {
   const router = createMemoryRouter(
-    [
-      { path: '/login', element: <LoginPage /> },
-      { path: '/', element: <h1>Home</h1> },
-    ],
+    [{ path: '/login', element: <LoginPage /> }],
     { initialEntries: ['/login'] },
   )
   return render(<RouterProvider router={router} />)
 }
 
-test('validates that both fields are required', async () => {
+test('requires an email before sending', async () => {
   const user = userEvent.setup()
   renderLogin()
-  // bypass native required by typing only email, then submit
-  await user.type(screen.getByLabelText('Correo'), 'a@b.com')
-  await user.click(screen.getByRole('button', { name: 'Entrar' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent('obligatorios')
-  expect(mocks.signInWithPassword).not.toHaveBeenCalled()
+  await user.click(screen.getByRole('button', { name: 'Enviar enlace de acceso' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('correo válido')
+  expect(mocks.signInWithOtp).not.toHaveBeenCalled()
 })
 
-test('shows an error on invalid credentials', async () => {
-  mocks.signInWithPassword.mockResolvedValue({ data: {}, error: { message: 'bad' } })
+test('sends a magic link with shouldCreateUser false and the callback redirect', async () => {
   const user = userEvent.setup()
   renderLogin()
   await user.type(screen.getByLabelText('Correo'), 'a@b.com')
-  await user.type(screen.getByLabelText('Contraseña'), 'secret12')
-  await user.click(screen.getByRole('button', { name: 'Entrar' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent('inválidas')
+  await user.click(screen.getByRole('button', { name: 'Enviar enlace de acceso' }))
+  expect(mocks.signInWithOtp).toHaveBeenCalledWith({
+    email: 'a@b.com',
+    options: {
+      shouldCreateUser: false,
+      emailRedirectTo: expect.stringMatching(/\/auth\/callback$/),
+    },
+  })
+  expect(await screen.findByRole('status')).toHaveTextContent('Si tu correo tiene acceso')
 })
 
-test('navigates home on success', async () => {
+test('renders no password field', () => {
+  renderLogin()
+  expect(screen.queryByLabelText('Contraseña')).not.toBeInTheDocument()
+})
+
+test('shows a generic error if sending throws', async () => {
+  mocks.signInWithOtp.mockRejectedValue(new Error('network'))
   const user = userEvent.setup()
   renderLogin()
   await user.type(screen.getByLabelText('Correo'), 'a@b.com')
-  await user.type(screen.getByLabelText('Contraseña'), 'secret12')
-  await user.click(screen.getByRole('button', { name: 'Entrar' }))
-  await waitFor(() => expect(screen.getByText('Home')).toBeInTheDocument())
+  await user.click(screen.getByRole('button', { name: 'Enviar enlace de acceso' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo enviar')
 })
