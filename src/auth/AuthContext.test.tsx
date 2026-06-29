@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { beforeEach, vi } from 'vitest'
-import { AuthProvider, useAuth } from './AuthContext'
+import { AuthProvider } from './AuthProvider'
+import { useAuth } from './AuthContext'
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
