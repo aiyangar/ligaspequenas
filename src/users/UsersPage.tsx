@@ -121,14 +121,20 @@ export function UsersPage() {
           <ListItem
             key={u.id}
             secondaryAction={
-              <select
-                aria-label={`Rol de ${u.full_name}`}
+              <TextField
+                select
+                size="small"
                 value={u.role}
                 onChange={(e) => void changeRole(u.id, e.target.value as Role)}
+                slotProps={{
+                  select: { native: true },
+                  htmlInput: { 'aria-label': `Rol de ${u.full_name}` },
+                }}
+                sx={{ minWidth: 150 }}
               >
                 <option value="readonly">Solo lectura</option>
                 <option value="admin">Administrador</option>
-              </select>
+              </TextField>
             }
           >
             <ListItemText primary={`${u.full_name} — ${u.role}`} />
