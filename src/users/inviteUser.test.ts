@@ -17,7 +17,7 @@ test('invokes the edge function with the input plus a redirectTo', async () => {
       email: 'a@b.com',
       fullName: 'Ana',
       role: 'admin',
-      redirectTo: expect.stringMatching(/\/accept-invite$/),
+      redirectTo: expect.stringMatching(/\/auth\/callback$/),
     }),
   })
 })

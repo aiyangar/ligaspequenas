@@ -12,7 +12,7 @@ export interface InviteUserResult {
 }
 
 export async function inviteUser(input: InviteUserInput): Promise<InviteUserResult> {
-  const redirectTo = `${window.location.origin}/accept-invite`
+  const redirectTo = `${window.location.origin}/auth/callback`
   const { error } = await supabase.functions.invoke('invite-user', {
     body: { ...input, redirectTo },
   })
