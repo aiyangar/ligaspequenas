@@ -33,14 +33,20 @@ export function UsersPage() {
   const [role, setRole] = useState<Role>('readonly')
   const [message, setMessage] = useState<string | null>(null)
 
-  const loadUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (): Promise<ProfileRow[]> => {
     const { data } = await supabase.from('profiles').select('id, full_name, role')
-    setUsers((data as ProfileRow[] | null) ?? [])
+    return (data as ProfileRow[] | null) ?? []
   }, [])
 
   useEffect(() => {
-    void loadUsers()
-  }, [loadUsers])
+    let active = true
+    void fetchUsers().then((rows) => {
+      if (active) setUsers(rows)
+    })
+    return () => {
+      active = false
+    }
+  }, [fetchUsers])
 
   async function handleInvite(e: FormEvent) {
     e.preventDefault()
@@ -55,12 +61,12 @@ export function UsersPage() {
     setMessage('Usuario creado, se le envió un enlace de acceso')
     setEmail('')
     setFullName('')
-    await loadUsers()
+    setUsers(await fetchUsers())
   }
 
   async function changeRole(id: string, newRole: Role) {
     await supabase.from('profiles').update({ role: newRole }).eq('id', id)
-    await loadUsers()
+    setUsers(await fetchUsers())
   }
 
   return (
