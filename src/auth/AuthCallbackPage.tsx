@@ -11,19 +11,29 @@ export function AuthCallbackPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [ready, setReady] = useState(false)
+  const [checked, setChecked] = useState(false)
 
-  const hasLinkError = useMemo(() => {
+  const params = useMemo(() => {
     const hash = location.hash.replace(/^#/, '')
     const search = location.search.replace(/^\?/, '')
-    const params = new URLSearchParams(`${hash}&${search}`)
-    return params.has('error') || params.has('error_code') || params.has('error_description')
+    return new URLSearchParams(`${hash}&${search}`)
   }, [location.hash, location.search])
+
+  const hasLinkError =
+    params.has('error') || params.has('error_code') || params.has('error_description')
+  // A real sign-in link carries a token (implicit hash) or a code (PKCE query);
+  // its absence once getSession has resolved means there is nothing to wait for.
+  const hasAuthToken =
+    params.has('access_token') || params.has('refresh_token') || params.has('code')
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setReady(!!session)
+      if (session) setReady(true)
     })
-    void supabase.auth.getSession().then(({ data }) => setReady(!!data.session))
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setReady(true)
+      setChecked(true)
+    })
     return () => subscription.unsubscribe()
   }, [])
 
@@ -31,7 +41,7 @@ export function AuthCallbackPage() {
     if (ready) void navigate('/', { replace: true })
   }, [ready, navigate])
 
-  if (!ready && hasLinkError) {
+  if (!ready && (hasLinkError || (checked && !hasAuthToken))) {
     return (
       <Box sx={{ maxWidth: 360, mx: 'auto', mt: 8, px: 2 }}>
         <Stack spacing={2}>
