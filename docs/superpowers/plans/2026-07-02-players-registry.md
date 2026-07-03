@@ -907,14 +907,25 @@ export function PlayerFormPage() {
       return
     }
     setSubmitting(true)
-    const result = editing ? await updatePlayer(id!, values) : await createPlayer(values, tenantId)
-    setSubmitting(false)
-    if (!result.ok) {
-      setMessage(`Error: ${result.error ?? 'no se pudo guardar'}`)
-      return
+    // Branch on editing so each result is typed narrowly: UpdatePlayerResult has no `id`,
+    // CreatePlayerResult does — a single union would make `result.id` a TS2339 error.
+    if (editing) {
+      const result = await updatePlayer(id!, values)
+      setSubmitting(false)
+      if (!result.ok) {
+        setMessage(`Error: ${result.error ?? 'no se pudo guardar'}`)
+        return
+      }
+      void navigate(`/jugadores/${id!}`)
+    } else {
+      const result = await createPlayer(values, tenantId)
+      setSubmitting(false)
+      if (!result.ok) {
+        setMessage(`Error: ${result.error ?? 'no se pudo guardar'}`)
+        return
+      }
+      void navigate(`/jugadores/${result.id!}`)
     }
-    const targetId = editing ? id! : result.id!
-    void navigate(`/jugadores/${targetId}`)
   }
 
   const categoryText = row ? playerCategoryText(row) : undefined
