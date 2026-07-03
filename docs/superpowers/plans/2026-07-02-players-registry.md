@@ -573,7 +573,7 @@ test('renders the player, tutor and affiliation fields', () => {
   expect(screen.getByLabelText(/Nombre del tutor/)).toBeInTheDocument()
   expect(screen.getByLabelText(/WhatsApp del tutor/)).toBeInTheDocument()
   expect(screen.getByLabelText('Estatus de afiliación')).toBeInTheDocument()
-  expect(screen.getByText('Infantil Mayor (1ro)')).toBeInTheDocument()
+  expect(screen.getByText(/Infantil Mayor \(1ro\)/)).toBeInTheDocument()
 })
 
 test('typing a name emits the updated values via onChange', async () => {
