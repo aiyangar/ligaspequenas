@@ -7,6 +7,7 @@ import { AppLayout } from './AppLayout'
 import { PlaceholderPage } from './PlaceholderPage'
 import { UsersPage } from '../users/UsersPage'
 import { PlayerFormPage } from '../players/PlayerFormPage'
+import { PlayersPage } from '../players/PlayersPage'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -17,7 +18,7 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { index: true, element: <PlaceholderPage title="Jugadores" /> },
+          { index: true, element: <PlayersPage /> },
           { path: 'jugadores/:id', element: <PlayerFormPage /> },
           { path: 'quien-debe', element: <PlaceholderPage title="Quién debe" /> },
           {
