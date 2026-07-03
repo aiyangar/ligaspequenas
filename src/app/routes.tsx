@@ -6,6 +6,7 @@ import { RequireAdmin } from '../auth/RequireAdmin'
 import { AppLayout } from './AppLayout'
 import { PlaceholderPage } from './PlaceholderPage'
 import { UsersPage } from '../users/UsersPage'
+import { PlayerFormPage } from '../players/PlayerFormPage'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -17,10 +18,14 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { index: true, element: <PlaceholderPage title="Jugadores" /> },
+          { path: 'jugadores/:id', element: <PlayerFormPage /> },
           { path: 'quien-debe', element: <PlaceholderPage title="Quién debe" /> },
           {
             element: <RequireAdmin />,
-            children: [{ path: 'usuarios', element: <UsersPage /> }],
+            children: [
+              { path: 'jugadores/nuevo', element: <PlayerFormPage /> },
+              { path: 'usuarios', element: <UsersPage /> },
+            ],
           },
         ],
       },
