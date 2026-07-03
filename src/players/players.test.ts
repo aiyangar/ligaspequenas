@@ -1,6 +1,6 @@
 import { beforeEach, expect, vi } from 'vitest'
-import { fetchPlayers, fetchPlayer, playerCategoryText } from './players'
-import type { PlayerRow } from './players'
+import { fetchPlayers, fetchPlayer, playerCategoryText, createPlayer, updatePlayer, emptyPlayer, rowToValues } from './players'
+import type { PlayerRow, PlayerFormValues } from './players'
 
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
@@ -8,6 +8,10 @@ const mocks = vi.hoisted(() => ({
   order: vi.fn(),
   eq: vi.fn(),
   maybeSingle: vi.fn(),
+  insert: vi.fn(),
+  single: vi.fn(),
+  update: vi.fn(),
+  updateEq: vi.fn(),
 }))
 vi.mock('../lib/supabase', () => ({ supabase: { from: mocks.from } }))
 
@@ -26,11 +30,18 @@ function row(over: Partial<PlayerRow> = {}): PlayerRow {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // read chain: from().select().order()  and  from().select().eq().maybeSingle()
   mocks.order.mockResolvedValue({ data: [row()], error: null })
-  mocks.select.mockReturnValue({ order: mocks.order, eq: mocks.eq })
-  mocks.eq.mockReturnValue({ maybeSingle: mocks.maybeSingle })
   mocks.maybeSingle.mockResolvedValue({ data: row(), error: null })
-  mocks.from.mockReturnValue({ select: mocks.select })
+  mocks.eq.mockReturnValue({ maybeSingle: mocks.maybeSingle }) // read path only
+  // write chains: from().insert().select('id').single()  and  from().update().eq()
+  mocks.single.mockResolvedValue({ data: { id: 'newid' }, error: null })
+  mocks.insert.mockReturnValue({ select: mocks.select })
+  mocks.updateEq.mockResolvedValue({ error: null })
+  mocks.update.mockReturnValue({ eq: mocks.updateEq })
+  // select serves reads (order/eq) and the insert().select('id').single() write
+  mocks.select.mockReturnValue({ order: mocks.order, eq: mocks.eq, single: mocks.single })
+  mocks.from.mockReturnValue({ select: mocks.select, insert: mocks.insert, update: mocks.update })
 })
 
 test('fetchPlayers reads the category view ordered by name', async () => {
@@ -72,4 +83,59 @@ test('playerCategoryText shows out-of-category with the league age', () => {
 test('playerCategoryText shows bare out-of-category when there is no league age', () => {
   expect(playerCategoryText({ category_name: null, category_year: null, edad_liga: null }))
     .toBe('Fuera de categoría')
+})
+
+test('createPlayer inserts with tenant_id and empty strings coerced to null', async () => {
+  const values: PlayerFormValues = {
+    ...emptyPlayer(),
+    full_name: 'Ana Ruiz',
+    birth_date: '2015-06-10',
+    curp: '',
+    tutor_name: 'Luis Ruiz',
+    tutor_whatsapp: '8110000000',
+    tutor_email: '',
+  }
+  const result = await createPlayer(values, 'tenant-1')
+  expect(mocks.from).toHaveBeenCalledWith('players')
+  expect(mocks.insert).toHaveBeenCalledWith(
+    expect.objectContaining({
+      tenant_id: 'tenant-1',
+      full_name: 'Ana Ruiz',
+      birth_date: '2015-06-10',
+      curp: null,
+      tutor_email: null,
+    }),
+  )
+  expect(mocks.select).toHaveBeenCalledWith('id')
+  expect(result).toEqual({ ok: true, id: 'newid' })
+})
+
+test('createPlayer surfaces an RLS/DB error as ok:false', async () => {
+  mocks.single.mockResolvedValue({ data: null, error: { message: 'permission denied' } })
+  const result = await createPlayer({ ...emptyPlayer(), full_name: 'X', birth_date: '2015-01-01', tutor_name: 'T', tutor_whatsapp: '0' }, 'tenant-1')
+  expect(result).toEqual({ ok: false, error: 'permission denied' })
+})
+
+test('updatePlayer updates by id and returns ok', async () => {
+  const result = await updatePlayer('p1', { ...emptyPlayer(), full_name: 'Ana', birth_date: '2015-01-01', tutor_name: 'T', tutor_whatsapp: '0' })
+  expect(mocks.from).toHaveBeenCalledWith('players')
+  expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ full_name: 'Ana' }))
+  expect(mocks.updateEq).toHaveBeenCalledWith('id', 'p1')
+  expect(result).toEqual({ ok: true })
+})
+
+test('rowToValues maps nulls to empty strings', () => {
+  const values = rowToValues(row({ curp: null, tutor_email: null, affiliation_date: null }))
+  expect(values.curp).toBe('')
+  expect(values.tutor_email).toBe('')
+  expect(values.affiliation_date).toBe('')
+  expect(values.status).toBe('activo')
+})
+
+test('emptyPlayer defaults status/affiliation and a today enrollment_date', () => {
+  const v = emptyPlayer()
+  expect(v.status).toBe('activo')
+  expect(v.affiliation_status).toBe('pendiente')
+  expect(v.enrollment_date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  expect(v.full_name).toBe('')
 })
