@@ -85,3 +85,22 @@ test('a failed save surfaces the error', async () => {
   await user.click(screen.getByRole('button', { name: 'Guardar' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('permission denied')
 })
+
+test('creating shows an in-app success confirmation', async () => {
+  const user = userEvent.setup()
+  renderAt('/jugadores/nuevo')
+  await user.type(screen.getByLabelText(/Nombre completo/), 'Nuevo Jugador')
+  await user.type(screen.getByLabelText(/Fecha de nacimiento/), '2015-06-10')
+  await user.type(screen.getByLabelText(/Nombre del tutor/), 'Tutor')
+  await user.type(screen.getByLabelText(/WhatsApp del tutor/), '8110000000')
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  expect(await screen.findByText('Jugador creado')).toBeInTheDocument()
+})
+
+test('editing shows an in-app success confirmation', async () => {
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  expect(await screen.findByText('Cambios guardados')).toBeInTheDocument()
+})

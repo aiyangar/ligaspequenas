@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
 import Alert from '@mui/material/Alert'
+import Snackbar from '@mui/material/Snackbar'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
 import { PlayerForm } from './PlayerForm'
@@ -22,6 +23,7 @@ import type { PlayerFormValues, PlayerRow } from './players'
 export function PlayerFormPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { role, tenantId } = useTenant()
   const editing = Boolean(id)
   const canEdit = isAdmin(role)
@@ -30,6 +32,8 @@ export function PlayerFormPage() {
   const [row, setRow] = useState<PlayerRow | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // Dismissed by navigation key so a fresh save (new key) re-shows the toast.
+  const [dismissedFlashKey, setDismissedFlashKey] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -43,6 +47,12 @@ export function PlayerFormPage() {
       active = false
     }
   }, [id])
+
+  // Success confirmation rides along the post-save navigation as router state,
+  // so the toast shows on the destination instead of a browser alert. Derived
+  // (not copied into state via an effect) to avoid a synchronous setState-in-effect.
+  const flash = (location.state as { flash?: string } | null)?.flash ?? null
+  const showFlash = flash !== null && location.key !== dismissedFlashKey
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -59,7 +69,7 @@ export function PlayerFormPage() {
         setMessage(`Error: ${result.error ?? 'no se pudo guardar'}`)
         return
       }
-      void navigate(`/jugadores/${id!}`)
+      void navigate(`/jugadores/${id!}`, { state: { flash: 'Cambios guardados' } })
     } else {
       const result = await createPlayer(values, tenantId)
       setSubmitting(false)
@@ -67,7 +77,7 @@ export function PlayerFormPage() {
         setMessage(`Error: ${result.error ?? 'no se pudo guardar'}`)
         return
       }
-      void navigate(`/jugadores/${result.id!}`)
+      void navigate(`/jugadores/${result.id!}`, { state: { flash: 'Jugador creado' } })
     }
   }
 
@@ -91,6 +101,21 @@ export function PlayerFormPage() {
           </Button>
         )}
       </Stack>
+      <Snackbar
+        open={showFlash}
+        autoHideDuration={4000}
+        onClose={() => setDismissedFlashKey(location.key)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setDismissedFlashKey(location.key)}
+          severity="success"
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {flash}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }
