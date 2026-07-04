@@ -282,6 +282,9 @@ values ('aaaa1111-0000-0000-0000-000000000001','00000000-0000-0000-0000-00000000
 -- a "baja" player also in Infantil Mayor
 insert into players (id, tenant_id, full_name, birth_date, status, tutor_name, tutor_whatsapp)
 values ('aaaa1111-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000001','TEST Baja','2015-06-10','baja','T','0');
+-- a second activo Infantil Mayor player (kept separate so each assertion isolates one rule)
+insert into players (id, tenant_id, full_name, birth_date, status, tutor_name, tutor_whatsapp)
+values ('aaaa1111-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000001','TEST Bob Mayor','2015-06-10','activo','T','0');
 -- team in Infantil Mayor and a team in Infantil Menor (9-10), active season
 insert into teams (id, tenant_id, season_id, category_id, name)
 values (
@@ -299,27 +302,11 @@ select 'fixtures ready' as status;
 ```
 Expected: `fixtures ready`.
 
-- [ ] **Step 4: Assert trigger behavior (pgTAP two-statement form)**
+- [ ] **Step 4: Assert trigger behavior (three ordered `execute_sql` calls)**
 
-`mcp__supabase__execute_sql` — matching category succeeds, mismatch/baja are rejected, and moving succeeds. Each assertion runs a `do`/subtransaction and reports ok. Use the two-statement `plan` + `union all` of `is()` over exception-capturing helpers:
+Each assertion uses a **distinct** player, so results never depend on branch evaluation order or on another assertion's side effect.
 
-```sql
-select extensions.plan(4);
-select extensions.is(
-  (select public._test_try_assign('bbbb2222-0000-0000-0000-000000000001','aaaa1111-0000-0000-0000-000000000001')),
-  'ok', 'activo player matching category is accepted')
-union all select extensions.is(
-  (select public._test_try_assign('bbbb2222-0000-0000-0000-000000000002','aaaa1111-0000-0000-0000-000000000001')),
-  'error', 'wrong-category assignment is rejected')
-union all select extensions.is(
-  (select public._test_try_assign('bbbb2222-0000-0000-0000-000000000001','aaaa1111-0000-0000-0000-000000000002')),
-  'error', 'baja player is rejected')
-union all select extensions.is(
-  (select public._test_try_change_category('bbbb2222-0000-0000-0000-000000000001')),
-  'error', 'changing category of a team with roster is rejected');
-```
-
-This requires two tiny helper functions created just before the assertion (they capture whether the operation raised). Run this as its own `execute_sql` FIRST:
+**4a — create the exception-capturing helpers** (`mcp__supabase__execute_sql`):
 
 ```sql
 create or replace function public._test_try_assign(p_team uuid, p_player uuid) returns text
@@ -344,16 +331,42 @@ exception when others then
 end; $$;
 select 'helpers ready' as status;
 ```
-Expected (assertion call): no returned row begins with `not ok` (all four `ok N ...`). The first assertion also leaves Ana rostered on Mayor A, which is why assertion 4 (change category with roster) is rejected.
+Expected: `helpers ready`.
+
+**4b — insert rules** (`mcp__supabase__execute_sql`): Ana (Mayor, activo) rejected from a Menor team (category), the baja player rejected from a Mayor team (status), Bob (Mayor, activo) accepted:
+
+```sql
+select extensions.plan(3);
+select extensions.is(
+  (select public._test_try_assign('bbbb2222-0000-0000-0000-000000000002','aaaa1111-0000-0000-0000-000000000001')),
+  'error', 'wrong-category assignment is rejected')
+union all select extensions.is(
+  (select public._test_try_assign('bbbb2222-0000-0000-0000-000000000001','aaaa1111-0000-0000-0000-000000000002')),
+  'error', 'baja player is rejected')
+union all select extensions.is(
+  (select public._test_try_assign('bbbb2222-0000-0000-0000-000000000001','aaaa1111-0000-0000-0000-000000000003')),
+  'ok', 'activo player matching category is accepted');
+```
+Expected: no returned row begins with `not ok`. Assertion 3 leaves Bob rostered on Mayor A.
+
+**4c — category-change guard** (`mcp__supabase__execute_sql`), run after 4b so Mayor A has a roster:
+
+```sql
+select extensions.plan(1);
+select extensions.is(
+  (select public._test_try_change_category('bbbb2222-0000-0000-0000-000000000001')),
+  'error', 'changing category of a team with roster is rejected');
+```
+Expected: no returned row begins with `not ok`.
 
 - [ ] **Step 5: Clean up fixtures and helpers, confirm baseline**
 
 `mcp__supabase__execute_sql`:
 
 ```sql
-delete from team_players where player_id in ('aaaa1111-0000-0000-0000-000000000001','aaaa1111-0000-0000-0000-000000000002');
+delete from team_players where player_id in ('aaaa1111-0000-0000-0000-000000000001','aaaa1111-0000-0000-0000-000000000002','aaaa1111-0000-0000-0000-000000000003');
 delete from teams where id in ('bbbb2222-0000-0000-0000-000000000001','bbbb2222-0000-0000-0000-000000000002');
-delete from players where id in ('aaaa1111-0000-0000-0000-000000000001','aaaa1111-0000-0000-0000-000000000002');
+delete from players where id in ('aaaa1111-0000-0000-0000-000000000001','aaaa1111-0000-0000-0000-000000000002','aaaa1111-0000-0000-0000-000000000003');
 drop function public._test_try_assign(uuid, uuid);
 drop function public._test_try_change_category(uuid);
 select (select count(*) from teams) as teams_left, (select count(*) from team_players) as roster_left;
@@ -509,10 +522,10 @@ In `src/players/players.ts`, add three fields to the `PlayerRow` interface after
   team_name: string | null
 ```
 
-In `src/players/players.test.ts` (the `row()` helper literal), `src/players/PlayersPage.test.tsx` (the `player()` helper literal) and `src/players/PlayerFormPage.test.tsx` (the `fetchPlayer` mock literal), add to each fixture object:
+In `src/players/players.test.ts` (the `row()` helper literal), `src/players/PlayersPage.test.tsx` (the `player()` helper literal) and `src/players/PlayerFormPage.test.tsx` (the `fetchPlayer` mock literal), add to each fixture object (use `'cat1'` so the PlayerFormPage fixture already matches the team selector Task 10 exercises):
 
 ```ts
-    category_id: 'c1', team_id: null, team_name: null,
+    category_id: 'cat1', team_id: null, team_name: null,
 ```
 
 - [ ] **Step 2: Run the players tests to confirm they still pass (type + fixtures)**
@@ -557,7 +570,7 @@ beforeEach(() => {
   mocks.order.mockResolvedValue({ data: [], error: null })
   mocks.maybeSingle.mockResolvedValue({ data: null, error: null })
   mocks.single.mockResolvedValue({ data: { id: 'newteam' }, error: null })
-  mocks.or.mockResolvedValue({ data: [], error: null })
+  mocks.or.mockReturnValue({ order: mocks.order })
   mocks.eq2.mockReturnValue({ maybeSingle: mocks.maybeSingle, order: mocks.order, or: mocks.or })
   mocks.eq.mockReturnValue({ eq: mocks.eq2, maybeSingle: mocks.maybeSingle, order: mocks.order, or: mocks.or })
   mocks.insert.mockReturnValue({ select: mocks.select })
@@ -1534,13 +1547,16 @@ export function AddPlayerDialog({ open, categoryId, teamId, onAssign, onMove, on
   const [search, setSearch] = useState('')
   const [pending, setPending] = useState<Pending | null>(null)
 
+  // Reset search/pending inside the async callback (not synchronously in the
+  // effect body) to satisfy react-hooks/set-state-in-effect.
   useEffect(() => {
     if (!open) return
     let active = true
-    setSearch('')
-    setPending(null)
     void fetchEligiblePlayers(categoryId, teamId).then((rows) => {
-      if (active) setPlayers(rows)
+      if (!active) return
+      setPlayers(rows)
+      setSearch('')
+      setPending(null)
     })
     return () => {
       active = false
@@ -2002,12 +2018,13 @@ In `src/app/AppLayout.tsx`, add a link after the "Jugadores" button:
 
 - [ ] **Step 3: Update `AppLayout.test.tsx` to assert the link**
 
-Add this test to `src/app/AppLayout.test.tsx` (mirror the existing nav assertions — reuse whatever ready-state render helper the file already defines; the assertion itself is):
+Add this test to `src/app/AppLayout.test.tsx`. It uses the file's existing `renderLayout()` helper and per-test `useTenant` mock; the nav renders synchronously, so no `findBy` is needed:
 
 ```tsx
-test('shows the Equipos nav link', async () => {
-  // render with a ready tenant using the file's existing helper, then:
-  expect(await screen.findByRole('link', { name: 'Equipos' })).toHaveAttribute('href', '/equipos')
+test('shows the Equipos nav link', () => {
+  mocks.useTenant.mockReturnValue({ status: 'ready', role: 'readonly', fullName: 'Beto' })
+  renderLayout()
+  expect(screen.getByRole('link', { name: 'Equipos' })).toHaveAttribute('href', '/equipos')
 })
 ```
 
@@ -2056,7 +2073,7 @@ vi.mock('../teams/teams', async (importActual) => {
 })
 ```
 
-In `beforeEach`, add defaults (and ensure the edit-mode `fetchPlayer` fixture includes `category_id: 'cat1', team_id: null, team_name: null`):
+In `beforeEach`, add defaults (the edit-mode `fetchPlayer` fixture already has `category_id: 'cat1', team_id: null, team_name: null` from Task 4):
 
 ```tsx
   mocks.fetchTeams.mockResolvedValue([
@@ -2078,7 +2095,7 @@ test('edit mode shows a team selector with category teams and assigns on change'
   renderAt('/jugadores/p1')
   await screen.findByDisplayValue('Ana Ruiz')
   await user.selectOptions(await screen.findByLabelText('Equipo'), 'team9')
-  await waitFor(() => expect(mocks.assignPlayer).toHaveBeenCalledWith('team9', 'p1', 't1', 's1'))
+  await waitFor(() => expect(mocks.assignPlayer).toHaveBeenCalledWith('team9', 'p1', 'tenant-1', 's1'))
 })
 
 test('create mode does not render the team selector', async () => {
@@ -2220,7 +2237,8 @@ Add the tests:
 test('shows the team name for a rostered player', async () => {
   renderPage()
   expect(await screen.findByText('Ana Ruiz')).toBeInTheDocument()
-  expect(screen.getByText(/MTY AC Rojo/)).toBeInTheDocument()
+  // The "· " prefix targets the list item's secondary text, not the filter <option>.
+  expect(screen.getByText(/· MTY AC Rojo/)).toBeInTheDocument()
 })
 
 test('team filter narrows to a single team', async () => {
@@ -2328,7 +2346,8 @@ These are UI/live-service checks that cannot be executed here — list them for 
 ## Self-Review (author)
 
 - **Spec coverage:** §3 tables/integrity → Task 1; §4 triggers (activo check, category lock, `for update` TOCTOU guard, category-change guard) → Task 2; §5 view columns → Task 3; data layer → Task 4; §7.3 form + category lock → Task 5; §7.2 list → Task 6; §7.4 add-player dialog with grouping + move confirm + search → Task 7; §7.4 detail/roster/remove/delete → Task 8; §7.1 routes + nav → Task 9; §7.5 player-page selector (edit-only, disabled states) → Task 10; §7.6 list column + filter → Task 11. §8 edge cases are exercised across Tasks 2 (DB), 5/8/10 (UI states).
-- **Placeholder scan:** no TBD/TODO/"handle edge cases" placeholders; every code step shows complete, runnable code. Task 9 Step 3's `AppLayout.test.tsx` addition references "the file's existing ready-state render helper" — the implementer must reuse whatever helper that test file already defines (the assertion line is given verbatim).
+- **Placeholder scan:** no TBD/TODO/"handle edge cases" placeholders; every code step shows complete, runnable code (including the Task 9 AppLayout nav test, which uses the file's existing `renderLayout()` helper).
+- **Adversarial review applied (2026-07-03):** fixed the `.or()` mock chain (Task 4), the `tenant-1` assertion (Task 10), the `set-state-in-effect` in AddPlayerDialog (Task 7), and the ambiguous team-name query (Task 11); hardened the trigger DB test to be isolated and order-independent (Task 2, three distinct fixture players) and made the `c1`/`cat1` fixture value consistent from Task 4.
 - **Type consistency:** `MutationResult`/`CreateTeamResult`, `assignPlayer(teamId, playerId, tenantId, seasonId)`, `movePlayer(playerId, seasonId, newTeamId)`, `removeFromRoster(playerId, seasonId)`, `groupEligibleByCurrentTeam → EligibleGroup[]`, `TeamRow`/`TeamFormValues`/`SeasonRow`/`CategoryRow` are used consistently across Tasks 4–11.
 </content>
 </invoke>
