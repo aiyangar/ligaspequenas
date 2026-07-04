@@ -14,6 +14,7 @@ La liga (tenant, ej. MTY AC) puede tener **uno o varios equipos por categoría**
 | Ámbito del equipo | Por **temporada** (`season_id`): cada temporada se crean equipos y rosters de cero. Las temporadas pasadas quedan como historial de solo lectura. |
 | Relación equipo↔categoría | Cada equipo pertenece a **una categoría**. La asignación valida que la categoría derivada del jugador coincida con la del equipo (reforzado en servidor). |
 | Un jugador, un equipo | `unique (player_id, season_id)` en la tabla de roster. Mover de equipo (mismo criterio de categoría) = actualizar esa fila; lo decide el coach/admin. |
+| Elegibilidad | Solo jugadores con estatus `activo` son asignables/movibles. Regla única para ambas vías de asignación, reforzada en el trigger (§4). |
 | Datos del equipo | `name`, `category_id`, `coach` (texto libre, nullable), `color` (texto libre, nullable). Sin cupo máximo en v1. |
 | Gestión | Solo sobre la **temporada activa**. No hay UI para gestionar rosters de temporadas no activas. |
 | Asignación bidireccional | Desde el detalle del jugador (selector de equipo) y desde el detalle del equipo (diálogo "añadir jugador"). |
@@ -78,14 +79,15 @@ La UI solo ofrece asignaciones válidas, pero la regla se refuerza en Postgres (
 
 Trigger `BEFORE INSERT OR UPDATE` sobre `team_players`, función `private.enforce_team_category()` (con el hardening de `search_path` del idioma `private.*`):
 
-1. Lee la `category_id` y `season_id` del equipo destino (`new.team_id`).
-2. Calcula la categoría derivada del jugador **contra el `cutoff_date` de esa temporada** (misma fórmula que la vista: `extract(year from age(cutoff_date, birth_date))` entre `min_edad_liga` y `max_edad_liga`). Se parametriza por la temporada del equipo — no por "la activa" — para que el trigger sea correcto por sí mismo.
-3. Si el jugador no cae en ninguna categoría ("fuera de categoría") o su categoría no es la del equipo → `raise exception` con mensaje claro.
+1. Lee la `category_id` y `season_id` del equipo destino (`new.team_id`) con **`select … for update`** sobre la fila de `teams`. El lock cierra la carrera TOCTOU con el trigger de `teams` de abajo: una asignación concurrente con un cambio de categoría del equipo se serializa — quien llegue segundo ve el estado ya commiteado y valida (o es rechazado) contra él.
+2. Verifica que el jugador tenga estatus `activo`; si está `baja` → `raise exception` (regla de elegibilidad del §2, aplica a asignar y a mover).
+3. Calcula la categoría derivada del jugador **contra el `cutoff_date` de esa temporada** (misma fórmula que la vista: `extract(year from age(cutoff_date, birth_date))` entre `min_edad_liga` y `max_edad_liga`). Se parametriza por la temporada del equipo — no por "la activa" — para que el trigger sea correcto por sí mismo.
+4. Si el jugador no cae en ninguna categoría ("fuera de categoría") o su categoría no es la del equipo → `raise exception` con mensaje claro.
 
 Notas:
 
 - El trigger también protege el caso `UPDATE` (mover de equipo).
-- **Cambio de categoría de un equipo con roster:** un `UPDATE` de `teams.category_id` invalidaría a sus miembros silenciosamente. Se añade un trigger `BEFORE UPDATE` sobre `teams` que rechaza cambiar `category_id` (o `season_id`) si el equipo tiene filas en `team_players`. La UI deshabilita el campo categoría cuando el roster no está vacío.
+- **Cambio de categoría de un equipo con roster:** un `UPDATE` de `teams.category_id` invalidaría a sus miembros silenciosamente. Se añade un trigger `BEFORE UPDATE` sobre `teams` que rechaza cambiar `category_id` (o `season_id`) si el equipo tiene filas en `team_players`. La UI deshabilita el campo categoría cuando el roster no está vacío. (El lock del punto 1 garantiza que este guard y el trigger de asignación no se crucen bajo `READ COMMITTED`.)
 - **Cambio de temporada:** no hay estado que reparar. Los rosters de la temporada anterior quedan como historial; la nueva temporada arranca sin equipos ni rosters.
 - **Cambio de `birth_date` de un jugador ya asignado:** fuera del alcance del candado en v1 (caso raro, corrección de captura). Se documenta como limitación conocida; el admin debe reasignar a mano si aplica.
 
@@ -117,7 +119,8 @@ Módulo nuevo `src/teams/` siguiendo las convenciones de `src/players/` (MUI, na
 |---|---|---|
 | `equipos` | `TeamsPage` — lista de equipos de la temporada activa | Autenticado |
 | `equipos/:id` | `TeamDetailPage` — datos del equipo + roster | Autenticado (acciones solo admin) |
-| `equipos/nuevo` | `TeamFormPage` | Admin (`RequireAdmin`) |
+| `equipos/nuevo` | `TeamFormPage` (alta) | Admin (`RequireAdmin`) |
+| `equipos/:id/editar` | `TeamFormPage` (edición) | Admin (`RequireAdmin`) |
 
 Entrada "Equipos" en la navegación del `AppLayout`, junto a Jugadores.
 
@@ -131,6 +134,8 @@ Crear/editar: nombre, categoría (select de `categories` del tenant), coach, col
 
 ### 7.4 `TeamDetailPage` — roster y "Añadir jugador"
 
+Cabecera con los datos del equipo y, para admin, acciones **"Editar"** (link a `equipos/:id/editar`) y **"Eliminar equipo"** (confirmación que avisa que el roster se vaciará — cascade del §3.3).
+
 Roster: lista de jugadores del equipo (nombre, edad_liga), con acción "quitar del equipo" (admin, con confirmación).
 
 Botón **"Añadir jugador"** (admin) abre un diálogo con los jugadores **elegibles**: categoría derivada == categoría del equipo, estatus `activo`, y que **no están ya en este equipo**. Agrupados en este orden:
@@ -142,12 +147,12 @@ El diálogo incluye búsqueda por nombre (misma UX de filtro que la lista de jug
 
 ### 7.5 Detalle del jugador (`PlayerFormPage`)
 
-Sección/selector **"Equipo"**: lista los equipos de la categoría derivada del jugador en la temporada activa, más la opción "Sin equipo".
+Sección/selector **"Equipo"**: lista los equipos de la categoría derivada del jugador en la temporada activa, más la opción "Sin equipo". **Solo en modo edición** (`jugadores/:id`): en el alta (`jugadores/nuevo`) el selector no aparece — el jugador aún no existe; se asigna después desde su edición o desde el equipo. Así se evita un insert en dos pasos con fallo parcial.
 
 - Asignar (de vacío a equipo) = `insert` en `team_players`.
 - Cambiar = `update` de la fila.
 - "Sin equipo" = `delete` de la fila.
-- Jugador "fuera de categoría" o sin temporada activa → selector deshabilitado con hint.
+- Jugador "fuera de categoría", con estatus `baja`, o sin temporada activa → selector deshabilitado con hint (misma regla de elegibilidad que §7.4, reforzada por el trigger).
 - Visible solo lectura para usuarios `readonly`.
 
 ### 7.6 Lista de jugadores (`PlayersPage`)
@@ -161,6 +166,7 @@ Sección/selector **"Equipo"**: lista los equipos de la categoría derivada del 
 | Caso | Comportamiento |
 |---|---|
 | Jugador fuera de categoría (edad_liga fuera de todo rango) | No asignable a ningún equipo. UI lo deshabilita; trigger lo rechaza. |
+| Jugador con estatus `baja` | No asignable ni movible (UI + trigger). Si ya estaba en un roster y pasa a `baja`, **permanece** hasta que un admin lo quite (el `delete` no pasa por el candado). |
 | Sin temporada activa | No se pueden crear equipos ni asignar. Estados vacíos con explicación. |
 | Borrar equipo | Cascade vacía su roster. Confirmación en UI avisándolo. |
 | Borrar jugador | Cascade lo saca del roster. |
@@ -170,7 +176,7 @@ Sección/selector **"Equipo"**: lista los equipos de la categoría derivada del 
 
 ## 9. Testing
 
-- **DB (vía MCP, convención pgTAP two-statement del repo):** trigger acepta asignación con categoría correcta; rechaza mismatch y fuera-de-categoría; `unique (player_id, season_id)` impide segundo equipo; mover de equipo vía `update` pasa el trigger; cascades (equipo→roster, jugador→roster); rechazo de cambio de `category_id` con roster no vacío. Limpieza de fixtures al final; `get_advisors` tras el DDL.
+- **DB (vía MCP, convención pgTAP two-statement del repo):** trigger acepta asignación con categoría correcta; rechaza mismatch, fuera-de-categoría y jugador `baja`; `unique (player_id, season_id)` impide segundo equipo; mover de equipo vía `update` pasa el trigger; cascades (equipo→roster, jugador→roster); rechazo de cambio de `category_id` con roster no vacío. Limpieza de fixtures al final; `get_advisors` tras el DDL.
 - **Unit (Vitest, junto al código):** `teams.ts` (fetch/agrupación por categoría, elegibles con agrupación sin-equipo/por-equipo-actual, create/update/move/remove); componentes (`TeamsPage`, `TeamFormPage`, `TeamDetailPage`, diálogo de añadir, selector en `PlayerForm`) con providers mockeados, siguiendo los tests existentes de `src/players/`.
 - **Manual (browser):** flujo completo — crear equipo, asignar desde jugador, asignar/mover desde equipo con confirmación, filtro por equipo en la lista.
 
