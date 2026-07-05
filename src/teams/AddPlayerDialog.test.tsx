@@ -1,0 +1,58 @@
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { beforeEach, expect, vi } from 'vitest'
+import { AddPlayerDialog } from './AddPlayerDialog'
+import type { PlayerRow } from '../players/players'
+
+const mocks = vi.hoisted(() => ({ fetchEligiblePlayers: vi.fn() }))
+vi.mock('./teams', async (importActual) => {
+  const actual = await importActual<typeof import('./teams')>()
+  return { ...actual, fetchEligiblePlayers: mocks.fetchEligiblePlayers }
+})
+
+function p(over: Partial<PlayerRow>): PlayerRow {
+  return {
+    id: 'p1', tenant_id: 't1', full_name: 'Ana', birth_date: '2015-06-10', curp: null,
+    photo_path: null, status: 'activo', enrollment_date: '', tutor_name: 'T', tutor_whatsapp: '0',
+    tutor_email: null, emergency_contact_name: null, emergency_contact_phone: null,
+    affiliation_status: 'pendiente', affiliation_date: null, created_at: '', updated_at: '',
+    edad_liga: 11, division: 'Infantil', category_name: 'Infantil Mayor', category_year: 1,
+    category_id: 'cat1', team_id: null, team_name: null, ...over,
+  }
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mocks.fetchEligiblePlayers.mockResolvedValue([
+    p({ id: 'free', full_name: 'Free Agent', team_id: null, team_name: null }),
+    p({ id: 'inB', full_name: 'Otro Equipo', team_id: 'B', team_name: 'MTY AC Azul' }),
+  ])
+})
+
+test('free agents assign directly on click', async () => {
+  const onAssign = vi.fn()
+  const user = userEvent.setup()
+  render(<AddPlayerDialog open categoryId="cat1" teamId="A" onAssign={onAssign} onMove={vi.fn()} onClose={vi.fn()} />)
+  await user.click(await screen.findByText('Free Agent'))
+  expect(onAssign).toHaveBeenCalledWith('free')
+})
+
+test('clicking a player in another team asks for confirmation before moving', async () => {
+  const onMove = vi.fn()
+  const user = userEvent.setup()
+  render(<AddPlayerDialog open categoryId="cat1" teamId="A" onAssign={vi.fn()} onMove={onMove} onClose={vi.fn()} />)
+  await user.click(await screen.findByText('Otro Equipo'))
+  expect(onMove).not.toHaveBeenCalled()
+  expect(await screen.findByText(/Se moverá de MTY AC Azul/)).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Mover' }))
+  await waitFor(() => expect(onMove).toHaveBeenCalledWith('inB', 'MTY AC Azul'))
+})
+
+test('search narrows the eligible list', async () => {
+  const user = userEvent.setup()
+  render(<AddPlayerDialog open categoryId="cat1" teamId="A" onAssign={vi.fn()} onMove={vi.fn()} onClose={vi.fn()} />)
+  await screen.findByText('Free Agent')
+  await user.type(screen.getByLabelText(/Buscar/), 'otro')
+  await waitFor(() => expect(screen.queryByText('Free Agent')).not.toBeInTheDocument())
+  expect(screen.getByText('Otro Equipo')).toBeInTheDocument()
+})
