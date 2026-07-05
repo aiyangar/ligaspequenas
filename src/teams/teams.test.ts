@@ -125,30 +125,46 @@ test('groupEligibleByCurrentTeam puts free agents first, then groups by current 
 })
 
 test('fetchTeam reads a single team from teams_with_meta by id', async () => {
-  await fetchTeam('team9')
+  const res = await fetchTeam('team9')
   expect(mocks.from).toHaveBeenCalledWith('teams_with_meta')
   expect(mocks.eq).toHaveBeenCalledWith('id', 'team9')
+  expect(res).toBeNull()
 })
 
 test('fetchCategories reads categories ordered by sort_order', async () => {
-  await fetchCategories()
+  const res = await fetchCategories()
   expect(mocks.from).toHaveBeenCalledWith('categories')
   expect(mocks.order).toHaveBeenCalledWith('sort_order', { ascending: true })
+  expect(res).toEqual([])
 })
 
-test('updateTeam updates the team and coerces blanks to null', async () => {
-  const res = await updateTeam('team9', { name: 'Azul', category_id: 'cat1', coach: '', color: 'Azul' })
+test('updateTeam updates the team and coerces blank coach and color to null', async () => {
+  mocks.updateEq.mockResolvedValueOnce({ error: null })
+  const res = await updateTeam('team9', { name: 'Azul', category_id: 'cat1', coach: '', color: '' })
   expect(mocks.from).toHaveBeenCalledWith('teams')
   expect(mocks.update).toHaveBeenCalledWith(
-    expect.objectContaining({ name: 'Azul', category_id: 'cat1', coach: null, color: 'Azul' }),
+    expect.objectContaining({ name: 'Azul', category_id: 'cat1', coach: null, color: null }),
   )
   expect(mocks.updateEq).toHaveBeenCalledWith('id', 'team9')
   expect(res).toEqual({ ok: true })
 })
 
+test('updateTeam surfaces the error message on failure', async () => {
+  mocks.updateEq.mockResolvedValueOnce({ error: { message: 'update failed' } })
+  const res = await updateTeam('team9', { name: 'Azul', category_id: 'cat1', coach: '', color: '' })
+  expect(res).toEqual({ ok: false, error: 'update failed' })
+})
+
 test('deleteTeam deletes the team by id', async () => {
+  mocks.delEq.mockResolvedValueOnce({ error: null })
   const res = await deleteTeam('team9')
   expect(mocks.from).toHaveBeenCalledWith('teams')
   expect(mocks.delEq).toHaveBeenCalledWith('id', 'team9')
   expect(res).toEqual({ ok: true })
+})
+
+test('deleteTeam surfaces the error message on failure', async () => {
+  mocks.delEq.mockResolvedValueOnce({ error: { message: 'delete failed' } })
+  const res = await deleteTeam('team9')
+  expect(res).toEqual({ ok: false, error: 'delete failed' })
 })
