@@ -9,12 +9,25 @@ const mocks = vi.hoisted(() => ({
   createPlayer: vi.fn(),
   updatePlayer: vi.fn(),
   useTenant: vi.fn(),
+  fetchTeams: vi.fn(),
+  fetchActiveSeason: vi.fn(),
+  assignPlayer: vi.fn(),
+  movePlayer: vi.fn(),
+  removeFromRoster: vi.fn(),
 }))
 vi.mock('./players', async (importActual) => {
   const actual = await importActual<typeof import('./players')>()
   return { ...actual, fetchPlayer: mocks.fetchPlayer, createPlayer: mocks.createPlayer, updatePlayer: mocks.updatePlayer }
 })
 vi.mock('../tenant/TenantContext', () => ({ useTenant: mocks.useTenant }))
+vi.mock('../teams/teams', async (importActual) => {
+  const actual = await importActual<typeof import('../teams/teams')>()
+  return {
+    ...actual,
+    fetchTeams: mocks.fetchTeams, fetchActiveSeason: mocks.fetchActiveSeason,
+    assignPlayer: mocks.assignPlayer, movePlayer: mocks.movePlayer, removeFromRoster: mocks.removeFromRoster,
+  }
+})
 
 function renderAt(path: string) {
   const router = createMemoryRouter(
@@ -43,6 +56,15 @@ beforeEach(() => {
     category_name: 'Infantil Mayor', category_year: 1,
     category_id: 'cat1', team_id: null, team_name: null,
   })
+  mocks.fetchTeams.mockResolvedValue([
+    { id: 'team9', tenant_id: 't1', season_id: 's1', category_id: 'cat1', name: 'MTY AC Rojo',
+      coach: null, color: null, created_at: '', updated_at: '', category_name: 'Infantil Mayor',
+      division: 'Infantil', category_sort_order: 5, season_is_active: true, player_count: 0 },
+  ])
+  mocks.fetchActiveSeason.mockResolvedValue({ id: 's1', tenant_id: 't1', name: '2026-2027', cutoff_date: '2027-04-30', is_active: true })
+  mocks.assignPlayer.mockResolvedValue({ ok: true })
+  mocks.movePlayer.mockResolvedValue({ ok: true })
+  mocks.removeFromRoster.mockResolvedValue({ ok: true })
 })
 
 test('create mode submits createPlayer with the tenant id', async () => {
@@ -104,4 +126,18 @@ test('editing shows an in-app success confirmation', async () => {
   await screen.findByDisplayValue('Ana Ruiz')
   await user.click(screen.getByRole('button', { name: 'Guardar' }))
   expect(await screen.findByText('Cambios guardados')).toBeInTheDocument()
+})
+
+test('edit mode shows a team selector with category teams and assigns on change', async () => {
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  await user.selectOptions(await screen.findByLabelText('Equipo'), 'team9')
+  await waitFor(() => expect(mocks.assignPlayer).toHaveBeenCalledWith('team9', 'p1', 'tenant-1', 's1'))
+})
+
+test('create mode does not render the team selector', async () => {
+  renderAt('/jugadores/nuevo')
+  await screen.findByLabelText(/Nombre completo/)
+  expect(screen.queryByLabelText('Equipo')).not.toBeInTheDocument()
 })
