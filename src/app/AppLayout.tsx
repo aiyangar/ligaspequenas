@@ -43,6 +43,7 @@ export function AppLayout() {
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>{fullName}</Typography>
           <Button color="inherit" component={NavLink} to="/">Jugadores</Button>
+          <Button color="inherit" component={NavLink} to="/equipos">Equipos</Button>
           <Button color="inherit" component={NavLink} to="/quien-debe">Quién debe</Button>
           {isAdmin(role) && (
             <Button color="inherit" component={NavLink} to="/usuarios">Usuarios</Button>

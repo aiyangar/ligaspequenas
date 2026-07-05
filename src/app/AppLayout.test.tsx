@@ -40,6 +40,12 @@ test('shows the Usuarios link for admins', () => {
   expect(screen.getByRole('link', { name: 'Usuarios' })).toBeInTheDocument()
 })
 
+test('shows the Equipos nav link', () => {
+  mocks.useTenant.mockReturnValue({ status: 'ready', role: 'readonly', fullName: 'Beto' })
+  renderLayout()
+  expect(screen.getByRole('link', { name: 'Equipos' })).toHaveAttribute('href', '/equipos')
+})
+
 test('shows the no-access screen when the user has no profile', () => {
   mocks.useTenant.mockReturnValue({ status: 'no-profile', role: null, fullName: null })
   renderLayout()
