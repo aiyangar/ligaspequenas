@@ -26,6 +26,9 @@ export interface PlayerRow {
   division: string | null
   category_name: string | null
   category_year: number | null
+  category_id: string | null
+  team_id: string | null
+  team_name: string | null
 }
 
 export async function fetchPlayers(): Promise<PlayerRow[]> {

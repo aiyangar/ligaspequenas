@@ -19,7 +19,8 @@ function player(over: Partial<PlayerRow>): PlayerRow {
     tutor_name: 'Luis', tutor_whatsapp: '811', tutor_email: null,
     emergency_contact_name: null, emergency_contact_phone: null,
     affiliation_status: 'pendiente', affiliation_date: null, created_at: '', updated_at: '',
-    edad_liga: 11, division: 'Infantil', category_name: 'Infantil Mayor', category_year: 1, ...over,
+    edad_liga: 11, division: 'Infantil', category_name: 'Infantil Mayor', category_year: 1,
+    category_id: 'cat1', team_id: null, team_name: null, ...over,
   }
 }
 
