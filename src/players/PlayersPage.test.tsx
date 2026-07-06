@@ -40,8 +40,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Admin', tenantId: 't1' })
   mocks.fetchPlayers.mockResolvedValue([
-    player({ id: 'p1', full_name: 'Ana Ruiz', category_name: 'Infantil Mayor', category_year: 1 }),
-    player({ id: 'p2', full_name: 'Beto Gómez', status: 'baja', category_name: null, category_year: null, edad_liga: 25 }),
+    player({ id: 'p1', full_name: 'Ana Ruiz', category_name: 'Infantil Mayor', category_year: 1, team_id: 'team9', team_name: 'MTY AC Rojo' }),
+    player({ id: 'p2', full_name: 'Beto Gómez', status: 'baja', category_name: null, category_year: null, edad_liga: 25, team_id: null, team_name: null }),
   ])
 })
 
@@ -66,6 +66,22 @@ test('status filter narrows to activos', async () => {
   renderPage()
   await screen.findByText('Beto Gómez')
   await user.selectOptions(screen.getByLabelText('Estatus'), 'activo')
+  await waitFor(() => expect(screen.queryByText('Beto Gómez')).not.toBeInTheDocument())
+  expect(screen.getByText('Ana Ruiz')).toBeInTheDocument()
+})
+
+test('shows the team name for a rostered player', async () => {
+  renderPage()
+  expect(await screen.findByText('Ana Ruiz')).toBeInTheDocument()
+  // The "· " prefix targets the list item's secondary text, not the filter <option>.
+  expect(screen.getByText(/· MTY AC Rojo/)).toBeInTheDocument()
+})
+
+test('team filter narrows to a single team', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  await user.selectOptions(screen.getByLabelText('Equipo'), 'MTY AC Rojo')
   await waitFor(() => expect(screen.queryByText('Beto Gómez')).not.toBeInTheDocument())
   expect(screen.getByText('Ana Ruiz')).toBeInTheDocument()
 })

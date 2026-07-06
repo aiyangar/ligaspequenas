@@ -19,6 +19,7 @@ export function PlayersPage() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [status, setStatus] = useState<'' | PlayerStatus>('')
+  const [team, setTeam] = useState('')
 
   const load = useCallback(async (): Promise<PlayerRow[]> => fetchPlayers(), [])
 
@@ -37,10 +38,16 @@ export function PlayersPage() {
     return Array.from(new Set(names)).sort()
   }, [players])
 
+  const teams = useMemo(() => {
+    const names = players.map((p) => p.team_name).filter((n): n is string => Boolean(n))
+    return Array.from(new Set(names)).sort()
+  }, [players])
+
   const visible = players.filter((p) => {
     if (search && !p.full_name.toLowerCase().includes(search.toLowerCase())) return false
     if (category && p.category_name !== category) return false
     if (status && p.status !== status) return false
+    if (team && p.team_name !== team) return false
     return true
   })
 
@@ -101,6 +108,21 @@ export function PlayersPage() {
           <option value="activo">Activo</option>
           <option value="baja">Baja</option>
         </TextField>
+        <TextField
+          select
+          label="Equipo"
+          value={team}
+          onChange={(e) => setTeam(e.target.value)}
+          slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+          sx={{ minWidth: 160 }}
+        >
+          <option value="">Todos</option>
+          {teams.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </TextField>
       </Stack>
 
       <List sx={{ mt: 2 }}>
@@ -108,7 +130,7 @@ export function PlayersPage() {
           <ListItemButton key={p.id} component={RouterLink} to={`/jugadores/${p.id}`}>
             <ListItemText
               primary={p.full_name}
-              secondary={`${playerCategoryText(p)} · ${p.status}`}
+              secondary={`${playerCategoryText(p)} · ${p.status}${p.team_name ? ` · ${p.team_name}` : ''}`}
             />
           </ListItemButton>
         ))}
