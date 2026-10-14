@@ -1,5 +1,5 @@
 import { beforeEach, expect, vi } from 'vitest'
-import { fetchPlayers, fetchPlayer, playerCategoryText, createPlayer, updatePlayer, emptyPlayer, rowToValues } from './players'
+import { fetchPlayers, fetchPlayer, playerCategoryText, createPlayer, updatePlayer, emptyPlayer, rowToValues, validatePhotoFile, uploadPlayerPhoto, removePlayerPhoto } from './players'
 import type { PlayerRow, PlayerFormValues } from './players'
 
 const mocks = vi.hoisted(() => ({
@@ -12,8 +12,13 @@ const mocks = vi.hoisted(() => ({
   single: vi.fn(),
   update: vi.fn(),
   updateEq: vi.fn(),
+  storageFrom: vi.fn(),
+  upload: vi.fn(),
+  remove: vi.fn(),
+  list: vi.fn(),
+  calls: [] as string[],
 }))
-vi.mock('../lib/supabase', () => ({ supabase: { from: mocks.from } }))
+vi.mock('../lib/supabase', () => ({ supabase: { from: mocks.from, storage: { from: mocks.storageFrom } } }))
 
 function row(over: Partial<PlayerRow> = {}): PlayerRow {
   return {
@@ -38,11 +43,25 @@ beforeEach(() => {
   // write chains: from().insert().select('id').single()  and  from().update().eq()
   mocks.single.mockResolvedValue({ data: { id: 'newid' }, error: null })
   mocks.insert.mockReturnValue({ select: mocks.select })
-  mocks.updateEq.mockResolvedValue({ error: null })
+  mocks.updateEq.mockImplementation(async () => {
+    mocks.calls.push('update')
+    return { error: null }
+  })
   mocks.update.mockReturnValue({ eq: mocks.updateEq })
   // select serves reads (order/eq) and the insert().select('id').single() write
   mocks.select.mockReturnValue({ order: mocks.order, eq: mocks.eq, single: mocks.single })
   mocks.from.mockReturnValue({ select: mocks.select, insert: mocks.insert, update: mocks.update })
+  mocks.calls.length = 0
+  mocks.upload.mockImplementation(async () => {
+    mocks.calls.push('upload')
+    return { data: { path: 't1/p1/photo' }, error: null }
+  })
+  mocks.remove.mockImplementation(async (paths: string[]) => {
+    mocks.calls.push('remove')
+    return { data: paths.map((name) => ({ name })), error: null }
+  })
+  mocks.list.mockResolvedValue({ data: [], error: null })
+  mocks.storageFrom.mockReturnValue({ upload: mocks.upload, remove: mocks.remove, list: mocks.list })
 })
 
 test('fetchPlayers reads the category view ordered by name', async () => {
@@ -149,4 +168,61 @@ test('fetchPlayers throws when Supabase returns an error', async () => {
 test('fetchPlayer throws when Supabase returns an error', async () => {
   mocks.maybeSingle.mockResolvedValue({ data: null, error: { message: 'boom' } })
   await expect(fetchPlayer('p1')).rejects.toThrow('boom')
+})
+
+function photo(type: string, size: number): File {
+  const f = new File(['x'], 'p', { type })
+  Object.defineProperty(f, 'size', { value: size })
+  return f
+}
+
+test('validatePhotoFile accepts images up to exactly 5 MB', () => {
+  expect(validatePhotoFile(photo('image/jpeg', 5 * 1024 * 1024))).toBeNull()
+  expect(validatePhotoFile(photo('image/png', 5 * 1024 * 1024 + 1))).toBe('La foto supera 5 MB.')
+  expect(validatePhotoFile(photo('application/pdf', 1))).toBe('Formato no permitido: usa JPG, PNG o WebP.')
+  expect(validatePhotoFile(photo('', 1))).toBe('Formato no permitido: usa JPG, PNG o WebP.')
+})
+
+test('uploadPlayerPhoto upserts to tenant/player/photo, then sets photo_path', async () => {
+  const f = photo('image/jpeg', 100)
+  const res = await uploadPlayerPhoto({ id: 'p1', tenant_id: 't1', photo_path: null }, f, true)
+  expect(res).toEqual({ ok: true })
+  expect(mocks.storageFrom).toHaveBeenCalledWith('player-files')
+  expect(mocks.upload).toHaveBeenCalledWith('t1/p1/photo', f, { upsert: true, contentType: 'image/jpeg' })
+  expect(mocks.from).toHaveBeenCalledWith('players')
+  expect(mocks.update).toHaveBeenCalledWith({ photo_path: 't1/p1/photo' })
+  expect(mocks.calls).toEqual(['upload', 'update'])
+})
+
+test('uploadPlayerPhoto validates before calling Supabase', async () => {
+  const res = await uploadPlayerPhoto({ id: 'p1', tenant_id: 't1', photo_path: null }, photo('application/pdf', 1), true)
+  expect(res).toEqual({ ok: false, error: 'Formato no permitido: usa JPG, PNG o WebP.' })
+  expect(mocks.upload).not.toHaveBeenCalled()
+})
+
+test('uploadPlayerPhoto rolls back a new photo when the update fails', async () => {
+  mocks.updateEq.mockResolvedValueOnce({ error: { message: 'consent_required: x' } })
+  const res = await uploadPlayerPhoto({ id: 'p1', tenant_id: 't1', photo_path: null }, photo('image/jpeg', 1), true)
+  expect(res).toEqual({ ok: false, error: 'Primero registra el consentimiento de imagen y el aviso de privacidad.' })
+  expect(mocks.remove).toHaveBeenCalledWith(['t1/p1/photo'])
+})
+
+test('uploadPlayerPhoto does not roll back a replacement', async () => {
+  mocks.updateEq.mockResolvedValueOnce({ error: { message: 'boom' } })
+  await uploadPlayerPhoto({ id: 'p1', tenant_id: 't1', photo_path: 't1/p1/photo' }, photo('image/jpeg', 1), true)
+  expect(mocks.remove).not.toHaveBeenCalled()
+})
+
+test('removePlayerPhoto removes the object first, then clears photo_path', async () => {
+  const res = await removePlayerPhoto({ id: 'p1', photo_path: 't1/p1/photo' })
+  expect(res).toEqual({ ok: true })
+  expect(mocks.update).toHaveBeenCalledWith({ photo_path: null })
+  expect(mocks.calls).toEqual(['remove', 'update'])
+})
+
+test('removePlayerPhoto keeps photo_path when the remove fails', async () => {
+  mocks.remove.mockResolvedValueOnce({ data: null, error: { message: 'boom' } })
+  const res = await removePlayerPhoto({ id: 'p1', photo_path: 't1/p1/photo' })
+  expect(res.ok).toBe(false)
+  expect(mocks.update).not.toHaveBeenCalled()
 })

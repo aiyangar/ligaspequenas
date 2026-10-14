@@ -24,9 +24,10 @@ import {
 import type { PlayerFormValues, PlayerRow } from './players'
 import { fetchTeams, fetchActiveSeason, assignPlayer, movePlayer, removeFromRoster } from '../teams/teams'
 import type { TeamRow, SeasonRow } from '../teams/teams'
-import { fetchPlayerDocuments } from '../documents/documents'
+import { consentGranted, fetchPlayerDocuments } from '../documents/documents'
 import type { DocumentRow } from '../documents/documents'
 import { PlayerDocumentsSection } from '../documents/PlayerDocumentsSection'
+import { PlayerPhoto } from './PlayerPhoto'
 
 export function PlayerFormPage() {
   const { id } = useParams()
@@ -185,6 +186,17 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
     !canEdit || !tenantId || !season || row?.status === 'baja' || row?.category_id == null
   const currentTeamId = row?.team_id ?? ''
 
+  async function handlePhotoChanged(text: string) {
+    showToast(text)
+    if (!row) return
+    try {
+      const refreshed = await fetchPlayer(row.id)
+      if (refreshed) setRow(refreshed)
+    } catch {
+      setMessage('Error: no se pudo actualizar la vista. Recarga la página.')
+    }
+  }
+
   async function handleTeamChange(next: string) {
     if (!row || !season || !tenantId) return
     let res
@@ -227,6 +239,14 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
         <Typography variant="h4" component="h1" gutterBottom>
           {editing ? 'Jugador' : 'Nuevo jugador'}
         </Typography>
+        {editing && row && (
+          <PlayerPhoto
+            player={row}
+            canEdit={canEdit}
+            consentGranted={documents !== null && consentGranted(documents)}
+            onChanged={handlePhotoChanged}
+          />
+        )}
         <PlayerForm values={values} onChange={setValues} disabled={!canEdit} categoryText={categoryText} />
         {editing && row && (teamsLoadError ? (
           <LoadError message="No se pudieron cargar los equipos." onRetry={handleTeamsRetry} />
