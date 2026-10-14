@@ -21,7 +21,7 @@ Sin cambios de base de datos. Todo es frontend + tests.
 | UX de registro inexistente | En la misma página: aviso "Jugador no encontrado" / "Equipo no encontrado" + botón **Volver a Jugadores** / **Volver a Equipos**. Sin redirección. |
 | Inexistente vs. denegado por RLS | Se muestran igual ("no encontrado"). Intencional: no se revela la existencia de registros de otro tenant. |
 | Opciones de filtros | Siguen derivándose de los jugadores cargados (sin consultas nuevas); se deduplican por id. |
-| Entrega | Una rama + un PR por issue, base `main`. Orden en §8 (los cuatro comparten `PlayerFormPage` / `PlayersPage`, así que no todo es paralelizable). |
+| Entrega | Una rama + un PR por issue, base `develop`. Orden en §8 (los cuatro comparten `PlayerFormPage` / `PlayersPage`, así que no todo es paralelizable). |
 
 ## 3. Rutas reales (referencia)
 
@@ -111,11 +111,11 @@ Caso inalcanzable, solo documentado: en `TeamDetailPage`, si faltara `id`, `load
 
 Solapamientos (verificados en revisión): #9 y #11 reescriben el mismo bloque de `PlayerFormPage` (selector, `helperText`, `handleTeamChange`); #9 y #10 tocan `PlayersPage` (envoltura del contenido vs. filtros); #8 reescribe el gating de `PlayerFormPage`; todos tocan los mismos archivos de test.
 
-1. **Ola 1, en paralelo:** #11 y #10, ambos desde `main`. Archivos disjuntos (`PlayerFormPage*` vs. `PlayersPage*`).
-2. **Ola 2:** #9, cortado de `main` **después** de que #10 y #11 estén mergeados.
-3. **Ola 3:** #8, cortado de `fix/list-fetch-errors` (PR con base `fix/list-fetch-errors`; se retargetea a `main` al mergear #9). Si #9 ya está mergeado cuando arranca, se corta de `main`.
+1. **Ola 1, en paralelo:** #11 y #10, ambos desde `develop`. Archivos disjuntos (`PlayerFormPage*` vs. `PlayersPage*`).
+2. **Ola 2:** #9, cortado de `develop` **después** de que #10 y #11 estén mergeados ahí.
+3. **Ola 3:** #8, cortado de `develop` después de que #9 esté mergeado ahí.
 
-Los merges los hace el owner; cada ola espera el merge de la anterior. Antes de señalar cualquier merge como seguro: rebase sobre `main` actualizado + suite completa.
+Ciclo por rama: implementador → revisor previo al PR. Sin Blockers/Majors → PR a `develop` (Minors/Nits se registran como issues). Con Blockers/Majors → el orquestador planea los cambios y se reinicia el ciclo; máximo 3 ciclos, luego se escala al owner. El orquestador mergea a `develop`; `develop → main` solo con confirmación del owner. Antes de cualquier merge: rebase sobre `develop` actualizado + suite completa.
 
 ## 9. Pruebas (TDD, Vitest + Testing Library)
 

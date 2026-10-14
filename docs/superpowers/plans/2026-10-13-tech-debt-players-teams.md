@@ -12,8 +12,9 @@
 
 ## Global Constraints
 
-- One issue = one branch = one PR, base `main`: #11 `fix/team-selector-guard`, #10 `fix/filters-by-id`, #9 `fix/list-fetch-errors`, #8 `fix/not-found-state`.
-- Delivery waves (spec §8): **Wave 1** = Task 1 (#11) ∥ Task 2 (#10), both from `main`. **Wave 2** = Tasks 3–8 (#9), cut from `main` only after #10 and #11 are merged. **Wave 3** = Tasks 9–11 (#8), cut from `fix/list-fetch-errors` (PR base `fix/list-fetch-errors`) or from `main` if #9 is already merged.
+- One issue = one branch = one PR, base `develop`: #11 `fix/team-selector-guard`, #10 `fix/filters-by-id`, #9 `fix/list-fetch-errors`, #8 `fix/not-found-state`.
+- Delivery waves (spec §8): **Wave 1** = Task 1 (#11) ∥ Task 2 (#10), both from `develop`. **Wave 2** = Tasks 3–8 (#9), cut from `develop` only after #10 and #11 are merged into it. **Wave 3** = Tasks 9–11 (#8), cut from `develop` after #9 is merged into it.
+- Per-branch cycle: implementer → pre-PR reviewer; no Blockers/Majors → PR to `develop` (Minors/Nits filed as GitHub issues); Blockers/Majors → orchestrator plans fixes and the cycle restarts; max 3 cycles, then escalate to the owner. The orchestrator merges into `develop`; `develop → main` only with the owner's confirmation.
 - Each implementer works in its own worktree outside the repo: `git -C /Users/arturoortiz/Proyectos/Personales/ligaspequenas worktree add /Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/<branch-slug> -b <branch> <base>`, then `pnpm install --frozen-lockfile` inside it. Tests need no `.env` (`vite.config.ts` injects test env).
 - Git inside a worktree: always `git -C <absolute worktree path> …`, **one git command per shell call**. Never use `CLAUDE_GIT_OVERRIDE`. Never push, open PRs or merge — report and wait.
 - Code, identifiers, comments, commit messages: English. Comments only for a non-obvious *why*, one short line max. UI copy: Spanish, exactly as written in this plan.
@@ -263,7 +264,7 @@ git -C <worktree> commit -m "fix: key players-list filters by id instead of name
 
 ---
 
-## Wave 2 — branch `fix/list-fetch-errors` (#9), from `main` after #10 and #11 are merged
+## Wave 2 — branch `fix/list-fetch-errors` (#9), from `develop` after #10 and #11 are merged
 
 Tasks 3–8 run sequentially on the same branch/worktree (later tasks consume Task 3–4 outputs).
 
@@ -1064,7 +1065,7 @@ git -C <worktree> commit -m "fix: independent retryable loads on the player page
 
 ---
 
-## Wave 3 — branch `fix/not-found-state` (#8), from `fix/list-fetch-errors` (or `main` once #9 is merged)
+## Wave 3 — branch `fix/not-found-state` (#8), from `develop` after #9 is merged
 
 ### Task 9: `NotFoundState` component
 
