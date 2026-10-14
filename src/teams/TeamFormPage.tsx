@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography'
 import Alert from '@mui/material/Alert'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
+import { LoadError } from '../app/LoadError'
 import { TeamForm } from './TeamForm'
 import {
   fetchTeam, fetchCategories, fetchActiveSeason, createTeam, updateTeam,
@@ -30,6 +31,8 @@ export function TeamFormPage() {
   const [loaded, setLoaded] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [loadError, setLoadError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -37,22 +40,32 @@ export function TeamFormPage() {
       fetchCategories(),
       fetchActiveSeason(),
       id ? fetchTeam(id) : Promise.resolve(null),
-    ]).then(([cats, s, team]) => {
-      if (!active) return
-      setCategories(cats)
-      setSeason(s)
-      if (team) {
-        setValues({ name: team.name, category_id: team.category_id, coach: team.coach ?? '', color: team.color ?? '' })
-        setCategoryLocked(team.player_count > 0)
-      } else if (!editing) {
-        setValues((v) => ({ ...v, category_id: v.category_id || cats[0]?.id || '' }))
-      }
-      setLoaded(true)
-    })
+    ])
+      .then(([cats, s, team]) => {
+        if (!active) return
+        setLoadError(false)
+        setCategories(cats)
+        setSeason(s)
+        if (team) {
+          setValues({ name: team.name, category_id: team.category_id, coach: team.coach ?? '', color: team.color ?? '' })
+          setCategoryLocked(team.player_count > 0)
+        } else if (!editing) {
+          setValues((v) => ({ ...v, category_id: v.category_id || cats[0]?.id || '' }))
+        }
+        setLoaded(true)
+      })
+      .catch(() => {
+        if (active) setLoadError(true)
+      })
     return () => {
       active = false
     }
-  }, [id, editing])
+  }, [id, editing, reloadKey])
+
+  function handleRetry() {
+    setLoadError(false)
+    setReloadKey((k) => k + 1)
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -80,6 +93,14 @@ export function TeamFormPage() {
       }
       void navigate(`/equipos/${result.id!}`, { state: { flash: 'Equipo creado' } })
     }
+  }
+
+  if (loadError) {
+    return (
+      <Box sx={{ maxWidth: 640, mx: 'auto', mt: 4, px: 2 }}>
+        <LoadError onRetry={handleRetry} />
+      </Box>
+    )
   }
 
   if (!loaded) return <Typography sx={{ p: 2 }}>Cargando…</Typography>

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { TeamsPage } from './TeamsPage'
@@ -58,4 +59,15 @@ test('empty active season shows an explanatory state', async () => {
   mocks.fetchTeams.mockResolvedValue([])
   renderPage()
   expect(await screen.findByText(/No hay equipos/)).toBeInTheDocument()
+})
+
+test('a failed load offers Reintentar instead of the empty state', async () => {
+  mocks.fetchTeams.mockRejectedValueOnce(new Error('boom'))
+  const user = userEvent.setup()
+  renderPage()
+  expect(await screen.findByText('No se pudo cargar la información.')).toBeInTheDocument()
+  expect(screen.queryByText(/No hay equipos/)).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+  expect(await screen.findByText('MTY AC Rojo')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument()
 })

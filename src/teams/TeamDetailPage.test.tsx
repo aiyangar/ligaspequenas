@@ -88,3 +88,24 @@ test('readonly hides mutating actions', async () => {
   expect(screen.queryByRole('button', { name: 'Eliminar equipo' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Añadir jugador' })).not.toBeInTheDocument()
 })
+
+test('a failed load offers Reintentar and retrying shows the team', async () => {
+  mocks.fetchTeam.mockRejectedValueOnce(new Error('boom'))
+  const user = userEvent.setup()
+  renderPage()
+  expect(await screen.findByText('No se pudo cargar la información.')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+  expect(await screen.findByRole('heading', { name: /MTY AC Rojo/ })).toBeInTheDocument()
+})
+
+test('a failed refresh after a mutation shows an error without losing the page', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Roster')
+  mocks.fetchRoster.mockRejectedValueOnce(new Error('boom'))
+  await user.click(screen.getByRole('button', { name: /Quitar/ }))
+  await user.click(screen.getByRole('button', { name: 'Quitar del equipo' }))
+  expect(await screen.findByText('No se pudo actualizar la vista. Recarga la página.')).toBeInTheDocument()
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(screen.getByRole('heading', { name: /MTY AC Rojo/ })).toBeInTheDocument()
+})

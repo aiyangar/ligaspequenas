@@ -10,6 +10,7 @@ import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
+import { LoadError } from '../app/LoadError'
 import { fetchTeams } from './teams'
 import type { TeamRow } from './teams'
 
@@ -17,20 +18,32 @@ export function TeamsPage() {
   const { role } = useTenant()
   const [teams, setTeams] = useState<TeamRow[]>([])
   const [loaded, setLoaded] = useState(false)
+  const [loadError, setLoadError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
   const load = useCallback(async (): Promise<TeamRow[]> => fetchTeams(), [])
 
   useEffect(() => {
     let active = true
-    void load().then((rows) => {
-      if (!active) return
-      setTeams(rows)
-      setLoaded(true)
-    })
+    void load()
+      .then((rows) => {
+        if (!active) return
+        setLoadError(false)
+        setTeams(rows)
+        setLoaded(true)
+      })
+      .catch(() => {
+        if (active) setLoadError(true)
+      })
     return () => {
       active = false
     }
-  }, [load])
+  }, [load, reloadKey])
+
+  function handleRetry() {
+    setLoadError(false)
+    setReloadKey((k) => k + 1)
+  }
 
   const grouped = useMemo(() => {
     const map = new Map<string, TeamRow[]>()
@@ -60,7 +73,9 @@ export function TeamsPage() {
         )}
       </Stack>
 
-      {loaded && teams.length === 0 && (
+      {loadError && <LoadError onRetry={handleRetry} />}
+
+      {loaded && !loadError && teams.length === 0 && (
         <Typography sx={{ mt: 3, color: 'text.secondary' }}>
           No hay equipos en la temporada activa (o no hay temporada activa).
         </Typography>

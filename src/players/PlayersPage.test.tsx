@@ -124,3 +124,14 @@ test('category filter distinguishes categories that share a name', async () => {
   await waitFor(() => expect(screen.queryByText('Carla Paz')).not.toBeInTheDocument())
   expect(screen.getByText('Ana Ruiz')).toBeInTheDocument()
 })
+
+test('a failed load offers Reintentar and retrying shows the list', async () => {
+  mocks.fetchPlayers.mockRejectedValueOnce(new Error('boom'))
+  const user = userEvent.setup()
+  renderPage()
+  expect(await screen.findByText('No se pudo cargar la información.')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+  expect(await screen.findByText('Ana Ruiz')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument()
+  expect(mocks.fetchPlayers).toHaveBeenCalledTimes(2)
+})

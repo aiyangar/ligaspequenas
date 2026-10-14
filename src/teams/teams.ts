@@ -58,21 +58,24 @@ export interface MutationResult {
 }
 
 export async function fetchActiveSeason(): Promise<SeasonRow | null> {
-  const { data } = await supabase.from('seasons').select('*').eq('is_active', true).maybeSingle()
+  const { data, error } = await supabase.from('seasons').select('*').eq('is_active', true).maybeSingle()
+  if (error) throw new Error(error.message)
   return (data as SeasonRow | null) ?? null
 }
 
 export async function fetchCategories(): Promise<CategoryRow[]> {
-  const { data } = await supabase.from('categories').select('*').order('sort_order', { ascending: true })
+  const { data, error } = await supabase.from('categories').select('*').order('sort_order', { ascending: true })
+  if (error) throw new Error(error.message)
   return (data as CategoryRow[] | null) ?? []
 }
 
 export async function fetchTeams(): Promise<TeamRow[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('teams_with_meta')
     .select('*')
     .eq('season_is_active', true)
     .order('category_sort_order', { ascending: true })
+  if (error) throw new Error(error.message)
   const rows = (data as TeamRow[] | null) ?? []
   return rows.sort((a, b) =>
     a.category_sort_order - b.category_sort_order || a.name.localeCompare(b.name),
@@ -80,27 +83,30 @@ export async function fetchTeams(): Promise<TeamRow[]> {
 }
 
 export async function fetchTeam(id: string): Promise<TeamRow | null> {
-  const { data } = await supabase.from('teams_with_meta').select('*').eq('id', id).maybeSingle()
+  const { data, error } = await supabase.from('teams_with_meta').select('*').eq('id', id).maybeSingle()
+  if (error) throw new Error(error.message)
   return (data as TeamRow | null) ?? null
 }
 
 export async function fetchRoster(teamId: string): Promise<PlayerRow[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('players_with_category')
     .select('*')
     .eq('team_id', teamId)
     .order('full_name', { ascending: true })
+  if (error) throw new Error(error.message)
   return (data as PlayerRow[] | null) ?? []
 }
 
 export async function fetchEligiblePlayers(categoryId: string, teamId: string): Promise<PlayerRow[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('players_with_category')
     .select('*')
     .eq('category_id', categoryId)
     .eq('status', 'activo')
     .or(`team_id.is.null,team_id.neq.${teamId}`)
     .order('full_name', { ascending: true })
+  if (error) throw new Error(error.message)
   return (data as PlayerRow[] | null) ?? []
 }
 
