@@ -67,3 +67,26 @@ test('shows an error on a bare callback visit with no token', async () => {
   expect(await screen.findByText('El enlace no es válido o expiró')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Volver a iniciar sesión' })).toBeInTheDocument()
 })
+
+test('shows an error on a bare callback visit when getSession rejects', async () => {
+  mocks.getSession.mockRejectedValue(new DOMException('The operation is insecure.', 'SecurityError'))
+  renderCallback('/auth/callback')
+  expect(await screen.findByText('El enlace no es válido o expiró')).toBeInTheDocument()
+})
+
+test('keeps waiting for SIGNED_IN when getSession rejects but the link carries a token', async () => {
+  let captured: ((event: string, session: unknown) => void) | undefined
+  mocks.onAuthStateChange.mockImplementation((cb: (event: string, session: unknown) => void) => {
+    captured = cb
+    return { data: { subscription: { unsubscribe: vi.fn() } } }
+  })
+  mocks.getSession.mockRejectedValue(new DOMException('The operation is insecure.', 'SecurityError'))
+  renderCallback()
+  expect(await screen.findByText('Iniciando sesión…')).toBeInTheDocument()
+  await act(async () => {})
+  expect(screen.queryByText('El enlace no es válido o expiró')).not.toBeInTheDocument()
+  await act(async () => {
+    captured!('SIGNED_IN', { user: { id: 'u1' } })
+  })
+  await waitFor(() => expect(screen.getByText('Home')).toBeInTheDocument())
+})

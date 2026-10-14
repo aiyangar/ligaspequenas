@@ -30,10 +30,13 @@ export function AuthCallbackPage() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) setReady(true)
     })
-    void supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true)
-      setChecked(true)
-    })
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (data.session) setReady(true)
+        setChecked(true)
+      })
+      .catch(() => setChecked(true))
     return () => subscription.unsubscribe()
   }, [])
 
