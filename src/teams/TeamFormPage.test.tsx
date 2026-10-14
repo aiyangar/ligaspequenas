@@ -72,3 +72,13 @@ test('create mode with no active season blocks the form', async () => {
   expect(await screen.findByText(/No hay temporada activa/)).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Guardar' })).not.toBeInTheDocument()
 })
+
+test('a failed load offers Reintentar and retrying shows the form', async () => {
+  mocks.fetchCategories.mockRejectedValueOnce(new Error('boom'))
+  const user = userEvent.setup()
+  renderAt('/equipos/nuevo')
+  expect(await screen.findByText('No se pudo cargar la información.')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+  expect(await screen.findByRole('button', { name: 'Guardar' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument()
+})

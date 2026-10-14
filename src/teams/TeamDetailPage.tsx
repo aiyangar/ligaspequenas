@@ -14,6 +14,7 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
+import { LoadError } from '../app/LoadError'
 import { AddPlayerDialog } from './AddPlayerDialog'
 import {
   fetchTeam, fetchRoster, assignPlayer, movePlayer, removeFromRoster, deleteTeam,
@@ -34,6 +35,8 @@ export function TeamDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [removing, setRemoving] = useState<PlayerRow | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
   const load = useCallback(async () => {
     if (!id) return null
@@ -51,31 +54,57 @@ export function TeamDetailPage() {
 
   useEffect(() => {
     let active = true
-    void load().then((res) => {
-      if (!active || !res) return
-      setTeam(res.team)
-      setRoster(res.roster)
-    })
+    void load()
+      .then((res) => {
+        if (!active || !res) return
+        setLoadError(false)
+        setTeam(res.team)
+        setRoster(res.roster)
+      })
+      .catch(() => {
+        if (active) setLoadError(true)
+      })
     return () => {
       active = false
     }
-  }, [load])
+  }, [load, reloadKey])
+
+  function handleRetry() {
+    setLoadError(false)
+    setReloadKey((k) => k + 1)
+  }
+
+  if (loadError) {
+    return (
+      <Box sx={{ maxWidth: 720, mx: 'auto', mt: 4, px: 2 }}>
+        <LoadError onRetry={handleRetry} />
+      </Box>
+    )
+  }
 
   if (!team) return <Typography sx={{ p: 2 }}>Cargando…</Typography>
+
+  async function safeRefresh() {
+    try {
+      await refresh()
+    } catch {
+      setError('No se pudo actualizar la vista. Recarga la página.')
+    }
+  }
 
   async function handleAssign(playerId: string) {
     if (!tenantId) return
     const res = await assignPlayer(team!.id, playerId, tenantId, team!.season_id)
     if (!res.ok) setError(res.error ?? 'No se pudo asignar')
     setAddOpen(false)
-    await refresh()
+    await safeRefresh()
   }
 
   async function handleMove(playerId: string) {
     const res = await movePlayer(playerId, team!.season_id, team!.id)
     if (!res.ok) setError(res.error ?? 'No se pudo mover')
     setAddOpen(false)
-    await refresh()
+    await safeRefresh()
   }
 
   async function handleRemove() {
@@ -83,7 +112,7 @@ export function TeamDetailPage() {
     const res = await removeFromRoster(removing.id, team!.season_id)
     if (!res.ok) setError(res.error ?? 'No se pudo quitar')
     setRemoving(null)
-    await refresh()
+    await safeRefresh()
   }
 
   async function handleDelete() {
