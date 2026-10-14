@@ -103,17 +103,35 @@ export function TeamDetailPage() {
     }
   }
 
+  async function bestEffortRefresh() {
+    try {
+      await refresh()
+    } catch {
+      // Keep the mutation error; the refresh is best-effort.
+    }
+  }
+
   async function handleAssign(playerId: string) {
     if (!tenantId) return
     const res = await assignPlayer(team!.id, playerId, tenantId, team!.season_id)
-    if (!res.ok) setError(res.error ?? 'No se pudo asignar')
+    if (!res.ok) {
+      setError(res.error ?? 'No se pudo asignar')
+      setAddOpen(false)
+      await bestEffortRefresh()
+      return
+    }
     setAddOpen(false)
     await safeRefresh()
   }
 
   async function handleMove(playerId: string) {
     const res = await movePlayer(playerId, team!.season_id, team!.id)
-    if (!res.ok) setError(res.error ?? 'No se pudo mover')
+    if (!res.ok) {
+      setError(res.error ?? 'No se pudo mover')
+      setAddOpen(false)
+      await bestEffortRefresh()
+      return
+    }
     setAddOpen(false)
     await safeRefresh()
   }
@@ -121,7 +139,12 @@ export function TeamDetailPage() {
   async function handleRemove() {
     if (!removing) return
     const res = await removeFromRoster(removing.id, team!.season_id)
-    if (!res.ok) setError(res.error ?? 'No se pudo quitar')
+    if (!res.ok) {
+      setError(res.error ?? 'No se pudo quitar')
+      setRemoving(null)
+      await bestEffortRefresh()
+      return
+    }
     setRemoving(null)
     await safeRefresh()
   }
