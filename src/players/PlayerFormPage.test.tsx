@@ -188,3 +188,18 @@ test('a failed refresh after changing team shows an error-severity message', asy
   const msg = await screen.findByText('Error: no se pudo actualizar la vista. Recarga la página.')
   expect(msg.closest('.MuiAlert-root')).toHaveClass('MuiAlert-colorError')
 })
+
+test('a missing player shows not-found with a link back to the list at /', async () => {
+  mocks.fetchPlayer.mockResolvedValue(null)
+  renderAt('/jugadores/missing')
+  expect(await screen.findByText('Jugador no encontrado')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Volver a Jugadores' })).toHaveAttribute('href', '/')
+  expect(screen.queryByLabelText(/Nombre completo/)).not.toBeInTheDocument()
+})
+
+test('edit mode shows Cargando… instead of an empty form while loading', async () => {
+  mocks.fetchPlayer.mockReturnValue(new Promise(() => {}))
+  renderAt('/jugadores/p1')
+  expect(await screen.findByText('Cargando…')).toBeInTheDocument()
+  expect(screen.queryByLabelText(/Nombre completo/)).not.toBeInTheDocument()
+})
