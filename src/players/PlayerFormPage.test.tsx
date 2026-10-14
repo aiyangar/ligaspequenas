@@ -141,3 +141,19 @@ test('create mode does not render the team selector', async () => {
   await screen.findByLabelText(/Nombre completo/)
   expect(screen.queryByLabelText('Equipo')).not.toBeInTheDocument()
 })
+
+test('readonly sees the team selector disabled with a read-only hint', async () => {
+  mocks.useTenant.mockReturnValue({ status: 'ready', role: 'readonly', fullName: 'Lector', tenantId: 'tenant-1' })
+  renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  expect(await screen.findByLabelText('Equipo')).toBeDisabled()
+  expect(screen.getByText('Solo lectura: solo un administrador puede cambiar el equipo.')).toBeInTheDocument()
+})
+
+test('without an active tenant the team selector is disabled with a hint', async () => {
+  mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Admin', tenantId: null })
+  renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  expect(await screen.findByLabelText('Equipo')).toBeDisabled()
+  expect(screen.getByText('No hay liga activa.')).toBeInTheDocument()
+})

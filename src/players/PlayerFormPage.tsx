@@ -104,14 +104,14 @@ export function PlayerFormPage() {
 
   const categoryTeams = teams.filter((t) => t.category_id === row?.category_id)
   const teamSelectDisabled =
-    !canEdit || !season || row?.status === 'baja' || row?.category_id == null
+    !canEdit || !tenantId || !season || row?.status === 'baja' || row?.category_id == null
   const currentTeamId = row?.team_id ?? ''
 
   async function handleTeamChange(next: string) {
-    if (!row || !season) return
+    if (!row || !season || !tenantId) return
     let res
     if (next === '') res = await removeFromRoster(row.id, season.id)
-    else if (currentTeamId === '') res = await assignPlayer(next, row.id, tenantId!, season.id)
+    else if (currentTeamId === '') res = await assignPlayer(next, row.id, tenantId, season.id)
     else res = await movePlayer(row.id, season.id, next)
     if (!res.ok) {
       setMessage(`Error: ${res.error ?? 'no se pudo actualizar el equipo'}`)
@@ -136,13 +136,17 @@ export function PlayerFormPage() {
             onChange={(e) => handleTeamChange(e.target.value)}
             disabled={teamSelectDisabled}
             helperText={
-              row.category_id == null
-                ? 'Fuera de categoría: no asignable a un equipo.'
-                : !season
-                  ? 'No hay temporada activa.'
-                  : row.status === 'baja'
-                    ? 'Jugador de baja: no asignable.'
-                    : undefined
+              !canEdit
+                ? 'Solo lectura: solo un administrador puede cambiar el equipo.'
+                : !tenantId
+                  ? 'No hay liga activa.'
+                  : row.category_id == null
+                    ? 'Fuera de categoría: no asignable a un equipo.'
+                    : !season
+                      ? 'No hay temporada activa.'
+                      : row.status === 'baja'
+                        ? 'Jugador de baja: no asignable.'
+                        : undefined
             }
             slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
             sx={{ minWidth: 200 }}
