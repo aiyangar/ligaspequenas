@@ -15,6 +15,7 @@ import DialogActions from '@mui/material/DialogActions'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
 import { LoadError } from '../app/LoadError'
+import { NotFoundState } from '../app/NotFoundState'
 import { AddPlayerDialog } from './AddPlayerDialog'
 import {
   fetchTeam, fetchRoster, assignPlayer, movePlayer, removeFromRoster, deleteTeam,
@@ -37,6 +38,7 @@ export function TeamDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [loadError, setLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const [loaded, setLoaded] = useState(false)
 
   const load = useCallback(async () => {
     if (!id) return null
@@ -60,6 +62,7 @@ export function TeamDetailPage() {
         setLoadError(false)
         setTeam(res.team)
         setRoster(res.roster)
+        setLoaded(true)
       })
       .catch(() => {
         if (active) setLoadError(true)
@@ -82,7 +85,15 @@ export function TeamDetailPage() {
     )
   }
 
-  if (!team) return <Typography sx={{ p: 2 }}>Cargando…</Typography>
+  if (!loaded) return <Typography sx={{ p: 2 }}>Cargando…</Typography>
+
+  if (!team) {
+    return (
+      <Box sx={{ maxWidth: 720, mx: 'auto', mt: 4, px: 2 }}>
+        <NotFoundState title="Equipo no encontrado" backTo="/equipos" backLabel="Volver a Equipos" />
+      </Box>
+    )
+  }
 
   async function safeRefresh() {
     try {

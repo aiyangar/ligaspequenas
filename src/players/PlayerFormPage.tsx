@@ -11,6 +11,7 @@ import TextField from '@mui/material/TextField'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
 import { LoadError } from '../app/LoadError'
+import { NotFoundState } from '../app/NotFoundState'
 import { PlayerForm } from './PlayerForm'
 import {
   fetchPlayer,
@@ -38,6 +39,7 @@ export function PlayerFormPage() {
   const [submitting, setSubmitting] = useState(false)
   const [loadError, setLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const [loaded, setLoaded] = useState(false)
   // Dismissed by navigation key so a fresh save (new key) re-shows the toast.
   const [dismissedFlashKey, setDismissedFlashKey] = useState<string | null>(null)
 
@@ -48,6 +50,7 @@ export function PlayerFormPage() {
       .then((r) => {
         if (!active) return
         setLoadError(false)
+        setLoaded(true)
         if (!r) return
         setRow(r)
         setValues(rowToValues(r))
@@ -155,6 +158,16 @@ export function PlayerFormPage() {
     return (
       <Box sx={{ maxWidth: 640, mx: 'auto', mt: 4, px: 2 }}>
         <LoadError onRetry={handleRetry} />
+      </Box>
+    )
+  }
+
+  if (editing && !loaded) return <Typography sx={{ p: 2 }}>Cargando…</Typography>
+
+  if (editing && !row) {
+    return (
+      <Box sx={{ maxWidth: 640, mx: 'auto', mt: 4, px: 2 }}>
+        <NotFoundState title="Jugador no encontrado" backTo="/" backLabel="Volver a Jugadores" />
       </Box>
     )
   }
