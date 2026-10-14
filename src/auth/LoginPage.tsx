@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
@@ -13,15 +13,18 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const inFlight = useRef(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (inFlight.current) return
     setError(null)
     const trimmed = email.trim()
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) {
       setError('Ingresa un correo válido')
       return
     }
+    inFlight.current = true
     setSubmitting(true)
     try {
       // Swallow the returned error on purpose: revealing "that email has no access"
@@ -37,6 +40,7 @@ export function LoginPage() {
     } catch {
       setError('No se pudo enviar el enlace. Intenta de nuevo.')
     } finally {
+      inFlight.current = false
       setSubmitting(false)
     }
   }
