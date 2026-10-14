@@ -34,6 +34,7 @@ export function AddPlayerDialog({ open, categoryId, teamId, onAssign, onMove, on
   const [pending, setPending] = useState<Pending | null>(null)
   const [loadError, setLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const [loading, setLoading] = useState(true)
 
   // Reset search/pending inside the async callback (not synchronously in the
   // effect body) to satisfy react-hooks/set-state-in-effect.
@@ -44,12 +45,15 @@ export function AddPlayerDialog({ open, categoryId, teamId, onAssign, onMove, on
       .then((rows) => {
         if (!active) return
         setLoadError(false)
+        setLoading(false)
         setPlayers(rows)
         setSearch('')
         setPending(null)
       })
       .catch(() => {
-        if (active) setLoadError(true)
+        if (!active) return
+        setLoading(false)
+        setLoadError(true)
       })
     return () => {
       active = false
@@ -58,7 +62,16 @@ export function AddPlayerDialog({ open, categoryId, teamId, onAssign, onMove, on
 
   function handleRetry() {
     setLoadError(false)
+    setLoading(true)
     setReloadKey((k) => k + 1)
+  }
+
+  // Reset after the exit fade (any close path) so closing never flashes and every reopen starts loading.
+  function handleExited() {
+    setLoadError(false)
+    setLoading(true)
+    setSearch('')
+    setPending(null)
   }
 
   const groups = useMemo(() => {
@@ -69,11 +82,19 @@ export function AddPlayerDialog({ open, categoryId, teamId, onAssign, onMove, on
   }, [players, search])
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="sm"
+      slotProps={{ transition: { onExited: handleExited } }}
+    >
       <DialogTitle>Añadir jugador</DialogTitle>
       <DialogContent>
         {loadError ? (
           <LoadError onRetry={handleRetry} />
+        ) : loading ? (
+          <Typography>Cargando…</Typography>
         ) : (
           <>
             <TextField
