@@ -41,7 +41,7 @@ beforeEach(() => {
   mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Admin', tenantId: 't1' })
   mocks.fetchPlayers.mockResolvedValue([
     player({ id: 'p1', full_name: 'Ana Ruiz', category_name: 'Infantil Mayor', category_year: 1, team_id: 'team9', team_name: 'MTY AC Rojo' }),
-    player({ id: 'p2', full_name: 'Beto Gómez', status: 'baja', category_name: null, category_year: null, edad_liga: 25, team_id: null, team_name: null }),
+    player({ id: 'p2', full_name: 'Beto Gómez', status: 'baja', category_id: null, category_name: null, category_year: null, edad_liga: 25, team_id: null, team_name: null }),
   ])
 })
 
