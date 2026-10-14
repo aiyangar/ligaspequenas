@@ -19,10 +19,15 @@ const mocks = vi.hoisted(() => ({
   removeFromRoster: vi.fn(),
   fetchPlayerDocuments: vi.fn(),
   setDocumentStatus: vi.fn(),
+  uploadPlayerPhoto: vi.fn(),
 }))
 vi.mock('./players', async (importActual) => {
   const actual = await importActual<typeof import('./players')>()
-  return { ...actual, fetchPlayer: mocks.fetchPlayer, createPlayer: mocks.createPlayer, updatePlayer: mocks.updatePlayer }
+  return {
+    ...actual,
+    fetchPlayer: mocks.fetchPlayer, createPlayer: mocks.createPlayer, updatePlayer: mocks.updatePlayer,
+    uploadPlayerPhoto: mocks.uploadPlayerPhoto,
+  }
 })
 vi.mock('../tenant/TenantContext', () => ({ useTenant: mocks.useTenant }))
 vi.mock('../teams/teams', async (importActual) => {
@@ -95,6 +100,7 @@ beforeEach(() => {
   mocks.removeFromRoster.mockResolvedValue({ ok: true })
   mocks.fetchPlayerDocuments.mockResolvedValue(seededDocs())
   mocks.setDocumentStatus.mockResolvedValue({ ok: true })
+  mocks.uploadPlayerPhoto.mockResolvedValue({ ok: true })
 })
 
 test('create mode submits createPlayer with the tenant id', async () => {
@@ -314,4 +320,17 @@ test('a document change reloads the documents and shows a toast', async () => {
   await user.selectOptions(within(curp).getByRole('combobox'), 'fisico')
   expect(await screen.findByText('Documento actualizado')).toBeInTheDocument()
   await waitFor(() => expect(mocks.fetchPlayerDocuments).toHaveBeenCalledTimes(2))
+})
+
+test('a photo upload refetches the player and shows a toast', async () => {
+  mocks.fetchPlayerDocuments.mockResolvedValue(
+    seededDocs().map((d) => (d.doc_type === 'image_consent' || d.doc_type === 'privacy_notice' ? { ...d, status: 'fisico' as const } : d)),
+  )
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  const input = await screen.findByLabelText('Subir foto', { selector: 'input' })
+  await waitFor(() => expect(input).toBeEnabled())
+  await user.upload(input, new File(['x'], 'a.jpg', { type: 'image/jpeg' }))
+  expect(await screen.findByText('Foto actualizada')).toBeInTheDocument()
+  await waitFor(() => expect(mocks.fetchPlayer).toHaveBeenCalledTimes(2))
 })
