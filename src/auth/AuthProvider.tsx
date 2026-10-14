@@ -10,12 +10,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true
-    void supabase.auth.getSession().then(({ data }) => {
-      if (!active) return
-      setSession(data.session)
-      setLoading(false)
-    })
+    // Events are newer than the initial read, so a late getSession result must not overwrite them.
+    let settledByEvent = false
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!active || settledByEvent) return
+        setSession(data.session)
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!active || settledByEvent) return
+        setSession(null)
+        setLoading(false)
+      })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      settledByEvent = true
       setSession(newSession)
       setLoading(false)
     })
