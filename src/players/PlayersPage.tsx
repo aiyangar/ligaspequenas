@@ -10,6 +10,7 @@ import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
+import { LoadError } from '../app/LoadError'
 import { fetchPlayers, playerCategoryText } from './players'
 import type { PlayerRow, PlayerStatus } from './players'
 
@@ -31,18 +32,31 @@ export function PlayersPage() {
   const [categoryId, setCategoryId] = useState('')
   const [status, setStatus] = useState<'' | PlayerStatus>('')
   const [teamId, setTeamId] = useState('')
+  const [loadError, setLoadError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
   const load = useCallback(async (): Promise<PlayerRow[]> => fetchPlayers(), [])
 
   useEffect(() => {
     let active = true
-    void load().then((rows) => {
-      if (active) setPlayers(rows)
-    })
+    void load()
+      .then((rows) => {
+        if (!active) return
+        setLoadError(false)
+        setPlayers(rows)
+      })
+      .catch(() => {
+        if (active) setLoadError(true)
+      })
     return () => {
       active = false
     }
-  }, [load])
+  }, [load, reloadKey])
+
+  function handleRetry() {
+    setLoadError(false)
+    setReloadKey((k) => k + 1)
+  }
 
   const categories = useMemo(
     () => uniqueOptions(players.map((p) => [p.category_id, p.category_name])),
@@ -80,72 +94,78 @@ export function PlayersPage() {
         )}
       </Stack>
 
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={2}
-        useFlexGap
-        sx={{ flexWrap: 'wrap', alignItems: 'center', mt: 2 }}
-      >
-        <TextField
-          label="Buscar por nombre"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ flexGrow: 1, minWidth: 200 }}
-        />
-        <TextField
-          select
-          label="Categoría"
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-          slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
-          sx={{ minWidth: 180 }}
-        >
-          <option value="">Todas</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </TextField>
-        <TextField
-          select
-          label="Estatus"
-          value={status}
-          onChange={(e) => setStatus(e.target.value as '' | PlayerStatus)}
-          slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
-          sx={{ minWidth: 140 }}
-        >
-          <option value="">Todos</option>
-          <option value="activo">Activo</option>
-          <option value="baja">Baja</option>
-        </TextField>
-        <TextField
-          select
-          label="Equipo"
-          value={teamId}
-          onChange={(e) => setTeamId(e.target.value)}
-          slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
-          sx={{ minWidth: 160 }}
-        >
-          <option value="">Todos</option>
-          {teams.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </TextField>
-      </Stack>
-
-      <List sx={{ mt: 2 }}>
-        {visible.map((p) => (
-          <ListItemButton key={p.id} component={RouterLink} to={`/jugadores/${p.id}`}>
-            <ListItemText
-              primary={p.full_name}
-              secondary={`${playerCategoryText(p)} · ${p.status}${p.team_name ? ` · ${p.team_name}` : ''}`}
+      {loadError ? (
+        <LoadError onRetry={handleRetry} />
+      ) : (
+        <>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={2}
+            useFlexGap
+            sx={{ flexWrap: 'wrap', alignItems: 'center', mt: 2 }}
+          >
+            <TextField
+              label="Buscar por nombre"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              sx={{ flexGrow: 1, minWidth: 200 }}
             />
-          </ListItemButton>
-        ))}
-      </List>
+            <TextField
+              select
+              label="Categoría"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+              sx={{ minWidth: 180 }}
+            >
+              <option value="">Todas</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Estatus"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as '' | PlayerStatus)}
+              slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+              sx={{ minWidth: 140 }}
+            >
+              <option value="">Todos</option>
+              <option value="activo">Activo</option>
+              <option value="baja">Baja</option>
+            </TextField>
+            <TextField
+              select
+              label="Equipo"
+              value={teamId}
+              onChange={(e) => setTeamId(e.target.value)}
+              slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+              sx={{ minWidth: 160 }}
+            >
+              <option value="">Todos</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </TextField>
+          </Stack>
+
+          <List sx={{ mt: 2 }}>
+            {visible.map((p) => (
+              <ListItemButton key={p.id} component={RouterLink} to={`/jugadores/${p.id}`}>
+                <ListItemText
+                  primary={p.full_name}
+                  secondary={`${playerCategoryText(p)} · ${p.status}${p.team_name ? ` · ${p.team_name}` : ''}`}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+        </>
+      )}
     </Box>
   )
 }
