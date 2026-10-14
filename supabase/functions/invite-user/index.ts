@@ -1,23 +1,25 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { checkAdmin, type CallerProfile } from './authorize.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
-}
+import { corsHeaders, isOriginAllowed, parseAllowedOrigins, parseBearerToken } from './http.ts'
+import { rollbackInvitedUser } from './rollback.ts'
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  const origin = req.headers.get('Origin')
+  const allowed = parseAllowedOrigins(Deno.env.get('ALLOWED_ORIGINS'))
+  const cors = corsHeaders(origin, allowed)
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, 'Content-Type': 'application/json' },
+    })
+
+  if (req.method === 'OPTIONS') {
+    if (!isOriginAllowed(origin, allowed)) return new Response('forbidden', { status: 403, headers: cors })
+    return new Response('ok', { headers: cors })
+  }
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
+  if (!isOriginAllowed(origin, allowed)) return json({ error: 'origin_not_allowed' }, 403)
 
   const serviceClient = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -26,7 +28,8 @@ Deno.serve(async (req: Request) => {
 
   const authHeader = req.headers.get('Authorization')
   if (!authHeader) return json({ error: 'missing_authorization' }, 401)
-  const token = authHeader.replace('Bearer ', '')
+  const token = parseBearerToken(authHeader)
+  if (!token) return json({ error: 'invalid_authorization' }, 401)
 
   const { data: { user }, error: userError } = await serviceClient.auth.getUser(token)
   if (userError || !user) return json({ error: 'invalid_token' }, 401)
@@ -76,7 +79,13 @@ Deno.serve(async (req: Request) => {
   })
   if (insertError) {
     // compensating action: remove the just-created auth user so the email stays re-invitable, not orphaned
-    await serviceClient.auth.admin.deleteUser(invited.user.id)
+    const rolledBack = await rollbackInvitedUser(
+      (id) => serviceClient.auth.admin.deleteUser(id),
+      invited.user.id,
+    )
+    if (!rolledBack) {
+      return json({ error: 'profile_insert_failed', detail: insertError.message, rollback: 'failed' }, 500)
+    }
     return json({ error: 'profile_insert_failed', detail: insertError.message }, 500)
   }
 
