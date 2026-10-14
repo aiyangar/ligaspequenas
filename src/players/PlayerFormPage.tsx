@@ -24,6 +24,9 @@ import {
 import type { PlayerFormValues, PlayerRow } from './players'
 import { fetchTeams, fetchActiveSeason, assignPlayer, movePlayer, removeFromRoster } from '../teams/teams'
 import type { TeamRow, SeasonRow } from '../teams/teams'
+import { fetchPlayerDocuments } from '../documents/documents'
+import type { DocumentRow } from '../documents/documents'
+import { PlayerDocumentsSection } from '../documents/PlayerDocumentsSection'
 
 export function PlayerFormPage() {
   const { id } = useParams()
@@ -90,6 +93,47 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
       active = false
     }
   }, [editing, teamsReloadKey])
+
+  const [documents, setDocuments] = useState<DocumentRow[] | null>(null)
+  const [docsLoadError, setDocsLoadError] = useState(false)
+  const [docsReloadKey, setDocsReloadKey] = useState(0)
+  const [toast, setToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!id) return
+    let active = true
+    void fetchPlayerDocuments(id)
+      .then((ds) => {
+        if (!active) return
+        setDocsLoadError(false)
+        setDocuments(ds)
+      })
+      .catch(() => {
+        if (active) setDocsLoadError(true)
+      })
+    return () => {
+      active = false
+    }
+  }, [id, docsReloadKey])
+
+  function retryDocuments() {
+    setDocsLoadError(false)
+    setDocsReloadKey((k) => k + 1)
+  }
+
+  // awaited by the section so its controls stay busy until fresh rows arrive
+  async function refreshDocuments() {
+    if (!id) return
+    try {
+      setDocuments(await fetchPlayerDocuments(id))
+    } catch {
+      setDocsLoadError(true)
+    }
+  }
+
+  function showToast(text: string) {
+    setToast(text)
+  }
 
   function handleRetry() {
     setLoadError(false)
@@ -217,6 +261,19 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
             ))}
           </TextField>
         ))}
+        {editing && row && (docsLoadError ? (
+          <LoadError message="No se pudieron cargar los documentos." onRetry={retryDocuments} />
+        ) : documents && (
+          <PlayerDocumentsSection
+            documents={documents}
+            canEdit={canEdit}
+            hasPhoto={row.photo_path !== null}
+            onChanged={async (text) => {
+              showToast(text)
+              await refreshDocuments()
+            }}
+          />
+        ))}
         {message && (
           <Alert role="alert" severity={message.startsWith('Error') ? 'error' : 'success'} sx={{ mt: 1 }}>
             {message}
@@ -241,6 +298,16 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
           sx={{ width: '100%' }}
         >
           {flash}
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        open={toast !== null}
+        autoHideDuration={4000}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setToast(null)} severity="success" variant="filled" sx={{ width: '100%' }}>
+          {toast}
         </Alert>
       </Snackbar>
     </Box>
