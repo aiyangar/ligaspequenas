@@ -27,6 +27,11 @@ import type { TeamRow, SeasonRow } from '../teams/teams'
 
 export function PlayerFormPage() {
   const { id } = useParams()
+  // Remount per id so no state from the previous player (row, loaded, in-flight setRow) leaks in.
+  return <PlayerFormContent key={id ?? 'new'} id={id} />
+}
+
+function PlayerFormContent({ id }: { id: string | undefined }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { role, tenantId } = useTenant()
