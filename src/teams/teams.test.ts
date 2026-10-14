@@ -168,3 +168,21 @@ test('deleteTeam surfaces the error message on failure', async () => {
   const res = await deleteTeam('team9')
   expect(res).toEqual({ ok: false, error: 'delete failed' })
 })
+
+test.each([
+  ['fetchCategories', () => fetchCategories()],
+  ['fetchTeams', () => fetchTeams()],
+  ['fetchRoster', () => fetchRoster('team9')],
+  ['fetchEligiblePlayers', () => fetchEligiblePlayers('cat1', 'team9')],
+])('%s throws when Supabase returns an error', async (_name, call) => {
+  mocks.order.mockResolvedValue({ data: null, error: { message: 'boom' } })
+  await expect(call()).rejects.toThrow('boom')
+})
+
+test.each([
+  ['fetchActiveSeason', () => fetchActiveSeason()],
+  ['fetchTeam', () => fetchTeam('team9')],
+])('%s throws when Supabase returns an error', async (_name, call) => {
+  mocks.maybeSingle.mockResolvedValue({ data: null, error: { message: 'boom' } })
+  await expect(call()).rejects.toThrow('boom')
+})

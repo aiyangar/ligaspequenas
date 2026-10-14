@@ -140,3 +140,13 @@ test('emptyPlayer defaults status/affiliation and a today enrollment_date', () =
   expect(v.enrollment_date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   expect(v.full_name).toBe('')
 })
+
+test('fetchPlayers throws when Supabase returns an error', async () => {
+  mocks.order.mockResolvedValue({ data: null, error: { message: 'boom' } })
+  await expect(fetchPlayers()).rejects.toThrow('boom')
+})
+
+test('fetchPlayer throws when Supabase returns an error', async () => {
+  mocks.maybeSingle.mockResolvedValue({ data: null, error: { message: 'boom' } })
+  await expect(fetchPlayer('p1')).rejects.toThrow('boom')
+})

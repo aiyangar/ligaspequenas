@@ -32,19 +32,21 @@ export interface PlayerRow {
 }
 
 export async function fetchPlayers(): Promise<PlayerRow[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('players_with_category')
     .select('*')
     .order('full_name', { ascending: true })
+  if (error) throw new Error(error.message)
   return (data as PlayerRow[] | null) ?? []
 }
 
 export async function fetchPlayer(id: string): Promise<PlayerRow | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('players_with_category')
     .select('*')
     .eq('id', id)
     .maybeSingle()
+  if (error) throw new Error(error.message)
   return (data as PlayerRow | null) ?? null
 }
 
