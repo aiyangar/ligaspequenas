@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { categoryLabel } from '../lib/category'
+import { PLAYER_FILES_BUCKET, documentErrorMessage, playerFilePath, removeFile } from '../documents/documents'
 
 export type PlayerStatus = 'activo' | 'baja'
 export type AffiliationStatus = 'autoriza' | 'no_autoriza' | 'pendiente'
@@ -155,5 +156,46 @@ export async function updatePlayer(
 ): Promise<UpdatePlayerResult> {
   const { error } = await supabase.from('players').update(toRecord(values)).eq('id', id)
   if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024
+const PHOTO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
+export function validatePhotoFile(file: File): string | null {
+  if (!PHOTO_MIME_TYPES.includes(file.type)) return 'Formato no permitido: usa JPG, PNG o WebP.'
+  if (file.size > MAX_PHOTO_BYTES) return 'La foto supera 5 MB.'
+  return null
+}
+
+export async function uploadPlayerPhoto(
+  player: Pick<PlayerRow, 'id' | 'tenant_id' | 'photo_path'>,
+  file: File,
+  consentGranted: boolean,
+): Promise<UpdatePlayerResult> {
+  const invalid = validatePhotoFile(file)
+  if (invalid) return { ok: false, error: invalid }
+  const path = playerFilePath(player.tenant_id, player.id, 'photo')
+  const uploaded = await supabase.storage
+    .from(PLAYER_FILES_BUCKET)
+    .upload(path, file, { upsert: true, contentType: file.type })
+  if (uploaded.error) return { ok: false, error: documentErrorMessage(uploaded.error.message, { consentGranted }) }
+  const { error } = await supabase.from('players').update({ photo_path: path }).eq('id', player.id)
+  if (error) {
+    if (player.photo_path === null) await removeFile(path)
+    return { ok: false, error: documentErrorMessage(error.message, { consentGranted }) }
+  }
+  return { ok: true }
+}
+
+export async function removePlayerPhoto(
+  player: Pick<PlayerRow, 'id' | 'photo_path'>,
+): Promise<UpdatePlayerResult> {
+  if (player.photo_path) {
+    const removed = await removeFile(player.photo_path)
+    if (!removed.ok) return removed
+  }
+  const { error } = await supabase.from('players').update({ photo_path: null }).eq('id', player.id)
+  if (error) return { ok: false, error: documentErrorMessage(error.message) }
   return { ok: true }
 }
