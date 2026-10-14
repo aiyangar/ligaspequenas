@@ -61,12 +61,15 @@ test('search filters the list by name', async () => {
   expect(screen.getByText('Beto Gómez')).toBeInTheDocument()
 })
 
-test('status filter narrows to activos', async () => {
+test('status filter narrows to activos and Todos restores everyone', async () => {
   const user = userEvent.setup()
   renderPage()
   await screen.findByText('Beto Gómez')
   await user.selectOptions(screen.getByLabelText('Estatus'), 'activo')
   await waitFor(() => expect(screen.queryByText('Beto Gómez')).not.toBeInTheDocument())
+  expect(screen.getByText('Ana Ruiz')).toBeInTheDocument()
+  await user.selectOptions(screen.getByLabelText('Estatus'), 'Todos')
+  expect(await screen.findByText('Beto Gómez')).toBeInTheDocument()
   expect(screen.getByText('Ana Ruiz')).toBeInTheDocument()
 })
 
@@ -77,12 +80,15 @@ test('shows the team name for a rostered player', async () => {
   expect(screen.getByText(/· MTY AC Rojo/)).toBeInTheDocument()
 })
 
-test('team filter narrows to a single team', async () => {
+test('team filter narrows to a single team and Todos restores everyone', async () => {
   const user = userEvent.setup()
   renderPage()
   await screen.findByText('Ana Ruiz')
   await user.selectOptions(screen.getByLabelText('Equipo'), 'MTY AC Rojo')
   await waitFor(() => expect(screen.queryByText('Beto Gómez')).not.toBeInTheDocument())
+  expect(screen.getByText('Ana Ruiz')).toBeInTheDocument()
+  await user.selectOptions(screen.getByLabelText('Equipo'), 'Todos')
+  expect(await screen.findByText('Beto Gómez')).toBeInTheDocument()
   expect(screen.getByText('Ana Ruiz')).toBeInTheDocument()
 })
 
@@ -134,4 +140,16 @@ test('a failed load offers Reintentar and retrying shows the list', async () => 
   expect(await screen.findByText('Ana Ruiz')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument()
   expect(mocks.fetchPlayers).toHaveBeenCalledTimes(2)
+})
+
+test('category filter narrows by id and Todas restores everyone', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Beto Gómez')
+  await user.selectOptions(screen.getByLabelText('Categoría'), 'cat1')
+  await waitFor(() => expect(screen.queryByText('Beto Gómez')).not.toBeInTheDocument())
+  expect(screen.getByText('Ana Ruiz')).toBeInTheDocument()
+  await user.selectOptions(screen.getByLabelText('Categoría'), 'Todas')
+  expect(await screen.findByText('Beto Gómez')).toBeInTheDocument()
+  expect(screen.getByText('Ana Ruiz')).toBeInTheDocument()
 })
