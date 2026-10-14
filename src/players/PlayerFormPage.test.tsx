@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { PlayerFormPage } from './PlayerFormPage'
+import type { PlayerRow } from './players'
 
 const mocks = vi.hoisted(() => ({
   fetchPlayer: vi.fn(),
@@ -38,7 +39,27 @@ function renderAt(path: string) {
     ],
     { initialEntries: [path] },
   )
-  return render(<RouterProvider router={router} />)
+  render(<RouterProvider router={router} />)
+  return router
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((r) => {
+    resolve = r
+  })
+  return { promise, resolve }
+}
+
+const ana: PlayerRow = {
+  id: 'p1', tenant_id: 'tenant-1', full_name: 'Ana Ruiz', birth_date: '2015-06-10',
+  curp: null, photo_path: null, status: 'activo', enrollment_date: '2026-07-01',
+  tutor_name: 'Luis', tutor_whatsapp: '811', tutor_email: null,
+  emergency_contact_name: null, emergency_contact_phone: null,
+  affiliation_status: 'pendiente', affiliation_date: null,
+  created_at: '', updated_at: '', edad_liga: 11, division: 'Infantil',
+  category_name: 'Infantil Mayor', category_year: 1,
+  category_id: 'cat1', team_id: null, team_name: null,
 }
 
 beforeEach(() => {
@@ -46,16 +67,7 @@ beforeEach(() => {
   mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Admin', tenantId: 'tenant-1' })
   mocks.createPlayer.mockResolvedValue({ ok: true, id: 'newid' })
   mocks.updatePlayer.mockResolvedValue({ ok: true })
-  mocks.fetchPlayer.mockResolvedValue({
-    id: 'p1', tenant_id: 'tenant-1', full_name: 'Ana Ruiz', birth_date: '2015-06-10',
-    curp: null, photo_path: null, status: 'activo', enrollment_date: '2026-07-01',
-    tutor_name: 'Luis', tutor_whatsapp: '811', tutor_email: null,
-    emergency_contact_name: null, emergency_contact_phone: null,
-    affiliation_status: 'pendiente', affiliation_date: null,
-    created_at: '', updated_at: '', edad_liga: 11, division: 'Infantil',
-    category_name: 'Infantil Mayor', category_year: 1,
-    category_id: 'cat1', team_id: null, team_name: null,
-  })
+  mocks.fetchPlayer.mockResolvedValue(ana)
   mocks.fetchTeams.mockResolvedValue([
     { id: 'team9', tenant_id: 't1', season_id: 's1', category_id: 'cat1', name: 'MTY AC Rojo',
       coach: null, color: null, created_at: '', updated_at: '', category_name: 'Infantil Mayor',
@@ -202,4 +214,37 @@ test('edit mode shows Cargando… instead of an empty form while loading', async
   renderAt('/jugadores/p1')
   expect(await screen.findByText('Cargando…')).toBeInTheDocument()
   expect(screen.queryByLabelText(/Nombre completo/)).not.toBeInTheDocument()
+})
+
+test('navigating to a missing player shows not-found instead of the previous player', async () => {
+  mocks.fetchPlayer.mockImplementation((id: string) => Promise.resolve(id === 'p1' ? ana : null))
+  const router = renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  await act(() => router.navigate('/jugadores/p2'))
+  expect(await screen.findByText('Jugador no encontrado')).toBeInTheDocument()
+  expect(screen.queryByDisplayValue('Ana Ruiz')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Guardar' })).not.toBeInTheDocument()
+})
+
+test('navigating to another player shows Cargando… until it loads, not the previous player', async () => {
+  const beto = deferred<PlayerRow | null>()
+  mocks.fetchPlayer.mockImplementation((id: string) => (id === 'p1' ? Promise.resolve(ana) : beto.promise))
+  const router = renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  await act(() => router.navigate('/jugadores/p2'))
+  expect(await screen.findByText('Cargando…')).toBeInTheDocument()
+  expect(screen.queryByDisplayValue('Ana Ruiz')).not.toBeInTheDocument()
+  await act(async () => {
+    beto.resolve({ ...ana, id: 'p2', full_name: 'Beto Gómez' })
+  })
+  expect(await screen.findByDisplayValue('Beto Gómez')).toBeInTheDocument()
+})
+
+test('saving an edit keeps the same page instance and shows the toast', async () => {
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  expect(await screen.findByText('Cambios guardados')).toBeInTheDocument()
+  expect(mocks.fetchPlayer).toHaveBeenCalledTimes(1)
 })
