@@ -1,9 +1,11 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { PlayerFormPage } from './PlayerFormPage'
 import type { PlayerRow } from './players'
+import { DOCUMENT_TYPES } from '../documents/documents'
+import type { DocumentRow } from '../documents/documents'
 
 const mocks = vi.hoisted(() => ({
   fetchPlayer: vi.fn(),
@@ -15,10 +17,17 @@ const mocks = vi.hoisted(() => ({
   assignPlayer: vi.fn(),
   movePlayer: vi.fn(),
   removeFromRoster: vi.fn(),
+  fetchPlayerDocuments: vi.fn(),
+  setDocumentStatus: vi.fn(),
+  uploadPlayerPhoto: vi.fn(),
 }))
 vi.mock('./players', async (importActual) => {
   const actual = await importActual<typeof import('./players')>()
-  return { ...actual, fetchPlayer: mocks.fetchPlayer, createPlayer: mocks.createPlayer, updatePlayer: mocks.updatePlayer }
+  return {
+    ...actual,
+    fetchPlayer: mocks.fetchPlayer, createPlayer: mocks.createPlayer, updatePlayer: mocks.updatePlayer,
+    uploadPlayerPhoto: mocks.uploadPlayerPhoto,
+  }
 })
 vi.mock('../tenant/TenantContext', () => ({ useTenant: mocks.useTenant }))
 vi.mock('../teams/teams', async (importActual) => {
@@ -28,6 +37,11 @@ vi.mock('../teams/teams', async (importActual) => {
     fetchTeams: mocks.fetchTeams, fetchActiveSeason: mocks.fetchActiveSeason,
     assignPlayer: mocks.assignPlayer, movePlayer: mocks.movePlayer, removeFromRoster: mocks.removeFromRoster,
   }
+})
+
+vi.mock('../documents/documents', async (importActual) => {
+  const actual = await importActual<typeof import('../documents/documents')>()
+  return { ...actual, fetchPlayerDocuments: mocks.fetchPlayerDocuments, setDocumentStatus: mocks.setDocumentStatus }
 })
 
 function renderAt(path: string) {
@@ -62,6 +76,13 @@ const ana: PlayerRow = {
   category_id: 'cat1', team_id: null, team_name: null,
 }
 
+function seededDocs(): DocumentRow[] {
+  return DOCUMENT_TYPES.map((t, i) => ({
+    id: `d${i}`, tenant_id: 'tenant-1', player_id: 'p1', doc_type: t, status: 'pendiente',
+    file_path: null, updated_at: '',
+  }))
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Admin', tenantId: 'tenant-1' })
@@ -77,6 +98,9 @@ beforeEach(() => {
   mocks.assignPlayer.mockResolvedValue({ ok: true })
   mocks.movePlayer.mockResolvedValue({ ok: true })
   mocks.removeFromRoster.mockResolvedValue({ ok: true })
+  mocks.fetchPlayerDocuments.mockResolvedValue(seededDocs())
+  mocks.setDocumentStatus.mockResolvedValue({ ok: true })
+  mocks.uploadPlayerPhoto.mockResolvedValue({ ok: true })
 })
 
 test('create mode submits createPlayer with the tenant id', async () => {
@@ -247,4 +271,66 @@ test('saving an edit keeps the same page instance and shows the toast', async ()
   await user.click(screen.getByRole('button', { name: 'Guardar' }))
   expect(await screen.findByText('Cambios guardados')).toBeInTheDocument()
   expect(mocks.fetchPlayer).toHaveBeenCalledTimes(1)
+})
+
+test('edit mode loads and shows the documents section', async () => {
+  renderAt('/jugadores/p1')
+  expect(await screen.findByRole('heading', { name: 'Documentos' })).toBeInTheDocument()
+  expect(mocks.fetchPlayerDocuments).toHaveBeenCalledWith('p1')
+  expect(await screen.findAllByRole('listitem')).toHaveLength(6)
+})
+
+test('the documents section waits for the documents fetch', async () => {
+  let resolveDocs!: (ds: DocumentRow[]) => void
+  mocks.fetchPlayerDocuments.mockReturnValueOnce(new Promise((r) => { resolveDocs = r }))
+  renderAt('/jugadores/p1')
+  expect(await screen.findByLabelText(/Nombre completo/)).toHaveValue('Ana Ruiz')
+  expect(screen.queryByRole('heading', { name: 'Documentos' })).not.toBeInTheDocument()
+  expect(screen.queryByText(/Para subir la foto o documentos digitales/)).not.toBeInTheDocument()
+  resolveDocs(seededDocs())
+  expect(await screen.findByRole('heading', { name: 'Documentos' })).toBeInTheDocument()
+})
+
+test('create mode has no documents section', async () => {
+  renderAt('/jugadores/nuevo')
+  expect(await screen.findByRole('heading', { name: 'Nuevo jugador' })).toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: 'Documentos' })).not.toBeInTheDocument()
+  expect(mocks.fetchPlayerDocuments).not.toHaveBeenCalled()
+})
+
+test('a failed documents fetch shows a retry and keeps the form usable', async () => {
+  mocks.fetchPlayerDocuments.mockRejectedValueOnce(new Error('boom'))
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  expect(await screen.findByText('No se pudieron cargar los documentos.')).toBeInTheDocument()
+  expect(screen.getByLabelText(/Nombre completo/)).toHaveValue('Ana Ruiz')
+  expect(screen.getByRole('button', { name: 'Guardar' })).toBeEnabled()
+  await user.click(screen.getByRole('button', { name: /Reintentar/ }))
+  expect(await screen.findByRole('heading', { name: 'Documentos' })).toBeInTheDocument()
+  expect(mocks.fetchPlayerDocuments).toHaveBeenCalledTimes(2)
+})
+
+test('a document change reloads the documents and shows a toast', async () => {
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  const curp = await screen.findByRole('listitem', { name: 'CURP' })
+  mocks.fetchPlayerDocuments.mockResolvedValueOnce(
+    seededDocs().map((d) => (d.doc_type === 'curp' ? { ...d, status: 'fisico' as const } : d)),
+  )
+  await user.selectOptions(within(curp).getByRole('combobox'), 'fisico')
+  expect(await screen.findByText('Documento actualizado')).toBeInTheDocument()
+  await waitFor(() => expect(mocks.fetchPlayerDocuments).toHaveBeenCalledTimes(2))
+})
+
+test('a photo upload refetches the player and shows a toast', async () => {
+  mocks.fetchPlayerDocuments.mockResolvedValue(
+    seededDocs().map((d) => (d.doc_type === 'image_consent' || d.doc_type === 'privacy_notice' ? { ...d, status: 'fisico' as const } : d)),
+  )
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  const input = await screen.findByLabelText('Subir foto', { selector: 'input' })
+  await waitFor(() => expect(input).toBeEnabled())
+  await user.upload(input, new File(['x'], 'a.jpg', { type: 'image/jpeg' }))
+  expect(await screen.findByText('Foto actualizada')).toBeInTheDocument()
+  await waitFor(() => expect(mocks.fetchPlayer).toHaveBeenCalledTimes(2))
 })

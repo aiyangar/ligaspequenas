@@ -24,6 +24,10 @@ import {
 import type { PlayerFormValues, PlayerRow } from './players'
 import { fetchTeams, fetchActiveSeason, assignPlayer, movePlayer, removeFromRoster } from '../teams/teams'
 import type { TeamRow, SeasonRow } from '../teams/teams'
+import { consentGranted, fetchPlayerDocuments } from '../documents/documents'
+import type { DocumentRow } from '../documents/documents'
+import { PlayerDocumentsSection } from '../documents/PlayerDocumentsSection'
+import { PlayerPhoto } from './PlayerPhoto'
 
 export function PlayerFormPage() {
   const { id } = useParams()
@@ -91,6 +95,47 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
     }
   }, [editing, teamsReloadKey])
 
+  const [documents, setDocuments] = useState<DocumentRow[] | null>(null)
+  const [docsLoadError, setDocsLoadError] = useState(false)
+  const [docsReloadKey, setDocsReloadKey] = useState(0)
+  const [toast, setToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!id) return
+    let active = true
+    void fetchPlayerDocuments(id)
+      .then((ds) => {
+        if (!active) return
+        setDocsLoadError(false)
+        setDocuments(ds)
+      })
+      .catch(() => {
+        if (active) setDocsLoadError(true)
+      })
+    return () => {
+      active = false
+    }
+  }, [id, docsReloadKey])
+
+  function retryDocuments() {
+    setDocsLoadError(false)
+    setDocsReloadKey((k) => k + 1)
+  }
+
+  // awaited by the section so its controls stay busy until fresh rows arrive
+  async function refreshDocuments() {
+    if (!id) return
+    try {
+      setDocuments(await fetchPlayerDocuments(id))
+    } catch {
+      setDocsLoadError(true)
+    }
+  }
+
+  function showToast(text: string) {
+    setToast(text)
+  }
+
   function handleRetry() {
     setLoadError(false)
     setReloadKey((k) => k + 1)
@@ -141,6 +186,17 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
     !canEdit || !tenantId || !season || row?.status === 'baja' || row?.category_id == null
   const currentTeamId = row?.team_id ?? ''
 
+  async function handlePhotoChanged(text: string) {
+    showToast(text)
+    if (!row) return
+    try {
+      const refreshed = await fetchPlayer(row.id)
+      if (refreshed) setRow(refreshed)
+    } catch {
+      setMessage('Error: no se pudo actualizar la vista. Recarga la página.')
+    }
+  }
+
   async function handleTeamChange(next: string) {
     if (!row || !season || !tenantId) return
     let res
@@ -183,6 +239,14 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
         <Typography variant="h4" component="h1" gutterBottom>
           {editing ? 'Jugador' : 'Nuevo jugador'}
         </Typography>
+        {editing && row && (
+          <PlayerPhoto
+            player={row}
+            canEdit={canEdit}
+            consentGranted={documents !== null && consentGranted(documents)}
+            onChanged={handlePhotoChanged}
+          />
+        )}
         <PlayerForm values={values} onChange={setValues} disabled={!canEdit} categoryText={categoryText} />
         {editing && row && (teamsLoadError ? (
           <LoadError message="No se pudieron cargar los equipos." onRetry={handleTeamsRetry} />
@@ -217,6 +281,19 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
             ))}
           </TextField>
         ))}
+        {editing && row && (docsLoadError ? (
+          <LoadError message="No se pudieron cargar los documentos." onRetry={retryDocuments} />
+        ) : documents && (
+          <PlayerDocumentsSection
+            documents={documents}
+            canEdit={canEdit}
+            hasPhoto={row.photo_path !== null}
+            onChanged={async (text) => {
+              showToast(text)
+              await refreshDocuments()
+            }}
+          />
+        ))}
         {message && (
           <Alert role="alert" severity={message.startsWith('Error') ? 'error' : 'success'} sx={{ mt: 1 }}>
             {message}
@@ -241,6 +318,16 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
           sx={{ width: '100%' }}
         >
           {flash}
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        open={toast !== null}
+        autoHideDuration={4000}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setToast(null)} severity="success" variant="filled" sx={{ width: '100%' }}>
+          {toast}
         </Alert>
       </Snackbar>
     </Box>
