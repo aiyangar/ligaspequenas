@@ -17,6 +17,7 @@
 - Worktrees are created **by the orchestrator** before dispatch under `/Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/<branch-suffix>` (e.g. `…/documents-db-storage`). Implementers skip creation; their first action is `pnpm install --frozen-lockfile` inside their worktree. Tests need no `.env`.
 - Git inside a worktree: always `git -C <absolute worktree path> …`, **one git command per shell call**. Never use `CLAUDE_GIT_OVERRIDE`. Never touch `/Users/arturoortiz/Proyectos/Personales/ligaspequenas` (the main checkout).
 - Implementers never push, open PRs or merge. **Exception for branch 1 only:** its implementer applies migrations 0012/0013 to the remote with `mcp__supabase__apply_migration` and runs the pgTAP assertions with `mcp__supabase__execute_sql` (there is no local stack and the MCP cannot branch — SQL hits the live project). If the Supabase MCP tools are not available or not authenticated, **stop and report to the orchestrator**; do not look for another way to reach the database.
+- **If you stop at any step after a fixture setup (error, blocker, anything), run the cleanup block before reporting.** Fixtures persist on the live project.
 - Remote DB hygiene: every fixture (tenants, `auth.users`, profiles, players, documents, `storage.objects` rows) uses the fixed UUIDs in Task 1/2 and is deleted at the end of the task; row counts return to the baseline recorded in Task 1 Step 1. Run `mcp__supabase__get_advisors` (type `security`) after each migration; resolve any **new** finding.
 - Per-branch cycle: implementer → pre-PR reviewer; no Blockers/Majors → PR to `develop`, Minors/Nits filed as GitHub issues; Blockers/Majors → orchestrator plans fixes and the cycle restarts; max 3 cycles, then escalate to the owner. The orchestrator merges into `develop`; `develop → main` only with the owner's confirmation.
 - Code, identifiers, comments, commit messages: English. Comments only for a non-obvious *why*, one short line max. UI copy: Spanish, **exactly** as written in this plan.
@@ -31,6 +32,7 @@
   - Consent-in-use helper: `Quita primero la foto y los documentos digitales.`
   - Confirm dialogs: title `¿Eliminar el archivo?` body `Se eliminará el archivo subido.` · title `¿Quitar la foto?` body `Se eliminará la foto del jugador.`
   - Toasts: `Documento actualizado` · `Foto actualizada`
+  - Other copy used in code: `Estatus` (select label) · `Guardando` (spinner aria-label) · `No se pudo actualizar el documento.` · `No se pudo actualizar la foto.` · `No se pudo firmar la URL`
   - Errors: `Primero registra el consentimiento de imagen y el aviso de privacidad.` · `No se puede regresar a pendiente: primero quita la foto y los documentos digitales.` · `Ruta de archivo inválida.` · `No tienes permiso para esta acción.` · `No se pudo eliminar el archivo.` · `Formato no permitido: usa PDF, JPG, PNG o WebP.` · `El archivo supera 10 MB.` · `Formato no permitido: usa JPG, PNG o WebP.` · `La foto supera 5 MB.` · `No se pudo abrir el archivo.` · `Tu navegador bloqueó la ventana. Permite ventanas emergentes e intenta de nuevo.` · `No se pudieron cargar los documentos.`
 - Limits: documents ≤ `10 * 1024 * 1024` bytes (inclusive), MIME `application/pdf`, `image/jpeg`, `image/png`, `image/webp`; photo ≤ `5 * 1024 * 1024` bytes (inclusive), MIME `image/jpeg`, `image/png`, `image/webp`. Signed URLs: `300` s. Bucket id: `player-files`.
 - Lint rules that bite: `react-hooks/set-state-in-effect` — no synchronous `setState` in an effect body; state changes live in `.then`/`.catch` or handlers (same pattern as the existing `PlayerFormPage` effects).
@@ -142,6 +144,7 @@ delete from public.players where id in ('cccccccc-2222-0000-0000-000000000001', 
 delete from public.profiles where id::text like 'cccccccc-1111-%';
 delete from auth.users where id::text like 'cccccccc-1111-%';
 delete from public.tenants where id::text like 'cccccccc-0000-%';
+drop schema if exists tests_tmp cascade;
 ```
 
 Then re-run the baseline count query from Task 1 Step 1 and confirm every count matches.
@@ -174,13 +177,15 @@ select version(),
 
 Write the numbers down for the report. Expected: `bucket = 0`, `objects = 0`, `non_pending_docs = 0` (if `non_pending_docs > 0`, stop and report: the Task 2 CHECK could fail on real data).
 
+Also confirm the name of Supabase's delete-guard setting before relying on it: `select proname, prosrc from pg_proc where proname ilike '%protect%delete%' or prosrc ilike '%allow_delete_query%';`. If the setting is not `storage.allow_delete_query`, use the name you find everywhere this plan says `storage.allow_delete_query`, and say so in the report. If no such guard exists, direct deletes work without it — keep the `set_config` (harmless) and note it.
+
 - [ ] **Step 2: Write the canonical test file (red)**
 
 Create `supabase/tests/0012_player_files_storage.test.sql` — the standard-form artifact (not run directly; Step 3 runs its assertions through MCP):
 
 ```sql
 begin;
-select extensions.plan(16);
+select extensions.plan(25); -- 3 bucket + 3 consent + 10 path + 9 policy rows (Step 6); keep it equal to the final assertion count
 
 -- fixtures: tenants X/Y, admin X, readonly X, admin Y, players P/Q in X (see plan Task 1 fixture block)
 
@@ -191,7 +196,7 @@ select extensions.is(
   '{application/pdf,image/jpeg,image/png,image/webp}', 'bucket MIME allow-list');
 
 -- consent helper: seeded rows are pendiente → false; both consents fisico → true; one consent row missing → false
-select extensions.is(private.player_consent_granted('cccccccc-2222-0000-0000-000000000001'), false, 'pending consents are not granted');
+select extensions.is(private.player_consent_granted('cccccccc-2222-0000-0000-000000000099'), false, 'unknown player is not granted');
 -- (as postgres) update documents set status = 'fisico' where player_id = P and doc_type in ('image_consent','privacy_notice')
 select extensions.is(private.player_consent_granted('cccccccc-2222-0000-0000-000000000001'), true, 'both consents fisico are granted');
 -- (as postgres) delete from documents where player_id = Q and doc_type = 'privacy_notice'; update Q image_consent to fisico
@@ -341,7 +346,7 @@ union all select extensions.is(private.player_consent_granted('cccccccc-2222-000
 
 Call B (act as admin X; the ten `player_file_path_allowed` assertions from Step 2, `extensions.plan(10)`, prefixed with the `set_config` pair for `cccccccc-1111-0000-0000-000000000001`).
 
-Call C (Storage policies; helpers + the following, `extensions.plan(8)`):
+Call C (Storage policies; helpers + the following, `extensions.plan(9)`):
 
 ```sql
 -- as postgres: a pre-existing object for P/curp and P/image_consent
@@ -362,10 +367,26 @@ then, switching roles between statements:
 | 6 | readonly X | `try_sql(… '…/cccccccc-2222-0000-0000-000000000001/birth_certificate' …)` | starts with `42501` |
 | 7 | readonly X | `set_config('storage.allow_delete_query','true',true)` then `count_sql($$delete from storage.objects where bucket_id = 'player-files'$$)` | `0` |
 | 8 | admin Y | `try_sql(… 'cccccccc-0000-0000-0000-000000000001/…/proof_of_address' …)` | starts with `42501` |
+| 9 | admin X | `set_config('storage.allow_delete_query','true',true)` then `count_sql($$delete from storage.objects where bucket_id = 'player-files' and name = 'cccccccc-0000-0000-0000-000000000001/cccccccc-2222-0000-0000-000000000001/curp'$$)` | `1` (admin can delete in own tenant — `removeFile` depends on it) |
 
-Use `extensions.is(left(pg_temp.try_sql(...), 5), '42501', '…')` for the "starts with" rows. Collect each result into a variable-free form by running statements in order and putting all eight `extensions.is(...)` in the final `union all` select — if a row needs a different role than the final statement, evaluate it earlier into a temp table: `create temp table r (n int, v text)` / `insert into r values (1, …)` while acting as the right role (grant `insert, select` on `r` is not needed: temp tables are owned by the session user; if switching to `authenticated` blocks access, use `tests_tmp.r` as in the fallback above), then finish with `select extensions.is(v, '<expected>', 'policy row ' || n) from r order by n;` as `postgres`.
+Use `left(pg_temp.try_sql(...), 5)` for the "starts with" rows.
 
-Expected: every row `ok`. Then fill in the canonical test file's policy section with the same eight cases in standard `extensions.is(...)` form.
+**Collecting results across roles.** The final statement runs as `postgres`, but most rows must be evaluated while acting as another role. Create a results table as `postgres` at the start of the call and open it to everyone (a table is owned by the role that creates it, so `authenticated` cannot write to it otherwise):
+
+```sql
+create temp table r (n int, v text, expected text);
+grant all on r to public;
+```
+
+Evaluate each row while acting as its role with `insert into r values (<n>, <expression>::text, '<expected>');`, switch back with `select set_config('role', 'postgres', true);`, and finish with:
+
+```sql
+select extensions.is(v, expected, 'policy row ' || n) from r order by n;
+```
+
+(With the `tests_tmp` fallback, create `tests_tmp.r` the same way and run the same `grant all … to public`.)
+
+Expected: every row `ok`. Then fill in the canonical test file's policy section with the same nine cases in standard `extensions.is(...)` form.
 
 - [ ] **Step 7: Advisors**
 
@@ -394,11 +415,11 @@ git -C /Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/documents
 
 - [ ] **Step 1: Write the canonical test file (red)**
 
-Create `supabase/tests/0013_document_consent_rules.test.sql` in the same standard form as Task 1 (`begin; select extensions.plan(19); … select * from extensions.finish(); rollback;`) containing, as `extensions.is(...)` lines, every case in the table of Step 4.
+Create `supabase/tests/0013_document_consent_rules.test.sql` in the same standard form as Task 1 (`begin; select extensions.plan(21); … select * from extensions.finish(); rollback;`) containing, as `extensions.is(...)` lines, every case in the table of Step 4.
 
 - [ ] **Step 2: Verify red**
 
-Fixture setup, then:
+No fixtures yet (they are created in Step 4, **after** the migration, so the seed is exercised under the new trigger). Run:
 
 ```sql
 select extensions.plan(1);
@@ -508,7 +529,7 @@ Apply with `mcp__supabase__apply_migration` (name `0013_document_consent_rules`)
 
 - [ ] **Step 4: Run the assertions (verify green)**
 
-Fixture setup first (players P and Q get their 6 seeded rows — assertion 1 confirms the seed still works under the new trigger). Abbreviations: `X = cccccccc-0000-0000-0000-000000000001`, `P = cccccccc-2222-0000-0000-000000000001`, `Q = cccccccc-2222-0000-0000-000000000002`, `pathP(t) = 'X/P/' || t` written out in full. Act as admin X unless the row says otherwise; collect results into a temp table as in Task 1 Step 6 when roles differ.
+Run the fixture setup now, after `0013` is applied (players P and Q get their 6 seeded rows through the new trigger — assertion 1 confirms the seed still works). Collect results across roles with the `r` table exactly as in Task 1 Step 6. Abbreviations: `X = cccccccc-0000-0000-0000-000000000001`, `P = cccccccc-2222-0000-0000-000000000001`, `Q = cccccccc-2222-0000-0000-000000000002`, `pathP(t) = 'X/P/' || t` written out in full. Act as admin X unless the row says otherwise; collect results into a temp table as in Task 1 Step 6 when roles differ.
 
 | # | Setup (before the statement) | Statement | Expected |
 |---|---|---|---|
@@ -519,24 +540,26 @@ Fixture setup first (players P and Q get their 6 seeded rows — assertion 1 con
 | 5 | (consent now granted for P) | `try_sql(update … status='digital', file_path='X/P/curp' where … doc_type='curp')` | `ok` |
 | 6 | — | `try_sql(update … status='pendiente' where … doc_type='privacy_notice')` | `P0001 consent_in_use` |
 | 7 | — | `try_sql(update … status='digital', file_path='X/Q/birth_certificate' where player_id=P and doc_type='birth_certificate')` | `P0001 file_path_mismatch` |
+| 7b | — | `try_sql(update … status='digital', file_path='X/P/curp' where player_id=P and doc_type='birth_certificate')` (same player, other doc_type) | `P0001 file_path_mismatch` |
 | 8 | — | `left(try_sql(update … status='digital', file_path=null where … doc_type='medical_clearance'), 5)` | `23514` |
 | 9 | — | `left(try_sql(update … status='fisico', file_path='X/P/proof_of_address' where … doc_type='proof_of_address'), 5)` | `23514` |
 | 10 | — | `try_sql(update … doc_type='medical_clearance' where player_id=P and doc_type='proof_of_address')` | `P0001 document_identity_immutable` |
 | 11 | — | `try_sql(update … player_id=Q where player_id=P and doc_type='proof_of_address')` | `P0001 document_identity_immutable` |
+| 11b | as postgres (RLS would hide a cross-tenant `with check` first) | `try_sql(update documents set tenant_id='cccccccc-0000-0000-0000-000000000002' where player_id=P and doc_type='proof_of_address')` | `P0001 document_identity_immutable` |
 | 12 | — | `count_sql(delete from documents where player_id = P)` | `0` (no delete policy → RLS hides every row) |
 | 13 | — | `left(try_sql(insert into documents (tenant_id, player_id, doc_type) values (X, P, 'curp')), 5)` | `42501` |
 | 14 | — | `try_sql(update players set photo_path='X/P/photo' where id=Q)` (another player's path) | `P0001 invalid_file_path` |
 | 15 | — | `try_sql(update players set photo_path='X/Q/photo' where id=Q)` (Q's own path; Q has no consent) | `P0001 consent_required` |
 | 16 | — | `try_sql(update players set photo_path='X/P/photo' where id=P)` (P has consent) | `ok` |
-| 17 | — | `try_sql(update documents set status='pendiente', file_path=null where player_id=P and doc_type='image_consent')` (photo set, curp digital) | `P0001 consent_in_use` |
-| 18 | as postgres: `update players set photo_path=null where id=P`; `update documents set status='fisico', file_path=null where player_id=P and doc_type='curp'`; `insert into storage.objects (bucket_id, name) values ('player-files', 'X/P/medical_clearance')` (an orphan with no digital row) | `try_sql(update documents set status='pendiente', file_path=null where player_id=P and doc_type='image_consent')` | `P0001 consent_in_use` |
+| 17 | as postgres: `update documents set status='fisico', file_path=null where player_id=P and doc_type='curp'` (so only the photo is in use) | `try_sql(update documents set status='pendiente', file_path=null where player_id=P and doc_type='image_consent')` | `P0001 consent_in_use` |
+| 18 | as postgres: `update players set photo_path=null where id=P`; `insert into storage.objects (bucket_id, name) values ('player-files', 'X/P/medical_clearance')` (an orphan with no digital row) | `try_sql(update documents set status='pendiente', file_path=null where player_id=P and doc_type='image_consent')` | `P0001 consent_in_use` |
 | 19 | as postgres: `set_config('storage.allow_delete_query','true',true)`; `delete from storage.objects where name = 'X/P/medical_clearance'` | `try_sql(update documents set status='pendiente', file_path=null where player_id=P and doc_type='image_consent')` | `ok` |
 
 Write every UUID out in full in the actual SQL.
 
 Note: the trigger raises `invalid_file_path` / `consent_required` with `P0001`; `try_sql` returns `sqlstate || ' ' || split_part(sqlerrm, ':', 1)`, so the expected values above are exact.
 
-Expected: all 19 `ok`. Then make the canonical test file match.
+Expected: all 21 `ok`. Then make the canonical test file match.
 
 - [ ] **Step 5: Advisors, cleanup, existing suite**
 
@@ -1018,19 +1041,19 @@ export interface PlayerDocumentsSectionProps {
   documents: DocumentRow[]
   canEdit: boolean
   hasPhoto: boolean
-  onChanged: (flash: string) => void
+  onChanged: (flash: string) => Promise<void> | void
 }
 export function PlayerDocumentsSection(props: PlayerDocumentsSectionProps): JSX.Element
 ```
 
-`onChanged('Documento actualizado')` is called after every successful status change or upload; the parent reloads `documents`. The section never refetches by itself.
+`onChanged('Documento actualizado')` is called after every successful status change or upload and **awaited**: the parent reloads `documents` inside it, and the row stays busy until the reload lands, so no control acts on a stale `doc` (a stale `status` would make `uploadDocument` roll back a live object). The section never refetches by itself.
 
 - [ ] **Step 1: Write the failing tests**
 
 Create `src/documents/PlayerDocumentsSection.test.tsx`:
 
 ```tsx
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, vi } from 'vitest'
 import { PlayerDocumentsSection } from './PlayerDocumentsSection'
@@ -1086,9 +1109,10 @@ beforeEach(() => {
 test('lists the 6 documents with their status', () => {
   renderSection({ documents: docs({ curp: 'fisico', image_consent: 'digital' }) })
   expect(screen.getByRole('heading', { name: 'Documentos' })).toBeInTheDocument()
-  expect(within(row('CURP')).getByText('Físico')).toBeInTheDocument()
-  expect(within(row('Consentimiento de imagen')).getByText('Digital')).toBeInTheDocument()
-  expect(within(row('Constancia médica')).getByText('Pendiente')).toBeInTheDocument()
+  // ignore the native <option>s of the status select, which repeat the same words
+  expect(within(row('CURP')).getByText('Físico', { ignore: 'option' })).toBeInTheDocument()
+  expect(within(row('Consentimiento de imagen')).getByText('Digital', { ignore: 'option' })).toBeInTheDocument()
+  expect(within(row('Constancia médica')).getByText('Pendiente', { ignore: 'option' })).toBeInTheDocument()
   expect(screen.getAllByRole('listitem')).toHaveLength(6)
 })
 
@@ -1168,6 +1192,36 @@ test('a failed upload shows the translated error and does not report success', a
   await user.upload(within(row('CURP')).getByLabelText('Subir archivo'), new File(['x'], 'a.pdf', { type: 'application/pdf' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('El archivo supera 10 MB.')
   expect(onChanged).not.toHaveBeenCalled()
+})
+
+test('cancelling the file picker changes nothing', () => {
+  renderSection({ documents: docs(granted) })
+  fireEvent.change(within(row('CURP')).getByLabelText('Subir archivo'), { target: { files: [] } })
+  expect(mocks.uploadDocument).not.toHaveBeenCalled()
+})
+
+test('consent uploads pass consentGranted=true so a Storage 403 is not reported as the lock', async () => {
+  mocks.uploadDocument.mockResolvedValueOnce({ ok: true })
+  const user = userEvent.setup()
+  renderSection()
+  const f = new File(['x'], 'aviso.pdf', { type: 'application/pdf' })
+  await user.upload(within(row('Aviso de privacidad')).getByLabelText('Subir archivo'), f)
+  await waitFor(() =>
+    expect(mocks.uploadDocument).toHaveBeenCalledWith(expect.objectContaining({ doc_type: 'privacy_notice' }), f, true),
+  )
+})
+
+test('controls stay disabled until the parent reload finishes', async () => {
+  let finishReload!: () => void
+  const onChanged = vi.fn(() => new Promise<void>((r) => { finishReload = r }))
+  const user = userEvent.setup()
+  render(<PlayerDocumentsSection documents={docs(granted)} canEdit hasPhoto={false} onChanged={onChanged} />)
+  const input = within(row('CURP')).getByLabelText('Subir archivo')
+  await user.upload(input, new File(['x'], 'a.pdf', { type: 'application/pdf' }))
+  await waitFor(() => expect(onChanged).toHaveBeenCalledWith('Documento actualizado'))
+  expect(input).toBeDisabled()
+  finishReload()
+  await waitFor(() => expect(input).toBeEnabled())
 })
 
 test('a digital row offers Reemplazar instead of Subir archivo', () => {
@@ -1268,7 +1322,7 @@ export interface PlayerDocumentsSectionProps {
   documents: DocumentRow[]
   canEdit: boolean
   hasPhoto: boolean
-  onChanged: (flash: string) => void
+  onChanged: (flash: string) => Promise<void> | void
 }
 
 const CHIP_COLOR: Record<DocumentStatus, 'default' | 'info' | 'success'> = {
@@ -1296,7 +1350,8 @@ export function PlayerDocumentsSection({ documents, canEdit, hasPhoto, onChanged
     setError(null)
     try {
       const res = await action()
-      if (res.ok) onChanged('Documento actualizado')
+      // stay busy until the parent has reloaded, so no control acts on a stale row
+      if (res.ok) await onChanged('Documento actualizado')
       else setError(res.error ?? 'No se pudo actualizar el documento.')
     } finally {
       inFlight.current = false
@@ -1324,7 +1379,8 @@ export function PlayerDocumentsSection({ documents, canEdit, hasPhoto, onChanged
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    void run(doc, () => uploadDocument(doc, file, granted))
+    // consent documents are exempt from the lock, so a Storage 403 there is a real permission error
+    void run(doc, () => uploadDocument(doc, file, granted || isConsentType(doc.doc_type)))
   }
 
   async function handleView(doc: DocumentRow) {
@@ -1351,7 +1407,7 @@ export function PlayerDocumentsSection({ documents, canEdit, hasPhoto, onChanged
         Documentos
       </Typography>
       {canEdit && !granted && (
-        <Alert severity="info" sx={{ mb: 1 }}>
+        <Alert role="status" severity="info" sx={{ mb: 1 }}>
           Para subir la foto o documentos digitales, primero registra el consentimiento de imagen y el aviso de privacidad.
         </Alert>
       )}
@@ -1463,7 +1519,7 @@ git -C /Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/documents
 
 **Interfaces:**
 - Consumes: `fetchPlayerDocuments(playerId): Promise<DocumentRow[]>` (Task 3), `PlayerDocumentsSection` (Task 4).
-- Produces (for Task 7): inside `PlayerFormContent`, state `documents: DocumentRow[]`, function `reloadDocuments()` and function `showToast(text: string)`.
+- Produces (for Task 7): inside `PlayerFormContent`, state `documents: DocumentRow[] | null` (`null` until the first fetch resolves), function `refreshDocuments(): Promise<void>`, function `retryDocuments()` and function `showToast(text: string)`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1497,7 +1553,18 @@ test('edit mode loads and shows the documents section', async () => {
   renderAt('/jugadores/p1')
   expect(await screen.findByRole('heading', { name: 'Documentos' })).toBeInTheDocument()
   expect(mocks.fetchPlayerDocuments).toHaveBeenCalledWith('p1')
-  expect(screen.getAllByRole('listitem')).toHaveLength(6)
+  expect(await screen.findAllByRole('listitem')).toHaveLength(6)
+})
+
+test('the documents section waits for the documents fetch', async () => {
+  let resolveDocs!: (ds: DocumentRow[]) => void
+  mocks.fetchPlayerDocuments.mockReturnValueOnce(new Promise((r) => { resolveDocs = r }))
+  renderAt('/jugadores/p1')
+  expect(await screen.findByLabelText(/Nombre completo/)).toHaveValue('Ana Ruiz')
+  expect(screen.queryByRole('heading', { name: 'Documentos' })).not.toBeInTheDocument()
+  expect(screen.queryByText(/Para subir la foto o documentos digitales/)).not.toBeInTheDocument()
+  resolveDocs(seededDocs())
+  expect(await screen.findByRole('heading', { name: 'Documentos' })).toBeInTheDocument()
 })
 
 test('create mode has no documents section', async () => {
@@ -1537,7 +1604,7 @@ The last test needs `setDocumentStatus` mocked too: add `setDocumentStatus: vi.f
 - [ ] **Step 2: Run to verify it fails**
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx`
-Expected: the 4 new tests FAIL (no `Documentos` heading); existing tests still pass.
+Expected: the new tests FAIL (no `Documentos` heading); existing tests still pass.
 
 - [ ] **Step 3: Implement**
 
@@ -1554,7 +1621,7 @@ import { PlayerDocumentsSection } from '../documents/PlayerDocumentsSection'
 State + effect, after the teams effect:
 
 ```tsx
-  const [documents, setDocuments] = useState<DocumentRow[]>([])
+  const [documents, setDocuments] = useState<DocumentRow[] | null>(null)
   const [docsLoadError, setDocsLoadError] = useState(false)
   const [docsReloadKey, setDocsReloadKey] = useState(0)
   const [toast, setToast] = useState<string | null>(null)
@@ -1576,8 +1643,19 @@ State + effect, after the teams effect:
     }
   }, [id, docsReloadKey])
 
-  function reloadDocuments() {
+  function retryDocuments() {
+    setDocsLoadError(false)
     setDocsReloadKey((k) => k + 1)
+  }
+
+  // awaited by the section so its controls stay busy until fresh rows arrive
+  async function refreshDocuments() {
+    if (!id) return
+    try {
+      setDocuments(await fetchPlayerDocuments(id))
+    } catch {
+      setDocsLoadError(true)
+    }
   }
 
   function showToast(text: string) {
@@ -1589,15 +1667,15 @@ Render, right after the team select block (`))}` closing the `editing && row && 
 
 ```tsx
         {editing && row && (docsLoadError ? (
-          <LoadError message="No se pudieron cargar los documentos." onRetry={reloadDocuments} />
-        ) : (
+          <LoadError message="No se pudieron cargar los documentos." onRetry={retryDocuments} />
+        ) : documents && (
           <PlayerDocumentsSection
             documents={documents}
             canEdit={canEdit}
             hasPhoto={row.photo_path !== null}
-            onChanged={(text) => {
+            onChanged={async (text) => {
               showToast(text)
-              reloadDocuments()
+              await refreshDocuments()
             }}
           />
         ))}
@@ -1622,7 +1700,7 @@ A second `Snackbar` after the existing one:
 
 - [ ] **Step 4: Run to verify it passes**
 
-Run: `pnpm exec vitest run` → all pass (164 + Task 3 + Task 4 + 4 new); `pnpm exec tsc -b`, `pnpm lint` → 0.
+Run: `pnpm exec vitest run` → all pass (164 + Task 3 + Task 4 + 5 new); `pnpm exec tsc -b`, `pnpm lint` → 0.
 
 - [ ] **Step 5: Commit**
 
@@ -1828,10 +1906,12 @@ export interface PlayerPhotoProps {
   player: Pick<PlayerRow, 'id' | 'tenant_id' | 'full_name' | 'photo_path' | 'updated_at'>
   canEdit: boolean
   consentGranted: boolean
-  onChanged: (flash: string) => void
+  onChanged: (flash: string) => Promise<void> | void
 }
 export function PlayerPhoto(props: PlayerPhotoProps): JSX.Element
 ```
+
+`onChanged` is awaited (the parent refetches the player inside it), so the controls stay busy until the fresh `photo_path` arrives — same reason as Task 4.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1947,6 +2027,7 @@ test('a photo upload refetches the player and shows a toast', async () => {
   const user = userEvent.setup()
   renderAt('/jugadores/p1')
   const input = await screen.findByLabelText('Subir foto', { selector: 'input' })
+  await waitFor(() => expect(input).toBeEnabled())
   await user.upload(input, new File(['x'], 'a.jpg', { type: 'image/jpeg' }))
   expect(await screen.findByText('Foto actualizada')).toBeInTheDocument()
   await waitFor(() => expect(mocks.fetchPlayer).toHaveBeenCalledTimes(2))
@@ -1983,7 +2064,7 @@ export interface PlayerPhotoProps {
   player: Pick<PlayerRow, 'id' | 'tenant_id' | 'full_name' | 'photo_path' | 'updated_at'>
   canEdit: boolean
   consentGranted: boolean
-  onChanged: (flash: string) => void
+  onChanged: (flash: string) => Promise<void> | void
 }
 
 function initials(name: string): string {
@@ -1991,7 +2072,7 @@ function initials(name: string): string {
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
+    .map((w) => w[0].toUpperCase())
     .join('')
 }
 
@@ -2029,7 +2110,7 @@ export function PlayerPhoto({ player, canEdit, consentGranted, onChanged }: Play
     setError(null)
     try {
       const res = await action()
-      if (res.ok) onChanged('Foto actualizada')
+      if (res.ok) await onChanged('Foto actualizada')
       else setError(res.error ?? 'No se pudo actualizar la foto.')
     } finally {
       inFlight.current = false
@@ -2138,8 +2219,8 @@ Render, right after the `<Typography variant="h4" component="h1">…</Typography
           <PlayerPhoto
             player={row}
             canEdit={canEdit}
-            consentGranted={consentGranted(documents)}
-            onChanged={(text) => void handlePhotoChanged(text)}
+            consentGranted={documents !== null && consentGranted(documents)}
+            onChanged={handlePhotoChanged}
           />
         )}
 ```
