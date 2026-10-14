@@ -157,3 +157,34 @@ test('without an active tenant the team selector is disabled with a hint', async
   expect(await screen.findByLabelText('Equipo')).toBeDisabled()
   expect(screen.getByText('No hay liga activa.')).toBeInTheDocument()
 })
+
+test('a failed player load offers Reintentar and retrying shows the form', async () => {
+  mocks.fetchPlayer.mockRejectedValueOnce(new Error('boom'))
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  expect(await screen.findByText('No se pudo cargar la información.')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+  expect(await screen.findByDisplayValue('Ana Ruiz')).toBeInTheDocument()
+})
+
+test('a failed teams load keeps the form and retries only the teams', async () => {
+  mocks.fetchTeams.mockRejectedValueOnce(new Error('boom'))
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  expect(await screen.findByDisplayValue('Ana Ruiz')).toBeInTheDocument()
+  expect(await screen.findByText('No se pudieron cargar los equipos.')).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+  expect(await screen.findByLabelText('Equipo')).toBeInTheDocument()
+  expect(mocks.fetchTeams).toHaveBeenCalledTimes(2)
+  expect(mocks.fetchPlayer).toHaveBeenCalledTimes(1)
+})
+
+test('a failed refresh after changing team shows an error-severity message', async () => {
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  mocks.fetchPlayer.mockRejectedValueOnce(new Error('boom'))
+  await user.selectOptions(await screen.findByLabelText('Equipo'), 'team9')
+  const msg = await screen.findByText('Error: no se pudo actualizar la vista. Recarga la página.')
+  expect(msg.closest('.MuiAlert-root')).toHaveClass('MuiAlert-colorError')
+})

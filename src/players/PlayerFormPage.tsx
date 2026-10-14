@@ -10,6 +10,7 @@ import Snackbar from '@mui/material/Snackbar'
 import TextField from '@mui/material/TextField'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
+import { LoadError } from '../app/LoadError'
 import { PlayerForm } from './PlayerForm'
 import {
   fetchPlayer,
@@ -35,37 +36,62 @@ export function PlayerFormPage() {
   const [row, setRow] = useState<PlayerRow | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [loadError, setLoadError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
   // Dismissed by navigation key so a fresh save (new key) re-shows the toast.
   const [dismissedFlashKey, setDismissedFlashKey] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
     let active = true
-    void fetchPlayer(id).then((r) => {
-      if (!active || !r) return
-      setRow(r)
-      setValues(rowToValues(r))
-    })
+    void fetchPlayer(id)
+      .then((r) => {
+        if (!active) return
+        setLoadError(false)
+        if (!r) return
+        setRow(r)
+        setValues(rowToValues(r))
+      })
+      .catch(() => {
+        if (active) setLoadError(true)
+      })
     return () => {
       active = false
     }
-  }, [id])
+  }, [id, reloadKey])
 
   const [teams, setTeams] = useState<TeamRow[]>([])
   const [season, setSeason] = useState<SeasonRow | null>(null)
+  const [teamsLoadError, setTeamsLoadError] = useState(false)
+  const [teamsReloadKey, setTeamsReloadKey] = useState(0)
 
   useEffect(() => {
     if (!editing) return
     let active = true
-    void Promise.all([fetchTeams(), fetchActiveSeason()]).then(([ts, s]) => {
-      if (!active) return
-      setTeams(ts)
-      setSeason(s)
-    })
+    void Promise.all([fetchTeams(), fetchActiveSeason()])
+      .then(([ts, s]) => {
+        if (!active) return
+        setTeamsLoadError(false)
+        setTeams(ts)
+        setSeason(s)
+      })
+      .catch(() => {
+        if (active) setTeamsLoadError(true)
+      })
     return () => {
       active = false
     }
-  }, [editing])
+  }, [editing, teamsReloadKey])
+
+  function handleRetry() {
+    setLoadError(false)
+    setReloadKey((k) => k + 1)
+  }
+
+  function handleTeamsRetry() {
+    setTeamsLoadError(false)
+    setTeamsReloadKey((k) => k + 1)
+  }
 
   // Success confirmation rides along the post-save navigation as router state,
   // so the toast shows on the destination instead of a browser alert. Derived
@@ -117,8 +143,20 @@ export function PlayerFormPage() {
       setMessage(`Error: ${res.error ?? 'no se pudo actualizar el equipo'}`)
       return
     }
-    const refreshed = await fetchPlayer(row.id)
-    if (refreshed) setRow(refreshed)
+    try {
+      const refreshed = await fetchPlayer(row.id)
+      if (refreshed) setRow(refreshed)
+    } catch {
+      setMessage('Error: no se pudo actualizar la vista. Recarga la página.')
+    }
+  }
+
+  if (loadError) {
+    return (
+      <Box sx={{ maxWidth: 640, mx: 'auto', mt: 4, px: 2 }}>
+        <LoadError onRetry={handleRetry} />
+      </Box>
+    )
   }
 
   return (
@@ -128,7 +166,9 @@ export function PlayerFormPage() {
           {editing ? 'Jugador' : 'Nuevo jugador'}
         </Typography>
         <PlayerForm values={values} onChange={setValues} disabled={!canEdit} categoryText={categoryText} />
-        {editing && row && (
+        {editing && row && (teamsLoadError ? (
+          <LoadError message="No se pudieron cargar los equipos." onRetry={handleTeamsRetry} />
+        ) : (
           <TextField
             select
             label="Equipo"
@@ -158,7 +198,7 @@ export function PlayerFormPage() {
               </option>
             ))}
           </TextField>
-        )}
+        ))}
         {message && (
           <Alert role="alert" severity={message.startsWith('Error') ? 'error' : 'success'} sx={{ mt: 1 }}>
             {message}
