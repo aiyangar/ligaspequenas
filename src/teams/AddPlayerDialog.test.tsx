@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, vi } from 'vitest'
 import { AddPlayerDialog } from './AddPlayerDialog'
@@ -19,6 +19,14 @@ function p(over: Partial<PlayerRow>): PlayerRow {
     edad_liga: 11, division: 'Infantil', category_name: 'Infantil Mayor', category_year: 1,
     category_id: 'cat1', team_id: null, team_name: null, ...over,
   }
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((r) => {
+    resolve = r
+  })
+  return { promise, resolve }
 }
 
 beforeEach(() => {
@@ -75,4 +83,54 @@ test('reopening after a failed load shows the list without a stale error', async
   rerender(<AddPlayerDialog open {...props} />)
   expect(await screen.findByText('Free Agent')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument()
+})
+
+test('closing with Cerrar after a failed load reopens in Cargando… without the stale error', async () => {
+  mocks.fetchEligiblePlayers.mockRejectedValueOnce(new Error('boom'))
+  const user = userEvent.setup()
+  const props = { categoryId: 'cat1', teamId: 'A', onAssign: vi.fn(), onMove: vi.fn(), onClose: vi.fn() }
+  const { rerender } = render(<AddPlayerDialog open {...props} />)
+  await screen.findByRole('button', { name: 'Reintentar' })
+  await user.click(screen.getByRole('button', { name: 'Cerrar' }))
+  expect(props.onClose).toHaveBeenCalledTimes(1)
+  rerender(<AddPlayerDialog open={false} {...props} />)
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  const rows = deferred<PlayerRow[]>()
+  mocks.fetchEligiblePlayers.mockReturnValue(rows.promise)
+  rerender(<AddPlayerDialog open {...props} />)
+  expect(await screen.findByText('Cargando…')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument()
+  await act(async () => {
+    rows.resolve([p({ id: 'free', full_name: 'Free Agent', team_id: null, team_name: null })])
+  })
+  expect(await screen.findByText('Free Agent')).toBeInTheDocument()
+})
+
+test('reopening after the parent closes it shows Cargando… instead of the previous list', async () => {
+  const props = { categoryId: 'cat1', teamId: 'A', onAssign: vi.fn(), onMove: vi.fn(), onClose: vi.fn() }
+  const { rerender } = render(<AddPlayerDialog open {...props} />)
+  await screen.findByText('Free Agent')
+  rerender(<AddPlayerDialog open={false} {...props} />)
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  const rows = deferred<PlayerRow[]>()
+  mocks.fetchEligiblePlayers.mockReturnValue(rows.promise)
+  rerender(<AddPlayerDialog open {...props} />)
+  expect(await screen.findByText('Cargando…')).toBeInTheDocument()
+  expect(screen.queryByText('Free Agent')).not.toBeInTheDocument()
+  await act(async () => {
+    rows.resolve([p({ id: 'new', full_name: 'Nuevo Agente', team_id: null, team_name: null })])
+  })
+  expect(await screen.findByText('Nuevo Agente')).toBeInTheDocument()
+})
+
+test('the first load shows Cargando… instead of the empty-list message', async () => {
+  const rows = deferred<PlayerRow[]>()
+  mocks.fetchEligiblePlayers.mockReturnValue(rows.promise)
+  render(<AddPlayerDialog open categoryId="cat1" teamId="A" onAssign={vi.fn()} onMove={vi.fn()} onClose={vi.fn()} />)
+  expect(await screen.findByText('Cargando…')).toBeInTheDocument()
+  expect(screen.queryByText('No hay jugadores elegibles.')).not.toBeInTheDocument()
+  await act(async () => {
+    rows.resolve([p({ id: 'free', full_name: 'Free Agent', team_id: null, team_name: null })])
+  })
+  expect(await screen.findByText('Free Agent')).toBeInTheDocument()
 })
