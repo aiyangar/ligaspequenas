@@ -56,3 +56,23 @@ test('search narrows the eligible list', async () => {
   await waitFor(() => expect(screen.queryByText('Free Agent')).not.toBeInTheDocument())
   expect(screen.getByText('Otro Equipo')).toBeInTheDocument()
 })
+
+test('a failed load offers Reintentar inside the dialog', async () => {
+  mocks.fetchEligiblePlayers.mockRejectedValueOnce(new Error('boom'))
+  const user = userEvent.setup()
+  render(<AddPlayerDialog open categoryId="cat1" teamId="A" onAssign={vi.fn()} onMove={vi.fn()} onClose={vi.fn()} />)
+  await user.click(await screen.findByRole('button', { name: 'Reintentar' }))
+  expect(await screen.findByText('Free Agent')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument()
+})
+
+test('reopening after a failed load shows the list without a stale error', async () => {
+  mocks.fetchEligiblePlayers.mockRejectedValueOnce(new Error('boom'))
+  const props = { categoryId: 'cat1', teamId: 'A', onAssign: vi.fn(), onMove: vi.fn(), onClose: vi.fn() }
+  const { rerender } = render(<AddPlayerDialog open {...props} />)
+  await screen.findByRole('button', { name: 'Reintentar' })
+  rerender(<AddPlayerDialog open={false} {...props} />)
+  rerender(<AddPlayerDialog open {...props} />)
+  expect(await screen.findByText('Free Agent')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument()
+})

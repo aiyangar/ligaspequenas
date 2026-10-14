@@ -10,6 +10,7 @@ import ListSubheader from '@mui/material/ListSubheader'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import Typography from '@mui/material/Typography'
+import { LoadError } from '../app/LoadError'
 import { fetchEligiblePlayers, groupEligibleByCurrentTeam } from './teams'
 import type { PlayerRow } from '../players/players'
 
@@ -31,22 +32,34 @@ export function AddPlayerDialog({ open, categoryId, teamId, onAssign, onMove, on
   const [players, setPlayers] = useState<PlayerRow[]>([])
   const [search, setSearch] = useState('')
   const [pending, setPending] = useState<Pending | null>(null)
+  const [loadError, setLoadError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
   // Reset search/pending inside the async callback (not synchronously in the
   // effect body) to satisfy react-hooks/set-state-in-effect.
   useEffect(() => {
     if (!open) return
     let active = true
-    void fetchEligiblePlayers(categoryId, teamId).then((rows) => {
-      if (!active) return
-      setPlayers(rows)
-      setSearch('')
-      setPending(null)
-    })
+    void fetchEligiblePlayers(categoryId, teamId)
+      .then((rows) => {
+        if (!active) return
+        setLoadError(false)
+        setPlayers(rows)
+        setSearch('')
+        setPending(null)
+      })
+      .catch(() => {
+        if (active) setLoadError(true)
+      })
     return () => {
       active = false
     }
-  }, [open, categoryId, teamId])
+  }, [open, categoryId, teamId, reloadKey])
+
+  function handleRetry() {
+    setLoadError(false)
+    setReloadKey((k) => k + 1)
+  }
 
   const groups = useMemo(() => {
     const filtered = players.filter((p) =>
@@ -59,37 +72,43 @@ export function AddPlayerDialog({ open, categoryId, teamId, onAssign, onMove, on
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Añadir jugador</DialogTitle>
       <DialogContent>
-        <TextField
-          label="Buscar por nombre"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          fullWidth
-          sx={{ mt: 1 }}
-        />
-        {groups.length === 0 && (
-          <Typography sx={{ mt: 2, color: 'text.secondary' }}>
-            No hay jugadores elegibles.
-          </Typography>
-        )}
-        {groups.map((g) => (
-          <List
-            key={g.teamId ?? 'free'}
-            subheader={<ListSubheader>{g.teamId ? `En ${g.teamName}` : 'Sin equipo'}</ListSubheader>}
-          >
-            {g.players.map((p) => (
-              <ListItemButton
-                key={p.id}
-                onClick={() =>
-                  g.teamId
-                    ? setPending({ player: p, fromTeamName: g.teamName ?? '' })
-                    : onAssign(p.id)
-                }
+        {loadError ? (
+          <LoadError onRetry={handleRetry} />
+        ) : (
+          <>
+            <TextField
+              label="Buscar por nombre"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              fullWidth
+              sx={{ mt: 1 }}
+            />
+            {groups.length === 0 && (
+              <Typography sx={{ mt: 2, color: 'text.secondary' }}>
+                No hay jugadores elegibles.
+              </Typography>
+            )}
+            {groups.map((g) => (
+              <List
+                key={g.teamId ?? 'free'}
+                subheader={<ListSubheader>{g.teamId ? `En ${g.teamName}` : 'Sin equipo'}</ListSubheader>}
               >
-                <ListItemText primary={p.full_name} secondary={`edad ${p.edad_liga ?? '—'}`} />
-              </ListItemButton>
+                {g.players.map((p) => (
+                  <ListItemButton
+                    key={p.id}
+                    onClick={() =>
+                      g.teamId
+                        ? setPending({ player: p, fromTeamName: g.teamName ?? '' })
+                        : onAssign(p.id)
+                    }
+                  >
+                    <ListItemText primary={p.full_name} secondary={`edad ${p.edad_liga ?? '—'}`} />
+                  </ListItemButton>
+                ))}
+              </List>
             ))}
-          </List>
-        ))}
+          </>
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cerrar</Button>
