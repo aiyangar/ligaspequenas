@@ -13,13 +13,24 @@ import { isAdmin } from '../lib/authorize'
 import { fetchPlayers, playerCategoryText } from './players'
 import type { PlayerRow, PlayerStatus } from './players'
 
+interface FilterOption {
+  id: string
+  name: string
+}
+
+function uniqueOptions(pairs: Array<[string | null, string | null]>): FilterOption[] {
+  const byId = new Map<string, string>()
+  for (const [id, name] of pairs) if (id && name) byId.set(id, name)
+  return Array.from(byId, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+}
+
 export function PlayersPage() {
   const { role } = useTenant()
   const [players, setPlayers] = useState<PlayerRow[]>([])
   const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('')
+  const [categoryId, setCategoryId] = useState('')
   const [status, setStatus] = useState<'' | PlayerStatus>('')
-  const [team, setTeam] = useState('')
+  const [teamId, setTeamId] = useState('')
 
   const load = useCallback(async (): Promise<PlayerRow[]> => fetchPlayers(), [])
 
@@ -33,21 +44,21 @@ export function PlayersPage() {
     }
   }, [load])
 
-  const categories = useMemo(() => {
-    const names = players.map((p) => p.category_name).filter((n): n is string => Boolean(n))
-    return Array.from(new Set(names)).sort()
-  }, [players])
+  const categories = useMemo(
+    () => uniqueOptions(players.map((p) => [p.category_id, p.category_name])),
+    [players],
+  )
 
-  const teams = useMemo(() => {
-    const names = players.map((p) => p.team_name).filter((n): n is string => Boolean(n))
-    return Array.from(new Set(names)).sort()
-  }, [players])
+  const teams = useMemo(
+    () => uniqueOptions(players.map((p) => [p.team_id, p.team_name])),
+    [players],
+  )
 
   const visible = players.filter((p) => {
     if (search && !p.full_name.toLowerCase().includes(search.toLowerCase())) return false
-    if (category && p.category_name !== category) return false
+    if (categoryId && p.category_id !== categoryId) return false
     if (status && p.status !== status) return false
-    if (team && p.team_name !== team) return false
+    if (teamId && p.team_id !== teamId) return false
     return true
   })
 
@@ -84,15 +95,15 @@ export function PlayersPage() {
         <TextField
           select
           label="Categoría"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
           slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
           sx={{ minWidth: 180 }}
         >
           <option value="">Todas</option>
           {categories.map((c) => (
-            <option key={c} value={c}>
-              {c}
+            <option key={c.id} value={c.id}>
+              {c.name}
             </option>
           ))}
         </TextField>
@@ -111,15 +122,15 @@ export function PlayersPage() {
         <TextField
           select
           label="Equipo"
-          value={team}
-          onChange={(e) => setTeam(e.target.value)}
+          value={teamId}
+          onChange={(e) => setTeamId(e.target.value)}
           slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
           sx={{ minWidth: 160 }}
         >
           <option value="">Todos</option>
           {teams.map((t) => (
-            <option key={t} value={t}>
-              {t}
+            <option key={t.id} value={t.id}>
+              {t.name}
             </option>
           ))}
         </TextField>

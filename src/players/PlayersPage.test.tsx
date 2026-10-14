@@ -98,3 +98,29 @@ test('readonly does not see the "Nuevo jugador" button', async () => {
   await screen.findByText('Ana Ruiz')
   expect(screen.queryByRole('link', { name: 'Nuevo jugador' })).not.toBeInTheDocument()
 })
+
+test('team filter distinguishes teams that share a name', async () => {
+  mocks.fetchPlayers.mockResolvedValue([
+    player({ id: 'p1', full_name: 'Ana Ruiz', team_id: 'tA', team_name: 'Rojo' }),
+    player({ id: 'p3', full_name: 'Carla Paz', team_id: 'tB', team_name: 'Rojo' }),
+  ])
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Carla Paz')
+  await user.selectOptions(screen.getByLabelText('Equipo'), 'tA')
+  await waitFor(() => expect(screen.queryByText('Carla Paz')).not.toBeInTheDocument())
+  expect(screen.getByText('Ana Ruiz')).toBeInTheDocument()
+})
+
+test('category filter distinguishes categories that share a name', async () => {
+  mocks.fetchPlayers.mockResolvedValue([
+    player({ id: 'p1', full_name: 'Ana Ruiz', category_id: 'cat1', category_name: 'Infantil Mayor' }),
+    player({ id: 'p3', full_name: 'Carla Paz', category_id: 'cat2', category_name: 'Infantil Mayor' }),
+  ])
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Carla Paz')
+  await user.selectOptions(screen.getByLabelText('Categoría'), 'cat1')
+  await waitFor(() => expect(screen.queryByText('Carla Paz')).not.toBeInTheDocument())
+  expect(screen.getByText('Ana Ruiz')).toBeInTheDocument()
+})
