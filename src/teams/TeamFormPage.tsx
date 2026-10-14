@@ -9,6 +9,7 @@ import Alert from '@mui/material/Alert'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
 import { LoadError } from '../app/LoadError'
+import { NotFoundState } from '../app/NotFoundState'
 import { TeamForm } from './TeamForm'
 import {
   fetchTeam, fetchCategories, fetchActiveSeason, createTeam, updateTeam,
@@ -33,6 +34,7 @@ export function TeamFormPage() {
   const [submitting, setSubmitting] = useState(false)
   const [loadError, setLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -46,6 +48,7 @@ export function TeamFormPage() {
         setLoadError(false)
         setCategories(cats)
         setSeason(s)
+        setNotFound(editing && !team)
         if (team) {
           setValues({ name: team.name, category_id: team.category_id, coach: team.coach ?? '', color: team.color ?? '' })
           setCategoryLocked(team.player_count > 0)
@@ -104,6 +107,14 @@ export function TeamFormPage() {
   }
 
   if (!loaded) return <Typography sx={{ p: 2 }}>Cargando…</Typography>
+
+  if (notFound) {
+    return (
+      <Box sx={{ maxWidth: 640, mx: 'auto', mt: 4, px: 2 }}>
+        <NotFoundState title="Equipo no encontrado" backTo="/equipos" backLabel="Volver a Equipos" />
+      </Box>
+    )
+  }
 
   if (!editing && !season) {
     return (

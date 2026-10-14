@@ -82,3 +82,11 @@ test('a failed load offers Reintentar and retrying shows the form', async () => 
   expect(await screen.findByRole('button', { name: 'Guardar' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument()
 })
+
+test('editing a missing team shows not-found instead of a blank form', async () => {
+  mocks.fetchTeam.mockResolvedValue(null)
+  renderAt('/equipos/missing/editar')
+  expect(await screen.findByText('Equipo no encontrado')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Volver a Equipos' })).toHaveAttribute('href', '/equipos')
+  expect(screen.queryByRole('button', { name: 'Guardar' })).not.toBeInTheDocument()
+})

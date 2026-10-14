@@ -109,3 +109,11 @@ test('a failed refresh after a mutation shows an error without losing the page',
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   expect(screen.getByRole('heading', { name: /MTY AC Rojo/ })).toBeInTheDocument()
 })
+
+test('a missing team shows not-found with a link back to Equipos', async () => {
+  mocks.fetchTeam.mockResolvedValue(null)
+  renderPage()
+  expect(await screen.findByText('Equipo no encontrado')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Volver a Equipos' })).toHaveAttribute('href', '/equipos')
+  expect(screen.queryByText('Cargando…')).not.toBeInTheDocument()
+})
