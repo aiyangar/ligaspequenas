@@ -20,6 +20,8 @@ const mocks = vi.hoisted(() => ({
   fetchPlayerDocuments: vi.fn(),
   setDocumentStatus: vi.fn(),
   uploadPlayerPhoto: vi.fn(),
+  fetchPlayerPayments: vi.fn(),
+  createPayment: vi.fn(),
 }))
 vi.mock('./players', async (importActual) => {
   const actual = await importActual<typeof import('./players')>()
@@ -42,6 +44,10 @@ vi.mock('../teams/teams', async (importActual) => {
 vi.mock('../documents/documents', async (importActual) => {
   const actual = await importActual<typeof import('../documents/documents')>()
   return { ...actual, fetchPlayerDocuments: mocks.fetchPlayerDocuments, setDocumentStatus: mocks.setDocumentStatus }
+})
+vi.mock('../payments/payments', async (importActual) => {
+  const actual = await importActual<typeof import('../payments/payments')>()
+  return { ...actual, fetchPlayerPayments: mocks.fetchPlayerPayments, createPayment: mocks.createPayment }
 })
 
 function renderAt(path: string) {
@@ -101,6 +107,8 @@ beforeEach(() => {
   mocks.fetchPlayerDocuments.mockResolvedValue(seededDocs())
   mocks.setDocumentStatus.mockResolvedValue({ ok: true })
   mocks.uploadPlayerPhoto.mockResolvedValue({ ok: true })
+  mocks.fetchPlayerPayments.mockResolvedValue([])
+  mocks.createPayment.mockResolvedValue({ ok: true })
 })
 
 test('create mode submits createPlayer with the tenant id', async () => {
@@ -333,4 +341,30 @@ test('a photo upload refetches the player and shows a toast', async () => {
   await user.upload(input, new File(['x'], 'a.jpg', { type: 'image/jpeg' }))
   expect(await screen.findByText('Foto actualizada')).toBeInTheDocument()
   await waitFor(() => expect(mocks.fetchPlayer).toHaveBeenCalledTimes(2))
+})
+
+test('edit mode shows the payments section', async () => {
+  renderAt('/jugadores/p1')
+  expect(await screen.findByRole('heading', { name: 'Pagos' })).toBeInTheDocument()
+  expect(mocks.fetchPlayerPayments).toHaveBeenCalledWith('p1')
+})
+
+test('create mode has no payments section', async () => {
+  renderAt('/jugadores/nuevo')
+  expect(await screen.findByRole('heading', { name: 'Nuevo jugador' })).toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: 'Pagos' })).not.toBeInTheDocument()
+  expect(mocks.fetchPlayerPayments).not.toHaveBeenCalled()
+})
+
+test('registering a payment never submits the player form', async () => {
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  await user.click(await screen.findByRole('button', { name: 'Registrar pago' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Registrar pago' })
+  await user.type(within(dialog).getByLabelText('Monto'), '200{Enter}')
+  await user.click(within(dialog).getByRole('button', { name: 'Guardar' }))
+  await waitFor(() => expect(mocks.createPayment).toHaveBeenCalledTimes(1))
+  expect(mocks.createPayment).toHaveBeenCalledWith('p1', 'tenant-1', expect.objectContaining({ amount: '200' }))
+  expect(await screen.findByText('Pago registrado')).toBeInTheDocument()
+  expect(mocks.updatePlayer).not.toHaveBeenCalled()
 })

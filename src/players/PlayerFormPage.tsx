@@ -28,6 +28,7 @@ import { consentGranted, fetchPlayerDocuments } from '../documents/documents'
 import type { DocumentRow } from '../documents/documents'
 import { PlayerDocumentsSection } from '../documents/PlayerDocumentsSection'
 import { PlayerPhoto } from './PlayerPhoto'
+import { PlayerPaymentsSection } from '../payments/PlayerPaymentsSection'
 
 export function PlayerFormPage() {
   const { id } = useParams()
@@ -294,6 +295,14 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
             }}
           />
         ))}
+        {editing && row && (
+          <PlayerPaymentsSection
+            playerId={row.id}
+            tenantId={row.tenant_id}
+            canEdit={canEdit}
+            onChanged={showToast}
+          />
+        )}
         {message && (
           <Alert role="alert" severity={message.startsWith('Error') ? 'error' : 'success'} sx={{ mt: 1 }}>
             {message}
