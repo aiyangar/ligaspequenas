@@ -1,18 +1,19 @@
 import { createBrowserRouter } from 'react-router-dom'
+import type { RouteObject } from 'react-router-dom'
 import { LoginPage } from '../auth/LoginPage'
 import { AuthCallbackPage } from '../auth/AuthCallbackPage'
 import { RequireAuth } from '../auth/RequireAuth'
 import { RequireAdmin } from '../auth/RequireAdmin'
 import { AppLayout } from './AppLayout'
-import { PlaceholderPage } from './PlaceholderPage'
 import { UsersPage } from '../users/UsersPage'
 import { PlayerFormPage } from '../players/PlayerFormPage'
 import { PlayersPage } from '../players/PlayersPage'
 import { TeamsPage } from '../teams/TeamsPage'
 import { TeamDetailPage } from '../teams/TeamDetailPage'
 import { TeamFormPage } from '../teams/TeamFormPage'
+import { DebtorsPage } from '../payments/DebtorsPage'
 
-export const router = createBrowserRouter([
+export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
   { path: '/auth/callback', element: <AuthCallbackPage /> },
   {
@@ -23,7 +24,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <PlayersPage /> },
           { path: 'jugadores/:id', element: <PlayerFormPage /> },
-          { path: 'quien-debe', element: <PlaceholderPage title="Quién debe" /> },
+          { path: 'quien-debe', element: <DebtorsPage /> },
           { path: 'equipos', element: <TeamsPage /> },
           { path: 'equipos/:id', element: <TeamDetailPage /> },
           {
@@ -39,4 +40,6 @@ export const router = createBrowserRouter([
       },
     ],
   },
-])
+]
+
+export const router = createBrowserRouter(routes)

@@ -2,9 +2,10 @@ import { beforeEach, expect, vi } from 'vitest'
 import {
   localToday, emptyPayment, paymentToValues, formatPaymentDate, normalizeAmount, validatePayment,
   paymentText, formatMoney, paymentErrorMessage, fetchPlayerPayments, createPayment, updatePayment,
-  deletePayment,
+  deletePayment, PAYMENT_STATE_LABELS, fetchPaymentStatuses, fetchOutstandingPayments, buildDebtGroups,
 } from './payments'
-import type { PaymentFormValues, PaymentRow } from './payments'
+import type { PaymentFormValues, PaymentRow, PaymentStatusRow } from './payments'
+import type { PlayerRow } from '../players/players'
 
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
@@ -189,4 +190,109 @@ test('deletePayment with zero rows is an error', async () => {
 test('deletePayment translates an RLS error', async () => {
   respond(null, { message: 'permission denied: row-level security' })
   expect(await deletePayment('pay1')).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
+})
+
+function player(over: Partial<PlayerRow>): PlayerRow {
+  return {
+    id: 'p1', tenant_id: 't1', full_name: 'Ana', birth_date: '2015-06-10', curp: null,
+    photo_path: null, status: 'activo', enrollment_date: '2026-07-01', tutor_name: 'T',
+    tutor_whatsapp: '0', tutor_email: null, emergency_contact_name: null,
+    emergency_contact_phone: null, affiliation_status: 'pendiente', affiliation_date: null,
+    created_at: '', updated_at: '', edad_liga: 11, division: 'Infantil',
+    category_name: 'Infantil Mayor', category_year: 1, category_id: 'cat1',
+    team_id: null, team_name: null, ...over,
+  }
+}
+
+function state(player_id: string, payment_state: PaymentStatusRow['payment_state']): PaymentStatusRow {
+  return { player_id, tenant_id: 't1', payment_state }
+}
+
+test('PAYMENT_STATE_LABELS has the three group names', () => {
+  expect(PAYMENT_STATE_LABELS).toEqual({
+    con_adeudo: 'Con adeudo', sin_pagos: 'Sin pagos', al_corriente: 'Al corriente',
+  })
+})
+
+test('fetchPaymentStatuses reads the view', async () => {
+  respond([state('p1', 'sin_pagos')])
+  expect(await fetchPaymentStatuses()).toEqual([state('p1', 'sin_pagos')])
+  expect(mocks.from).toHaveBeenCalledWith('player_payment_status')
+  expect(called('select')).toEqual([['player_id, tenant_id, payment_state']])
+})
+
+test('fetchPaymentStatuses throws on error', async () => {
+  respond(null, { message: 'boom' })
+  await expect(fetchPaymentStatuses()).rejects.toThrow('boom')
+})
+
+test('fetchOutstandingPayments reads pendiente and parcial rows by date', async () => {
+  respond([row({ status: 'parcial', amount: '200.00' as unknown as number })])
+  const rows = await fetchOutstandingPayments()
+  expect(mocks.from).toHaveBeenCalledWith('payments')
+  expect(called('in')).toEqual([['status', ['pendiente', 'parcial']]])
+  expect(called('order')).toEqual([['payment_date', { ascending: true }]])
+  expect(rows[0].amount).toBe(200)
+})
+
+test('fetchOutstandingPayments throws on error', async () => {
+  respond(null, { message: 'boom' })
+  await expect(fetchOutstandingPayments()).rejects.toThrow('boom')
+})
+
+test('buildDebtGroups drops baja players and keeps the input order in every group', () => {
+  const players = [
+    player({ id: 'a', full_name: 'Ana' }),
+    player({ id: 'b', full_name: 'Beto', status: 'baja' }),
+    player({ id: 'c', full_name: 'Carla' }),
+    player({ id: 'd', full_name: 'Dani' }),
+  ]
+  const groups = buildDebtGroups(
+    players,
+    [state('a', 'al_corriente'), state('b', 'con_adeudo'), state('c', 'al_corriente'), state('d', 'sin_pagos')],
+    [row({ id: 'x', player_id: 'b', status: 'pendiente' })],
+  )
+  expect(groups.al_corriente.map((p) => p.id)).toEqual(['a', 'c'])
+  expect(groups.sin_pagos.map((p) => p.id)).toEqual(['d'])
+  expect(groups.con_adeudo).toEqual([])
+})
+
+test('buildDebtGroups attaches each open payment to its own player', () => {
+  const open1 = row({ id: 'x1', player_id: 'a', status: 'parcial' })
+  const open2 = row({ id: 'x2', player_id: 'c', status: 'pendiente' })
+  const open3 = row({ id: 'x3', player_id: 'a', status: 'pendiente' })
+  const groups = buildDebtGroups(
+    [player({ id: 'a' }), player({ id: 'c' })],
+    [state('a', 'con_adeudo'), state('c', 'con_adeudo')],
+    [open1, open2, open3],
+  )
+  expect(groups.con_adeudo.map((e) => [e.player.id, e.payments.map((p) => p.id)])).toEqual([
+    ['a', ['x1', 'x3']],
+    ['c', ['x2']],
+  ])
+})
+
+test('buildDebtGroups puts a player missing from the view in sin_pagos', () => {
+  const groups = buildDebtGroups([player({ id: 'a' })], [], [])
+  expect(groups.sin_pagos.map((p) => p.id)).toEqual(['a'])
+})
+
+test('buildDebtGroups: view says con_adeudo but nothing is open → al_corriente', () => {
+  const groups = buildDebtGroups([player({ id: 'a' })], [state('a', 'con_adeudo')], [])
+  expect(groups.con_adeudo).toEqual([])
+  expect(groups.al_corriente.map((p) => p.id)).toEqual(['a'])
+})
+
+test('buildDebtGroups: open rows win over a stale al_corriente or sin_pagos', () => {
+  const groups = buildDebtGroups(
+    [player({ id: 'a' }), player({ id: 'b' })],
+    [state('a', 'al_corriente'), state('b', 'sin_pagos')],
+    [row({ id: 'x1', player_id: 'a', status: 'parcial' }), row({ id: 'x2', player_id: 'b', status: 'pendiente' })],
+  )
+  expect(groups.con_adeudo.map((e) => [e.player.id, e.payments.map((p) => p.id)])).toEqual([
+    ['a', ['x1']],
+    ['b', ['x2']],
+  ])
+  expect(groups.al_corriente).toEqual([])
+  expect(groups.sin_pagos).toEqual([])
 })
