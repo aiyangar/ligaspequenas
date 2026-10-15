@@ -1,7 +1,7 @@
 # Lista de jugadores: estatus de pago y documentos (#4) — Diseño
 
 **Fecha:** 2026-10-15
-**Estado:** Borrador (diseño aprobado por el owner)
+**Estado:** Revisado (revisión adversarial aplicada)
 **Issue:** [#4](https://github.com/aiyangar/ligaspequenas/issues/4)
 **Spec maestro:** `2026-06-22-liga-mty-registro-jugadores-design.md` §8 (pantallas)
 **Specs previos:** `2026-10-14-payments-design.md` (vista `player_payment_status`, `PaymentState`), `2026-10-13-documents-design.md` (estatus de documentos)
@@ -38,7 +38,7 @@ Fuera de alcance:
 | Forma de la migración | `create or replace view` en `0015`, mismo `with (security_invoker = true)`, **mismas columnas en el mismo orden** y las dos nuevas al final. `create or replace view` solo permite agregar columnas al final; cualquier cambio de orden o tipo falla al aplicar, lo que sirve de guarda. `0014` no se toca. |
 | Origen de `payment_state` | `left join player_payment_status` por `player_id` (una fila por jugador, no multiplica filas) con `coalesce(…, 'sin_pagos')`. El `coalesce` no debería dispararse (ambas vistas corren con los permisos del mismo usuario sobre `players`), pero deja la columna no nula y coincide con el criterio de `buildDebtGroups` para un jugador sin fila en la vista (`payments.ts:252`). |
 | Origen de `docs_delivered` | Subconsulta escalar `count(*)::int` de `documents` del jugador con `status in ('fisico', 'digital')`. Escalar (no `join` + `group by`) para no tocar los joins existentes ni agrupar por `p.*`. `::int` para que PostgREST devuelva un `number` simple. |
-| Total de documentos | `DOCUMENT_TOTAL = DOCUMENT_TYPES.length` exportado desde `src/documents/documents.ts`; nada de un `6` literal en la UI ni en las pruebas de UI. "Completos" = `docs_delivered === DOCUMENT_TOTAL`. |
+| Total de documentos | `DOCUMENT_TOTAL = DOCUMENT_TYPES.length` exportado desde `src/documents/documents.ts`; nada de un `6` literal en la UI ni en las pruebas de UI. "Completos" = `docs_delivered >= DOCUMENT_TOTAL` (§5.2). |
 | Colores del chip de pago | `PAYMENT_STATE_COLOR: Record<PaymentState, 'warning' \| 'default' \| 'success'>` en `payments.ts`, junto a `PAYMENT_STATE_LABELS` y con la forma de `PAYMENT_STATUS_COLOR` (`:60-64`): `con_adeudo` → `warning`, `sin_pagos` → `default`, `al_corriente` → `success`. Hoy **no existe** un mapa de colores para `PaymentState` (#3 solo agregó etiquetas; `DebtorsPage` usa secciones, no chips por estado). |
 | Ubicación de los chips | **Debajo** de la línea secundaria actual, en una fila que hace `wrap`. La línea `categoría · estatus · equipo` no cambia (las pruebas existentes la buscan por texto, `PlayersPage.test.tsx:76-81`). |
 | Filtros | Cliente, como los existentes (la lista ya trae todo el tenant). Dos `TextField select` nativos más: **Pago** y **Documentos**. Todos los filtros se combinan con AND. |
@@ -90,6 +90,7 @@ left join player_payment_status pps on pps.player_id = p.id;
 - Índices: `documents_player_idx` y `payments_player_idx` cubren la subconsulta y el agregado de `player_payment_status`. Volumen de una liga; sin índices nuevos.
 - **Dependencia nueva:** `players_with_category` pasa a depender de `player_payment_status`. Un futuro `drop view player_payment_status` fallará sin `cascade`; un `create or replace` de `0014` que solo agregue columnas al final sigue funcionando (§9).
 - Después de aplicar, PostgREST recarga el esquema solo (event trigger de Supabase). Si `select('*')` no trae las columnas nuevas, `notify pgrst, 'reload schema';`.
+- **Plan de consulta.** Después de aplicar se corre (solo lectura, vía MCP `execute_sql`) `explain select * from players_with_category where id = '<id de un jugador fixture>'` y el plan se registra en la evidencia del PR. Un hash join o seq scan sobre `payments` / `documents` es aceptable a escala de liga, pero debe quedar documentado.
 
 ### 3.2 Consumidores verificados
 
@@ -107,7 +108,7 @@ Grep de `players_with_category` / `PlayerRow` en `src/` y `supabase/`:
 
 Misma mecánica que §3.2 del spec de pagos: archivo canónico con `begin; select extensions.plan(n); … select * from extensions.finish(); rollback;` (forma de `supabase/tests/0014_player_payment_status_view.test.sql`), y la evidencia se corre vía MCP `execute_sql` contra el remoto:
 
-- `execute_sql` **no hace rollback**: fixtures con prefijo UUID propio `eeeeeeee-…` (no usado por otras pruebas), **borrado explícito al final** (jugadores — documentos y pagos caen por `on delete cascade` —, luego perfiles, `auth.users` y tenants) y conteos de `tenants`, `players`, `documents`, `payments` y `profiles` de vuelta a la línea base tomada antes de crear nada.
+- `execute_sql` **no hace rollback**: fixtures con prefijo UUID propio `eeeeeeee-…` (no usado por otras pruebas), **borrado explícito al final** (jugadores — documentos y pagos caen por `on delete cascade` —, luego perfiles, `auth.users` y tenants) y conteos de `tenants`, `players`, `documents`, `payments`, `profiles` y `auth.users` de vuelta a la línea base tomada antes de crear nada.
 - El cambio de rol (`set_config('role', …, true)` / `request.jwt.claims`) es local a la transacción: **rol y aserción van en la misma llamada** a `execute_sql`.
 - Valores con `is()` (truco de dos sentencias, memoria del proyecto); estructura por catálogo.
 - Advisors después del DDL.
@@ -151,9 +152,9 @@ Casos:
 
 ### 5.1 Chips por jugador
 
-- Dentro del `ListItemButton` actual, la `ListItemText` (primario y secundario **sin cambios**) y debajo una fila de chips: `Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}`. El contenedor de ambos es una columna con `minWidth: 0` para que el contenido no ensanche el item. Los chips no van dentro de `secondary` (que es un `<p>`: un `div` dentro sería HTML inválido).
+- Dentro del `ListItemButton` actual, un contenedor explícito `<Box sx={{ minWidth: 0, flex: 1 }}>` envuelve la `ListItemText` (primario y secundario **sin cambios**) y, debajo, una fila de chips: `Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}`. `ListItemButton` es `display: flex` en fila, así que sin ese `Box` la `ListItemText` y el `Stack` quedarían lado a lado; el `Box` es el único hijo flex, ocupa el ancho (`flex: 1`) y con `minWidth: 0` el contenido no ensancha el item. Dentro del `Box` (bloque) la `ListItemText` y el `Stack` se apilan. Los chips no van dentro de `secondary` (que es un `<p>`: un `div` dentro sería HTML inválido).
 - **Chip de pago:** `<Chip size="small" label={PAYMENT_STATE_LABELS[p.payment_state]} color={PAYMENT_STATE_COLOR[p.payment_state]} />` → "Con adeudo" ámbar, "Sin pagos" gris, "Al corriente" verde.
-- **Chip de documentos:** label `Docs ${p.docs_delivered}/${DOCUMENT_TOTAL}`; `color="success"` si `docs_delivered === DOCUMENT_TOTAL`, `color="warning"` en otro caso (incluido 0).
+- **Chip de documentos:** label `Docs ${p.docs_delivered}/${DOCUMENT_TOTAL}`; `color="success"` si `docs_delivered >= DOCUMENT_TOTAL`, `color="warning"` en otro caso (incluido 0). Mismo umbral que el filtro **Documentos** (§5.2).
 - Se muestran para todos los jugadores, también los de `baja`.
 
 ### 5.2 Filtros
@@ -163,9 +164,13 @@ Dos `TextField` más en el `Stack` de filtros, después de **Equipo**, con el mi
 | Filtro | Estado | Opciones (valor → texto) | Regla |
 |---|---|---|---|
 | **Pago** (`minWidth: 160`) | `paymentState: '' \| PaymentState` | `''` Todos · `con_adeudo` Con adeudo · `sin_pagos` Sin pagos · `al_corriente` Al corriente (textos de `PAYMENT_STATE_LABELS`) | `p.payment_state === paymentState` |
-| **Documentos** (`minWidth: 160`) | `docsFilter: '' \| 'completos' \| 'incompletos'` | `''` Todos · `completos` Completos · `incompletos` Incompletos | completos: `docs_delivered === DOCUMENT_TOTAL`; incompletos: `<` |
+| **Documentos** (`minWidth: 160`) | `docsFilter: '' \| 'completos' \| 'incompletos'` | `''` Todos · `completos` Completos · `incompletos` Incompletos | completos: `docs_delivered >= DOCUMENT_TOTAL`; incompletos: `docs_delivered < DOCUMENT_TOTAL` |
 
 En `visible` (`:71-77`) se agregan dos condiciones más; todas se combinan con AND. Las opciones son fijas (no se derivan de los datos, a diferencia de Categoría y Equipo). Si la combinación no deja a nadie, la lista queda vacía, como hoy.
+
+Umbral `>=` (no `===`): si `DOCUMENT_TYPES` quedara por detrás del enum (§9) y llegara un `docs_delivered` mayor que `DOCUMENT_TOTAL`, el jugador cuenta como completo en el filtro y en el color del chip, en vez de caer en "Incompletos".
+
+**Fuera de alcance de #4:** un mensaje de "sin resultados" cuando los filtros no dejan a nadie. La lista queda vacía, como hoy; el orquestador lo registra como issue de seguimiento.
 
 ### 5.3 Roles
 
@@ -183,17 +188,26 @@ Admin y readonly ven **la misma lista**, chips y filtros: son lecturas y la RLS 
 |---|---|
 | Falla `fetchPlayers()` | `LoadError` + Reintentar, sin cambios (`:98`). Las columnas nuevas vienen en la misma consulta: no hay estado de error parcial. |
 | Columnas nuevas ausentes (migración no aplicada en un entorno) | `payment_state` `undefined` → el chip quedaría sin texto. Mitigación por proceso: la migración se aplica al remoto antes de mergear la rama (§8). No se agrega código defensivo. |
-| Sin jugadores o filtros sin coincidencias | Lista vacía, como hoy. |
+| Sin jugadores o filtros sin coincidencias | Lista vacía, como hoy. Un mensaje de "sin resultados" queda **fuera de alcance** de #4 (issue de seguimiento, §5.2). |
 
 ## 6. Pruebas (Vitest + Testing Library)
 
-`src/players/PlayersPage.test.tsx` — el fixture `player()` agrega `payment_state: 'sin_pagos', docs_delivered: 0` y los jugadores de `beforeEach` pasan a cubrir los casos (p. ej. Ana `con_adeudo` con `DOCUMENT_TOTAL` documentos, Beto `sin_pagos` con 2). Casos nuevos:
+`src/players/PlayersPage.test.tsx` — el fixture `player()` agrega `payment_state: 'sin_pagos', docs_delivered: 0` y los jugadores de `beforeEach` pasan a cubrir los casos. Fixture **obligatorio** de tres jugadores, para que aparezcan los tres estados de pago y haya combinaciones que coinciden con un filtro y no con el otro:
+
+| Jugador | `payment_state` | `status` | `docs_delivered` |
+|---|---|---|---|
+| Ana | `con_adeudo` | `activo` | `DOCUMENT_TOTAL` |
+| Beto | `sin_pagos` | `baja` (el actual del fixture) | `2` |
+| Carla | `al_corriente` | `activo` | `DOCUMENT_TOTAL - 1` |
+
+Casos nuevos:
 
 - chip de pago con la etiqueta de cada estado; chip "Docs N/total" (total construido con `DOCUMENT_TOTAL`, no literal);
-- color: el chip completo tiene la clase de `success` y el incompleto la de `warning` (`MuiChip-colorSuccess` / `MuiChip-colorWarning`); igual para los tres estados de pago;
+- color: el chip completo tiene la clase de `success` y el incompleto la de `warning`; igual para los tres estados de pago. Aserción por la raíz del chip, con el patrón de `PlayerFormPage.test.tsx:233` (`closest('.MuiAlert-root')` + `toHaveClass`): `expect(within(list).getByText(`Docs ${DOCUMENT_TOTAL}/${DOCUMENT_TOTAL}`).closest('.MuiChip-root')).toHaveClass('MuiChip-colorSuccess')`;
+- umbral: un jugador con `docs_delivered: DOCUMENT_TOTAL + 1` aparece en **Completos** (no en Incompletos) y su chip es `MuiChip-colorSuccess`;
 - filtro **Pago**: cada opción deja solo a los jugadores de ese estado; **Todos** los restaura;
 - filtro **Documentos**: Completos / Incompletos / Todos;
-- **combinaciones**: Pago + Documentos, y Pago + Estatus (AND); una combinación sin coincidencias deja la lista vacía;
+- **combinaciones** (AND): Pago = Con adeudo + Documentos = Completos → solo Ana; Pago = Al corriente + Documentos = Completos → lista vacía (Carla coincide con Pago pero no con Documentos, Ana al revés), lo que prueba AND y no OR; Pago + Estatus también;
 - readonly ve los mismos chips y filtros (y no ve Nuevo jugador, ya cubierto).
 
 Las etiquetas "Con adeudo", "Sin pagos" y "Al corriente" aparecen en las `<option>` del filtro **y** en los chips: las aserciones de chips se hacen `within(screen.getByRole('list'))` (mismo problema que ya resuelve el comentario de `PlayersPage.test.tsx:79`).
@@ -219,12 +233,20 @@ pgTAP: §3.3.
 
 Una rama: **`feature/players-status-columns`**, PR con `Closes #4`.
 
-Orden dentro de la rama: (1) migración `0015` + pgTAP aplicada al remoto vía MCP `apply_migration`, con la lista de columnas capturada antes; (2) tipos y constantes + fixtures; (3) UI y pruebas.
+Orden dentro de la rama: (1) migración `0015` + pgTAP aplicada al remoto vía MCP `apply_migration`, con la lista de columnas capturada antes y el `explain` de §3.1; (2) tipos y constantes + fixtures; (3) UI y pruebas.
 
-Verificación: `pnpm exec vitest run`, `tsc -b`, `pnpm lint` en verde; corrida pgTAP vía MCP de §3.3 en verde contra el remoto (fixtures borrados, conteos en línea base); advisors sin hallazgos nuevos. E2E en navegador (tester con Playwright, el owner pega el magic link): como admin, ver chips y usar ambos filtros combinados con Estatus; registrar un pago pendiente o marcar un documento en el detalle y comprobar al volver que el chip cambia; como readonly, la misma lista; en viewport de 360 px, sin scroll horizontal.
+**Migración aplicada = inmutable.** `apply_migration` corre contra el remoto antes del review y `supabase_migrations.schema_migrations` registra el nombre aplicado (`0015_players_view_status_columns`). Una vez aplicada, `0015` **no se vuelve a editar** en el repo: cualquier cambio que pida el review sale como una migración nueva `0016_…` (`create or replace view`, append-only, con su pgTAP), para que el repo y `schema_migrations` no diverjan.
+
+Verificación:
+
+- `pnpm exec vitest run`, `tsc -b`, `pnpm lint` en verde;
+- corrida pgTAP vía MCP de §3.3 en verde contra el remoto (fixtures borrados, conteos en línea base, incluido `auth.users`); advisors sin hallazgos nuevos; plan del `explain` registrado (§3.1);
+- E2E en navegador (tester con Playwright, el owner pega el magic link): como admin, ver chips y usar ambos filtros combinados con Estatus; registrar un pago pendiente o marcar un documento en el detalle y comprobar al volver que el chip cambia; como readonly, la misma lista; en viewport de 360 px, sin scroll horizontal;
+- **datos del E2E:** el tester crea jugadores de prueba dedicados con prefijo `E2E Status` en el nombre y solo sobre ellos registra pagos o marca documentos; **nunca se modifican jugadores reales**. Al terminar, el orquestador los borra por SQL (`delete from players where full_name like 'E2E Status%'`; pagos y documentos caen por `on delete cascade`) y confirma que no queda ninguno.
 
 ## 9. Riesgos abiertos
 
+- **Rollback.** No se edita ni se revierte `0015` en el repo (§8). Si hay que deshacerla, va una migración nueva que hace `drop view players_with_category` y la vuelve a crear con la definición de `0011` (con `with (security_invoker = true)`). `drop` + `create` resetea los privilegios a los default del esquema (las migraciones de esta vista nunca hicieron `grant` explícito), así que su pgTAP verifica `security_invoker=true` en `reloptions`, `has_table_privilege('authenticated', 'public.players_with_category', 'select')` = `true`, y registra con `diag` el de `anon`. Nada depende hoy de `players_with_category`, así que el `drop` no necesita `cascade`.
 - **Migración frágil ante cambios a `players`.** `p.*` se re-expande en cada `create or replace`. Si una migración futura agrega columnas a `players`, recrear esta vista fallará (columnas nuevas en medio). Es preexistente (`0007` y `0011` ya dependían de esto); la solución entonces es `drop view … ; create view …` con sus grants y dependencias.
 - **Vista dependiente de `player_payment_status`.** Ver §3.1. Cualquier cambio a `0014` que no sea agregar columnas al final requiere recrear ambas.
 - **Costo por lectura.** Toda lectura de `players_with_category` (incluidas `fetchPlayer`, `fetchRoster` y `fetchEligiblePlayers`) calcula ahora el agregado de pagos y el conteo de documentos. Adecuado al tamaño de una liga; si crece, el plan sería una vista o función aparte solo para la lista.
