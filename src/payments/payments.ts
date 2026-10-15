@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import type { PlayerRow } from '../players/players'
 
 export type PaymentConcept = 'inscripcion' | 'mensualidad' | 'uniforme' | 'otro'
 export type PaymentMethod = 'efectivo' | 'transferencia'
@@ -185,4 +186,71 @@ export async function deletePayment(id: string): Promise<MutationResult> {
   if (error) return { ok: false, error: paymentErrorMessage(error.message) }
   if (!data || data.length === 0) return { ok: false, error: NOT_FOUND_MESSAGE }
   return { ok: true }
+}
+
+export type PaymentState = 'con_adeudo' | 'al_corriente' | 'sin_pagos'
+
+export const PAYMENT_STATE_LABELS: Record<PaymentState, string> = {
+  con_adeudo: 'Con adeudo',
+  sin_pagos: 'Sin pagos',
+  al_corriente: 'Al corriente',
+}
+
+export interface PaymentStatusRow {
+  player_id: string
+  tenant_id: string
+  payment_state: PaymentState
+}
+
+export interface DebtorEntry {
+  player: PlayerRow
+  payments: PaymentRow[]
+}
+
+export interface DebtGroups {
+  con_adeudo: DebtorEntry[]
+  sin_pagos: PlayerRow[]
+  al_corriente: PlayerRow[]
+}
+
+export async function fetchPaymentStatuses(): Promise<PaymentStatusRow[]> {
+  const { data, error } = await supabase
+    .from('player_payment_status')
+    .select('player_id, tenant_id, payment_state')
+  if (error) throw new Error(error.message)
+  return (data as PaymentStatusRow[] | null) ?? []
+}
+
+export async function fetchOutstandingPayments(): Promise<PaymentRow[]> {
+  const { data, error } = await supabase
+    .from('payments')
+    .select(PAYMENT_COLUMNS)
+    .in('status', ['pendiente', 'parcial'])
+    .order('payment_date', { ascending: true })
+  if (error) throw new Error(error.message)
+  return ((data as PaymentRow[] | null) ?? []).map(normalizeRow)
+}
+
+// Con adeudo follows the open rows, not the view: the two reads are not atomic
+export function buildDebtGroups(
+  players: PlayerRow[],
+  statuses: PaymentStatusRow[],
+  outstanding: PaymentRow[],
+): DebtGroups {
+  const stateByPlayer = new Map(statuses.map((s) => [s.player_id, s.payment_state]))
+  const openByPlayer = new Map<string, PaymentRow[]>()
+  for (const payment of outstanding) {
+    const list = openByPlayer.get(payment.player_id)
+    if (list) list.push(payment)
+    else openByPlayer.set(payment.player_id, [payment])
+  }
+  const groups: DebtGroups = { con_adeudo: [], sin_pagos: [], al_corriente: [] }
+  for (const player of players) {
+    if (player.status !== 'activo') continue
+    const open = openByPlayer.get(player.id)
+    if (open) groups.con_adeudo.push({ player, payments: open })
+    else if ((stateByPlayer.get(player.id) ?? 'sin_pagos') === 'sin_pagos') groups.sin_pagos.push(player)
+    else groups.al_corriente.push(player)
+  }
+  return groups
 }
