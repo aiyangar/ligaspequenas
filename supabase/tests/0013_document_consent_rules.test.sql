@@ -21,6 +21,7 @@ begin
   return n;
 end;
 $$;
+grant execute on function pg_temp.try_sql(text), pg_temp.count_sql(text) to public;
 
 -- act as admin X
 select set_config('role', 'authenticated', true),
