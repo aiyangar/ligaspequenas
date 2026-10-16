@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
@@ -9,6 +9,7 @@ import List from '@mui/material/List'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import Chip from '@mui/material/Chip'
+import Alert from '@mui/material/Alert'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
 import { LoadError } from '../app/LoadError'
@@ -17,6 +18,7 @@ import type { PaymentState } from '../payments/payments'
 import { DOCUMENT_TOTAL } from '../documents/documents'
 import { fetchPlayers, playerCategoryText } from './players'
 import type { PlayerRow, PlayerStatus } from './players'
+import { exportPlayersToExcel } from './exportPlayers'
 
 interface FilterOption {
   id: string
@@ -49,6 +51,10 @@ export function PlayersPage() {
   const [docsFilter, setDocsFilter] = useState<DocsFilter>('')
   const [loadError, setLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const exportingRef = useRef(false)
+  const exportButtonRef = useRef<HTMLButtonElement>(null)
 
   const load = useCallback(async (): Promise<PlayerRow[]> => fetchPlayers(), [])
 
@@ -94,6 +100,23 @@ export function PlayersPage() {
     return true
   })
 
+  async function handleExport() {
+    // state-driven disabled lands a render late; the ref stops a second click in the same tick
+    if (exportingRef.current) return
+    exportingRef.current = true
+    setExporting(true)
+    setExportError(null)
+    try {
+      await exportPlayersToExcel(visible)
+    } catch {
+      setExportError('No se pudo generar el archivo de Excel. Intenta de nuevo.')
+    } finally {
+      exportingRef.current = false
+      setExporting(false)
+      if (document.activeElement === document.body) exportButtonRef.current?.focus()
+    }
+  }
+
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto', mt: 4, px: 2 }}>
       <Stack
@@ -106,11 +129,28 @@ export function PlayersPage() {
           Jugadores
         </Typography>
         {isAdmin(role) && (
-          <Button variant="contained" component={RouterLink} to="/jugadores/nuevo">
-            Nuevo jugador
-          </Button>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+            <Button
+              ref={exportButtonRef}
+              variant="outlined"
+              onClick={() => void handleExport()}
+              disabled={loadError || visible.length === 0 || exporting}
+              aria-busy={exporting}
+            >
+              Exportar a Excel
+            </Button>
+            <Button variant="contained" component={RouterLink} to="/jugadores/nuevo">
+              Nuevo jugador
+            </Button>
+          </Stack>
         )}
       </Stack>
+
+      {exportError && (
+        <Alert role="alert" severity="error" sx={{ mt: 2 }}>
+          {exportError}
+        </Alert>
+      )}
 
       {loadError ? (
         <LoadError onRetry={handleRetry} />

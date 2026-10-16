@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
@@ -6,11 +6,12 @@ import { PlayersPage } from './PlayersPage'
 import type { PlayerRow } from './players'
 import { DOCUMENT_TOTAL } from '../documents/documents'
 
-const mocks = vi.hoisted(() => ({ fetchPlayers: vi.fn(), useTenant: vi.fn() }))
+const mocks = vi.hoisted(() => ({ fetchPlayers: vi.fn(), useTenant: vi.fn(), exportPlayersToExcel: vi.fn() }))
 vi.mock('./players', async (importActual) => {
   const actual = await importActual<typeof import('./players')>()
   return { ...actual, fetchPlayers: mocks.fetchPlayers }
 })
+vi.mock('./exportPlayers', () => ({ exportPlayersToExcel: mocks.exportPlayersToExcel }))
 vi.mock('../tenant/TenantContext', () => ({ useTenant: mocks.useTenant }))
 
 function player(over: Partial<PlayerRow>): PlayerRow {
@@ -51,6 +52,7 @@ beforeEach(() => {
     player({ id: 'p2', full_name: 'Beto Gómez', status: 'baja', category_id: null, category_name: null, category_year: null, edad_liga: 25, team_id: null, team_name: null, payment_state: 'sin_pagos', docs_delivered: 2 }),
     player({ id: 'p3', full_name: 'Carla Paz', category_id: 'cat2', category_name: 'Infantil Menor', category_year: 2, payment_state: 'al_corriente', docs_delivered: DOCUMENT_TOTAL - 1 }),
   ])
+  mocks.exportPlayersToExcel.mockResolvedValue(undefined)
 })
 
 test('lists players with their category label', async () => {
@@ -297,4 +299,143 @@ test('readonly sees the same chips and filters', async () => {
   expect(screen.getByLabelText('Documentos')).toBeInTheDocument()
   expect(chip('Con adeudo')).toHaveClass('MuiChip-colorWarning')
   expect(chip(`Docs ${DOCUMENT_TOTAL}/${DOCUMENT_TOTAL}`)).toHaveClass('MuiChip-colorSuccess')
+})
+
+function exportButton() {
+  return screen.getByRole('button', { name: 'Exportar a Excel' })
+}
+
+function deferred() {
+  let resolve!: () => void
+  let reject!: (error: Error) => void
+  const promise = new Promise<void>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+test('admin sees "Exportar a Excel"; readonly does not', async () => {
+  const { unmount } = renderPage()
+  await screen.findByText('Ana Ruiz')
+  expect(exportButton()).toBeEnabled()
+  unmount()
+  mocks.useTenant.mockReturnValue({ status: 'ready', role: 'readonly', fullName: 'Lector', tenantId: 't1' })
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  expect(screen.queryByRole('button', { name: 'Exportar a Excel' })).not.toBeInTheDocument()
+})
+
+test('export is disabled while loading and when the filters leave no player', async () => {
+  const load = deferred()
+  mocks.fetchPlayers.mockReturnValueOnce(load.promise.then(() => [player({})]))
+  const user = userEvent.setup()
+  renderPage()
+  expect(exportButton()).toBeDisabled()
+  await act(async () => load.resolve())
+  await waitFor(() => expect(exportButton()).toBeEnabled())
+  await user.type(screen.getByLabelText('Buscar por nombre'), 'zzz')
+  await waitFor(() => expect(exportButton()).toBeDisabled())
+})
+
+test('export is disabled when the list failed to load', async () => {
+  mocks.fetchPlayers.mockRejectedValueOnce(new Error('boom'))
+  renderPage()
+  expect(await screen.findByText('No se pudo cargar la información.')).toBeInTheDocument()
+  expect(exportButton()).toBeDisabled()
+})
+
+test('export sends exactly the visible players, in list order', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Beto Gómez')
+  await user.selectOptions(screen.getByLabelText('Estatus'), 'activo')
+  await waitFor(() => expect(screen.queryByText('Beto Gómez')).not.toBeInTheDocument())
+  await user.click(exportButton())
+  expect(mocks.exportPlayersToExcel).toHaveBeenCalledTimes(1)
+  const [rows] = mocks.exportPlayersToExcel.mock.calls[0] as [PlayerRow[]]
+  expect(rows.map((p) => p.id)).toEqual(['p1', 'p3'])
+})
+
+test('with Estatus = Baja the export sends exactly the baja players', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  await user.selectOptions(screen.getByLabelText('Estatus'), 'baja')
+  await waitFor(() => expect(screen.queryByText('Ana Ruiz')).not.toBeInTheDocument())
+  await user.click(exportButton())
+  expect(mocks.exportPlayersToExcel).toHaveBeenCalledTimes(1)
+  const [rows] = mocks.exportPlayersToExcel.mock.calls[0] as [PlayerRow[]]
+  expect(rows.map((p) => p.id)).toEqual(['p2'])
+})
+
+test('a double click exports once and the button is busy until the file is ready', async () => {
+  const run = deferred()
+  mocks.exportPlayersToExcel.mockReturnValue(run.promise)
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  await user.dblClick(exportButton())
+  expect(mocks.exportPlayersToExcel).toHaveBeenCalledTimes(1)
+  expect(exportButton()).toBeDisabled()
+  expect(exportButton()).toHaveAttribute('aria-busy', 'true')
+  await act(async () => run.resolve())
+  await waitFor(() => expect(exportButton()).toBeEnabled())
+  expect(exportButton()).toHaveAttribute('aria-busy', 'false')
+})
+
+test('two clicks in the same tick export once', async () => {
+  const run = deferred()
+  mocks.exportPlayersToExcel.mockReturnValue(run.promise)
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  const button = exportButton()
+  act(() => {
+    button.click()
+    button.click()
+  })
+  expect(mocks.exportPlayersToExcel).toHaveBeenCalledTimes(1)
+  await act(async () => run.resolve())
+})
+
+test('focus returns to the export button when the file is ready', async () => {
+  const run = deferred()
+  mocks.exportPlayersToExcel.mockReturnValue(run.promise)
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  await user.click(exportButton())
+  // Browsers drop focus from a button that becomes disabled; jsdom does not, so drop it by hand.
+  act(() => exportButton().blur())
+  expect(document.body).toHaveFocus()
+  await act(async () => run.resolve())
+  await waitFor(() => expect(exportButton()).toBeEnabled())
+  expect(exportButton()).toHaveFocus()
+})
+
+test('focus stays where the user moved it while the file was generated', async () => {
+  const run = deferred()
+  mocks.exportPlayersToExcel.mockReturnValue(run.promise)
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  await user.click(exportButton())
+  const searchInput = screen.getByLabelText('Buscar por nombre')
+  act(() => searchInput.focus())
+  await act(async () => run.resolve())
+  await waitFor(() => expect(exportButton()).toBeEnabled())
+  expect(searchInput).toHaveFocus()
+})
+
+test('a failed export shows an error, re-enables the button, and a later success clears it', async () => {
+  mocks.exportPlayersToExcel.mockRejectedValueOnce(new Error('chunk failed'))
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  await user.click(exportButton())
+  expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo generar el archivo de Excel. Intenta de nuevo.')
+  expect(exportButton()).toBeEnabled()
+  await user.click(exportButton())
+  await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+  expect(mocks.exportPlayersToExcel).toHaveBeenCalledTimes(2)
 })
