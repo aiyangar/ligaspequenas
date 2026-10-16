@@ -137,7 +137,7 @@ Cualquier fallo (chunk que no carga tras un deploy, error al comprimir) se propa
 
 - Estado `exporting: boolean` y `exportError: string | null`; un `useRef<boolean>` como guarda síncrona contra doble clic (el `disabled` por estado llega un render tarde; dos clics en el mismo tick pasarían ambos); un `useRef<HTMLButtonElement>` al botón para devolverle el foco.
 - `handleExport()`: si la ref está activa, sale; si no, la activa, `setExporting(true)`, `setExportError(null)`, `await exportPlayersToExcel(visible)`; en `catch`, `setExportError('No se pudo generar el archivo de Excel. Intenta de nuevo.')`; en `finally`, libera la ref, `setExporting(false)` y, si `document.activeElement === document.body` (el botón perdió el foco al deshabilitarse), devuelve el foco al botón con la ref.
-- Encabezado: dentro de `{isAdmin(role) && …}`, un `Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}` con `Button variant="outlined"` **"Exportar a Excel"** y el "Nuevo jugador" actual (sin cambios). El botón queda `disabled={loadError || visible.length === 0 || exporting}` (`loadError` explícito: tras un reintento fallido `players` conserva las filas anteriores y `visible` no estaría vacío) y lleva `aria-busy={exporting}`. El texto no cambia mientras genera (las pruebas lo buscan por nombre); `disabled` + `aria-busy` son el indicador.
+- Encabezado: dentro de `{isAdmin(role) && …}`, un `Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}` con `Button variant="outlined"` **"Exportar a Excel"** y el "Nuevo jugador" actual (sin cambios). El botón queda `disabled={loadError || visible.length === 0 || exporting}` (`loadError` explícito como defensa en profundidad: hoy un fallo de carga siempre deja `players` vacío —una carga exitosa no vuelve a pedir datos y el reintento solo existe desde el estado de error—, así que el término no cambia el comportamiento actual; protege ante una futura recarga que falle con filas ya cargadas) y lleva `aria-busy={exporting}`. El texto no cambia mientras genera (las pruebas lo buscan por nombre); `disabled` + `aria-busy` son el indicador.
 - `exportError` se muestra como `<Alert role="alert" severity="error" sx={{ mt: 2 }}>` justo bajo el `Stack` del encabezado, **fuera** de la rama `loadError ? <LoadError/> : …` (va antes de ella), y se limpia al intentar de nuevo.
 
 ## 5. UI y comportamiento
@@ -152,7 +152,7 @@ Cualquier fallo (chunk que no carga tras un deploy, error al comprimir) se propa
 | Situación | Botón |
 |---|---|
 | Cargando la lista (`players` aún `[]`) | deshabilitado |
-| Error de carga (`LoadError`) | deshabilitado (`loadError` explícito en `disabled`, aunque `players` conserve filas de una carga anterior) |
+| Error de carga (`LoadError`) | deshabilitado (hoy `players` está vacío en ese estado; `loadError` explícito en `disabled` es defensa en profundidad) |
 | Filtros sin resultados | deshabilitado |
 | Hay al menos un jugador visible | habilitado |
 | Generando | deshabilitado; un segundo clic no hace nada |

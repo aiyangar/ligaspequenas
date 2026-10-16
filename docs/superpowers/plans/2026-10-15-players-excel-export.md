@@ -29,16 +29,19 @@
 - Cell rules (spec §3.1): empty = `null` **always** (never `''`, `'null'`, `undefined`, or `{ value: null, … }`); date = `{ value: Date(UTC midnight), type: Date, format: 'dd/mm/yyyy' }`; phones and Documentos = `{ value, type: String, format: '@' }`; never `type: 'Formula'`.
 - Lint rules that bite: `react-hooks/set-state-in-effect` — no synchronous `setState` in an effect body. This plan adds no effect (the export runs from a click handler).
 - Mocks: keep the existing `vi.hoisted` + `vi.mock(...)` style.
-- The branch closes with all four green: `pnpm exec vitest run`, `pnpm exec tsc -b`, `pnpm lint`, `pnpm build` (+ the chunk greps in the Verification checklist). **Test counts are deltas from the baseline you measure in Step 0** (`B_files`, `B_tests`); the absolute numbers in parentheses are what to expect if the baseline is unchanged since this plan was written (baseline = `origin/develop` at dispatch, i.e. bf3a087 + spec/plan docs: `Test Files 37 passed (37)`, `Tests 301 passed (301)`, measured 2026-10-15). If your baseline differs, the deltas still have to hold — report the baseline you measured.
-- The branch adds **+2 test files, +27 tests**: Task 1 +2 (`players.test.ts`), Task 2 +14 (new `playersSheet.test.ts`), Task 3 +3 (new `exportPlayers.test.ts`), Task 4 +8 (`PlayersPage.test.tsx`). Every snippet in this plan was run on a scratch clone of bf3a087 + spec docs: final `39` files / `328` tests, `tsc -b`, `lint` and `build` green.
+- The branch closes with all four green: `pnpm exec vitest run`, `pnpm exec tsc -b`, `pnpm lint`, `VITE_SUPABASE_URL=http://localhost:54321 VITE_SUPABASE_PUBLISHABLE_KEY=dummy pnpm build` (+ the chunk greps in the Verification checklist). **Test counts are deltas from the baseline you measure in Step 0** (`B_files`, `B_tests`); the absolute numbers in parentheses are what to expect if the baseline is unchanged since this plan was written (baseline = `origin/develop` at dispatch, i.e. bf3a087 + spec/plan docs: `Test Files 37 passed (37)`, `Tests 301 passed (301)`, measured 2026-10-15). If your baseline differs, the deltas still have to hold — report the baseline you measured.
+- The branch adds **+2 test files, +29 tests**: Task 1 +2 (`players.test.ts`), Task 2 +14 (new `playersSheet.test.ts`), Task 3 +3 (new `exportPlayers.test.ts`), Task 4 +10 (`PlayersPage.test.tsx`). Every snippet in this plan was run on a scratch clone of bf3a087 + spec docs: final `39` files / `330` tests, `tsc -b`, `lint` and the env-injected `build` green.
+- **Build env:** always build as `VITE_SUPABASE_URL=http://localhost:54321 VITE_SUPABASE_PUBLISHABLE_KEY=dummy pnpm build` (non-secret placeholders; no `.env` needed). A bare `pnpm build` without these vars makes `src/lib/supabase.ts` throw at top level, Rolldown then drops all app code from the entry chunk, and every chunk grep below becomes meaningless (a `0` would prove nothing).
 
 ## Review Focus
 
 - **An enum value the TS maps don't know yet** (the DB enum grew first: a new `status`, `affiliation_status` or `payment_state`) must yield an **empty cell**, never the text `undefined` and never a crash (pinned in Task 2, `an enum value with no label …`).
 - **Exporting late in the evening in Monterrey** (≥ 18:00/19:00 local, already the next day in UTC) must still name the file with **today's local date** (pinned in Task 3, `the file name uses the local date, not the UTC one`, system time 21:00 local).
-- **The button losing focus when it becomes disabled** (real browsers blur it; jsdom does not): after the file is ready, keyboard users must land back on `Exportar a Excel`, not on `<body>` (pinned in Task 4 focus test, which blurs by hand so it fails without the restore code).
+- **The button losing focus when it becomes disabled** (real browsers blur it; jsdom does not): after the file is ready, keyboard users must land back on `Exportar a Excel`, not on `<body>` (pinned in Task 4 `focus returns …`, which blurs by hand so it fails without the restore code). The restore is **conditional**: if the user moved focus elsewhere (e.g. the search input) while the file was generated, focus stays there (pinned in Task 4 `focus stays where the user moved it …`, which fails if the `document.activeElement === document.body` condition is dropped).
+- **Exporting with Estatus = `Baja`** sends exactly the baja players (pinned in Task 4 `with Estatus = Baja …`); `baja` players are never excluded by the export itself, only by the filters.
 - **A player whose captured text starts with `=`, `@`, `+` or `-`** (name, CURP, tutor, email) must reach Excel as literal text, never as a formula (pinned in Task 2 formula test; verified on the real file in the E2E).
 - **The lazy chunk failing to load** (stale tab after a deploy, offline): the admin sees the error `Alert`, the button comes back, and a later successful export clears the `Alert` (pinned in Task 4 error test; the E2E confirms the chunk is fetched only on click).
+- **The library leaking into the entry chunk**: only provable on an env-injected build with positive controls (`Exportar a Excel` and a `browser-*.js` reference present in `index-*.js`, `sharedStrings` absent from it and present in exactly one `browser-*.js`) — Verification checklist.
 
 ---
 
@@ -139,7 +142,8 @@ git -C /Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/excel-exp
 - Test (create): `src/players/playersSheet.test.ts`
 
 **Interfaces:**
-- Consumes: `PLAYER_STATUS_LABELS`, `AFFILIATION_STATUS_LABELS` (Task 1); `playerCategoryText(row)` and `type PlayerRow`, `type AffiliationStatus` from `./players`; `PAYMENT_STATE_LABELS`, `localToday(): string`, `type PaymentState` from `../payments/payments`; `DOCUMENT_TOTAL` from `../documents/documents`; `import type { Cell, CellObject, SheetData } from 'write-excel-file/browser'`.
+- Consumes (imports of `playersSheet.ts`): `PLAYER_STATUS_LABELS`, `AFFILIATION_STATUS_LABELS` (Task 1), `playerCategoryText(row)` and `type PlayerRow` from `./players`; `PAYMENT_STATE_LABELS`, `localToday(): string` from `../payments/payments`; `DOCUMENT_TOTAL` from `../documents/documents`; `import type { Cell, SheetData } from 'write-excel-file/browser'`.
+- Test-only imports (`playersSheet.test.ts`): `import type { CellObject } from 'write-excel-file/browser'`, `type AffiliationStatus` / `type PlayerRow` from `./players`, `PAYMENT_STATE_LABELS` and `type PaymentState` from `../payments/payments`, `DOCUMENT_TOTAL`.
 - Produces (used by Task 3):
   - `export const PLAYERS_SHEET_COLUMNS: readonly { header: string; width: number }[]` (16 entries, spec §3.1 order)
   - `export function excelDate(value: string): Date | null`
@@ -646,6 +650,18 @@ test('export sends exactly the visible players, in list order', async () => {
   expect(rows.map((p) => p.id)).toEqual(['p1', 'p3'])
 })
 
+test('with Estatus = Baja the export sends exactly the baja players', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  await user.selectOptions(screen.getByLabelText('Estatus'), 'baja')
+  await waitFor(() => expect(screen.queryByText('Ana Ruiz')).not.toBeInTheDocument())
+  await user.click(exportButton())
+  expect(mocks.exportPlayersToExcel).toHaveBeenCalledTimes(1)
+  const [rows] = mocks.exportPlayersToExcel.mock.calls[0] as [PlayerRow[]]
+  expect(rows.map((p) => p.id)).toEqual(['p2'])
+})
+
 test('a double click exports once and the button is busy until the file is ready', async () => {
   const run = deferred()
   mocks.exportPlayersToExcel.mockReturnValue(run.promise)
@@ -690,6 +706,20 @@ test('focus returns to the export button when the file is ready', async () => {
   expect(exportButton()).toHaveFocus()
 })
 
+test('focus stays where the user moved it while the file was generated', async () => {
+  const run = deferred()
+  mocks.exportPlayersToExcel.mockReturnValue(run.promise)
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  await user.click(exportButton())
+  const searchInput = screen.getByLabelText('Buscar por nombre')
+  act(() => searchInput.focus())
+  await act(async () => run.resolve())
+  await waitFor(() => expect(exportButton()).toBeEnabled())
+  expect(searchInput).toHaveFocus()
+})
+
 test('a failed export shows an error, re-enables the button, and a later success clears it', async () => {
   mocks.exportPlayersToExcel.mockRejectedValueOnce(new Error('chunk failed'))
   const user = userEvent.setup()
@@ -709,7 +739,7 @@ Do not change any existing test (spec §8.3). `deferred().reject` is unused by t
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx`
-Expected: exactly the 8 new tests fail (`Unable to find an accessible element with the role "button" and name "Exportar a Excel"`); the 21 existing tests pass.
+Expected: exactly the 10 new tests fail (`Unable to find an accessible element with the role "button" and name "Exportar a Excel"`); the 21 existing tests pass.
 
 - [ ] **Step 3: Implement the button**
 
@@ -807,16 +837,16 @@ The `Alert` sits **before** `{loadError ? <LoadError … /> : …}`, outside bot
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx`
-Expected: `Tests 29 passed (29)` (21 existing + 8 new).
+Expected: `Tests 31 passed (31)` (21 existing + 10 new).
 
-Guard check (optional; edit by hand, rerun, then undo by hand — never `git checkout`/`stash` the file): commenting out `if (exportingRef.current) return` makes exactly `two clicks in the same tick export once` fail; removing the `document.activeElement === document.body` line makes exactly the focus test fail. Both verified while writing this plan.
+Guard check (optional; edit by hand, rerun, then undo by hand — never `git checkout`/`stash` the file): commenting out `if (exportingRef.current) return` makes exactly `two clicks in the same tick export once` fail; removing the `document.activeElement === document.body` line makes exactly `focus returns to the export button …` fail; making the restore unconditional (`exportButtonRef.current?.focus()` without the `if`) makes exactly `focus stays where the user moved it …` fail; passing `players` instead of `visible` makes `export sends exactly the visible players …` and `with Estatus = Baja …` fail. All verified while writing this plan.
 
 - [ ] **Step 5: Full verification**
 
-Run: `pnpm exec vitest run` → `B_files + 2` files · `B_tests + 27` tests, all passing (`Test Files 39 passed (39)` · `Tests 328 passed (328)` if the baseline is as measured).
+Run: `pnpm exec vitest run` → `B_files + 2` files · `B_tests + 29` tests, all passing (`Test Files 39 passed (39)` · `Tests 330 passed (330)` if the baseline is as measured).
 Run: `pnpm exec tsc -b` → exit 0, no output.
 Run: `pnpm lint` → exit 0.
-Run: `pnpm build` and the chunk greps from the Verification checklist.
+Run: `VITE_SUPABASE_URL=http://localhost:54321 VITE_SUPABASE_PUBLISHABLE_KEY=dummy pnpm build` (never a bare `pnpm build`, see Global Constraints) and the chunk greps from the Verification checklist, positive controls included.
 
 - [ ] **Step 6: Commit**
 
@@ -827,12 +857,13 @@ git -C /Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/excel-exp
 
 ## Verification checklist (implementer, before reporting)
 
-- [ ] `pnpm exec vitest run` → `B_files + 2` files · `B_tests + 27` tests, all passing (`Test Files 39 passed (39)` · `Tests 328 passed (328)` if the baseline is as measured).
+- [ ] `pnpm exec vitest run` → `B_files + 2` files · `B_tests + 29` tests, all passing (`Test Files 39 passed (39)` · `Tests 330 passed (330)` if the baseline is as measured).
 - [ ] `pnpm exec tsc -b` → exit 0, no output.
 - [ ] `pnpm lint` → exit 0.
-- [ ] `pnpm build` → exit 0; the output lists a separate `dist/assets/browser-<hash>.js` chunk (measured ≈ 70.8 kB / 19.7 kB gzip) next to `index-<hash>.js`. Record both sizes for the PR.
+- [ ] `rm -rf dist && VITE_SUPABASE_URL=http://localhost:54321 VITE_SUPABASE_PUBLISHABLE_KEY=dummy pnpm build` → exit 0; the output lists a separate `dist/assets/browser-<hash>.js` chunk next to `index-<hash>.js`. Record both sizes for the PR **from this build only** (measured on the scratch clone: `browser-*.js` 70.75 kB / 19.70 kB gzip; `index-*.js` 803.49 kB / 236.51 kB gzip, i.e. +2.4 kB / +0.8 kB gzip over the baseline entry chunk). Sizes from a build without the env vars are invalid.
+- [ ] Positive controls on the entry chunk (they prove the app code is in it, so the `0` below means something): `grep -c "Exportar a Excel" dist/assets/index-*.js` → `1` or more; `grep -o "browser-[A-Za-z0-9_-]*\.js" dist/assets/index-*.js` → non-empty (the entry references the lazy chunk).
 - [ ] `grep -c sharedStrings dist/assets/index-*.js` → prints `0` (grep exits 1 on zero matches; that is the expected outcome) — the entry chunk does not contain the library.
-- [ ] `grep -l sharedStrings dist/assets/browser-*.js` → prints **exactly one** path (positive control: the string exists in the library chunk, so the `0` above means something).
+- [ ] `ls dist/assets/browser-*.js` → exactly one file, and `grep -l sharedStrings dist/assets/browser-*.js` → prints **exactly that one** path (positive control: the string exists in the library chunk).
 - [ ] `grep -rn "write-excel-file" src --include='*.ts' --include='*.tsx' | grep -v '\.test\.'` → exactly two lines: the `import type { Cell, SheetData } from 'write-excel-file/browser'` in `playersSheet.ts` and the `import('write-excel-file/browser')` in `exportPlayers.ts`.
 - [ ] `grep -n '"write-excel-file"' package.json` → `"write-excel-file": "4.1.1"` (no `^`/`~`); `grep -n "xlsx" package.json` → empty.
 - [ ] `grep -rn "'Formula'" src/players/playersSheet.ts` → empty.
@@ -840,11 +871,11 @@ git -C /Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/excel-exp
 - [ ] `git -C $WT log --oneline origin/develop..HEAD` shows exactly 4 commits (Tasks 1–4), each ending with the `Claude-Session` line; `git -C $WT status --short` is empty (`dist/` is git-ignored).
 - [ ] `git -C $WT ls-files | grep -E '^\.env'` → empty.
 
-**Report:** commit SHAs, baseline and final test counts, build sizes (`index-*.js` and `browser-*.js`, raw + gzip) and the two grep outputs, anything adapted from the plan and why. The orchestrator copies sizes and greps into the PR body (`Closes #5`).
+**Report:** commit SHAs, baseline and final test counts, build sizes from the env-injected build (`index-*.js` and `browser-*.js`, raw + gzip) and the outputs of the four chunk greps (two positive controls, `sharedStrings` in index and in browser), anything adapted from the plan and why. The orchestrator copies sizes and greps into the PR body (`Closes #5`).
 
 ## Manual browser E2E (orchestrator, Playwright — no tester agent)
 
-Run by the orchestrator against the dev server (from the implementer worktree before the PR, or from the main checkout on `develop` after the merge — orchestrator's call), using the **persistent Chromium already logged in as admin** over CDP (never close it). Readonly runs in a **separate browser context** (`browser.newContext()`, not the admin one); the owner pastes the readonly magic link. The orchestrator owns the dev server and the test-data cleanup. Scratch dir below: `$SP` = the orchestrator's session scratchpad.
+Run by the orchestrator **after the merge**, against a dev server started from a **detached worktree at `origin/develop`** (`git fetch origin`, then `git worktree add --detach <e2e worktree> origin/develop`, then `pnpm install --frozen-lockfile` inside it) with `.env` **copied from the main checkout** (`cp /Users/arturoortiz/Proyectos/Personales/ligaspequenas/.env <e2e worktree>/.env` — without it `supabase.ts` throws and the page is blank; `.env` is git-ignored, never commit it). Remove that worktree after the cleanup. Use the **persistent Chromium already logged in as admin** over CDP (never close it). Readonly runs in a **separate browser context** (`browser.newContext()`, not the admin one); the owner pastes the readonly magic link. The orchestrator owns the dev server and the test-data cleanup. Scratch dir below: `$SP` = the orchestrator's session scratchpad.
 
 **Preflight (orchestrator, SQL via `mcp__supabase__execute_sql`):**
 
@@ -866,7 +897,7 @@ Expected: `0` / `0` (if not, run the cleanup block first).
 **Export (admin):**
 - [ ] Before clicking, start recording requests: `page.on('request', r => urls.push(r.url()))`; reload `/jugadores`; confirm no URL contains `write-excel-file` (dev server: `/node_modules/.vite/deps/write-excel-file_browser.js`) nor `/assets/browser-` (preview build).
 - [ ] Buscar por nombre `E2E Export` → three players listed; `Exportar a Excel` and `Nuevo jugador` both visible, export enabled.
-- [ ] Estatus = `Activo` → only `Uno` and `Dos` remain. `const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Exportar a Excel' }).click()])`; `download.suggestedFilename()` = `jugadores-<today local YYYY-MM-DD>.xlsx`; `await download.saveAs('$SP/e2e-export/jugadores.xlsx')`. If no `download` event fires within 10 s over CDP, take the file from `~/Downloads/jugadores-<date>.xlsx` and move it to `$SP/e2e-export/`.
+- [ ] Estatus = `Activo` → only `Uno` and `Dos` remain. `const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Exportar a Excel' }).click()])`; the `download` event does fire over `connectOverCDP`. `download.suggestedFilename()` = `jugadores-<today local YYYY-MM-DD>.xlsx`; record `const artifact = await download.path()`; `await download.saveAs('$SP/e2e-export/jugadores.xlsx')`; then `await download.delete()` (Playwright's GUID-named copy under `$TMPDIR/playwright-artifacts-*` otherwise survives process exit). **Fallback** only if no `download` event fires within 10 s: `const cdp = await browser.newBrowserCDPSession()`, `await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: '$SP/e2e-export', eventsEnabled: true })`, click again, wait for a `Browser.downloadProgress` event with `state: 'completed'`, rename `$SP/e2e-export/jugadores-<date>.xlsx` to `jugadores.xlsx`, then `await cdp.send('Browser.setDownloadBehavior', { behavior: 'default' })` to leave the persistent Chromium as it was. Never take the file from `~/Downloads`.
 - [ ] Now `urls` contains exactly one library request (the chunk was fetched only on click). The button is enabled again and has focus; no `Alert`.
 - [ ] Search `zzz` → button disabled. Clear the search.
 
@@ -907,7 +938,7 @@ select (select count(*) from public.players where full_name like 'E2E Export%') 
        (select count(*) from public.teams where name like 'E2E Export%') as teams;
 ```
 
-Expected: `0` / `0`. Then `rm -rf $SP/e2e-export` (the downloaded workbook holds test data only, but it never stays on disk) and, if the fallback was used, confirm `~/Downloads/jugadores-<date>.xlsx` is gone. Close only the readonly context, never the admin Chromium.
+Expected: `0` / `0`. Then `rm -rf $SP/e2e-export` and confirm `test ! -e $SP/e2e-export` (the downloaded workbook holds test data only, but it never stays on disk); confirm `test ! -e "$artifact"` (removed by `download.delete()`) and `find "$TMPDIR" -path '*playwright-artifacts-*' -name 'jugadores-*'` prints nothing (no stray copy of the workbook). Close only the readonly context, never the admin Chromium; remove the E2E worktree.
 
 After merge: #5 closes via `Closes #5`.
 
@@ -921,9 +952,9 @@ After merge: #5 closes via `Closes #5`.
 | §1 | Out of scope: full backup, payments sheet, readonly export, #71/#72/#76, DB, refactor of `<option>`s | Global Constraints; no task touches them |
 | §2 library | `write-excel-file` 4.1.1 exact, `/browser` entry, `toFile` | Task 1 Step 1; Task 3 Step 3; checklist greps |
 | §2 deviations (no `xlsx`, admin-only) | | Global Constraints; checklist `grep xlsx`; Task 4 readonly test |
-| §2 dynamic import / separate chunk | | Task 3 Step 3; checklist `pnpm build` + `sharedStrings` greps; E2E request log |
+| §2 dynamic import / separate chunk | | Task 3 Step 3; checklist env-injected build + positive controls + `sharedStrings` greps; E2E request log |
 | §2 pure function + thin module | `buildPlayersSheet` / `exportPlayersToExcel` | Tasks 2, 3 |
-| §2 rows = `visible` at click time, same order | | Task 4 Step 3 + `export sends exactly the visible players` |
+| §2 rows = `visible` at click time, same order | | Task 4 Step 3 + `export sends exactly the visible players` + `with Estatus = Baja …` |
 | §2 dates via `Date.UTC`, labels, `DOCUMENT_TOTAL`, `localToday()`, error `Alert`, no DB | | Tasks 1–4 |
 | §3 sheet `Jugadores`, bold headers, sticky row 1, no totals | | Task 2 header test; Task 3 options test; E2E `<pane>` |
 | §3.1 16 columns, origins, null → `null` (incl. `format: '@'` columns), `format: '@'` on phones/Documentos, not-exported fields, widths | | Task 2 (tests 1, 4, 8, 11); Task 3 `columns.length` |
@@ -931,11 +962,11 @@ After merge: #5 closes via `Closes #5`.
 | §4.1 label maps, same texts as `<option>`s, `<option>`s untouched | | Task 1 |
 | §4.2 `PLAYERS_SHEET_COLUMNS`, `excelDate`, `dateCell`, `buildPlayersSheet`, `playersExportFileName(today = localToday())`, type-only import | | Task 2 Step 3; checklist grep |
 | §4.3 `exportPlayersToExcel` verbatim, rejection propagates | | Task 3 |
-| §4.4 state, ref guard, focus return, header `Stack`, `disabled` incl. `loadError`, `aria-busy`, fixed text, `Alert` outside `LoadError` branch, cleared on retry | | Task 4 Step 3; tests 2–8 |
+| §4.4 state, ref guard, conditional focus return, header `Stack`, `disabled` incl. `loadError` (defense-in-depth, not pinned), `aria-busy`, fixed text, `Alert` outside `LoadError` branch, cleared on retry | | Task 4 Step 3; tests 2–10 (focus: 8 and 9) |
 | §5.1 roles | | Task 4 test 1; E2E readonly |
-| §5.2 button states table, baja exported when visible | | Task 4 tests 2–6, 8; E2E (Tres excluded by Activo filter, included by default) |
+| §5.2 button states table, baja exported when visible | | Task 4 tests 2, 3, 6, 7, 10; baja: test 5 (`with Estatus = Baja …` → exactly `p2`); E2E (Tres excluded by Activo filter, included by default) |
 | §5.3 mobile 360 px, wrap | | E2E mobile (360 and 390) |
-| §6 errors: chunk/zip failure, empty list, malformed date, missing label | | Task 4 test 8; Task 4 test 2; Task 2 test 7; Task 2 last test |
+| §6 errors: chunk/zip failure, empty list, malformed date, missing label | | Task 4 test 10; Task 4 test 2; Task 2 test 7; Task 2 last test |
 | §7 formula injection: no `type: 'Formula'`, literal strings | | Task 2 formula test; checklist grep; E2E `<f>` count + `=HYPERLINK` tutor |
 | §7 generated in browser only, admin-only is UI | | Task 3 (no network/storage code); Global Constraints |
 | §8.1 / §8.2 / §8.3 test lists | | Tasks 1–4 Step 1 |
@@ -947,9 +978,11 @@ Decisions the spec left open, resolved here:
 - **Column widths** (spec gave three examples): Nombre 28, fechas 12, CURP 20, Categoría 24, Equipo 20, Estatus 10, Tutor 24, teléfonos 16, Correo 28, Contacto 24, Afiliación 12, Pago 14, Documentos 12.
 - **Missing enum label** (spec §6 "la celda queda vacía"): implemented as `LABELS[x] ?? null` and pinned by a test, so it is `null`, never `undefined` (which the library would also write as empty, but `toEqual` would not distinguish from a missing cell).
 - **Local-date file name**: spec §8.2 fixes the time at 12:00; this plan adds a 21:00 case (UTC already the next day) so a `toISOString()` regression fails.
-- **Focus test**: jsdom does not blur a button when it becomes disabled, so a plain "has focus after export" test passes even without the restore code (verified). The test blurs by hand during the pending export, which makes it fail without the restore (verified).
-- **`loadError` in `disabled`**: in today's UI a failed load always leaves `players` empty (retry is only reachable from the error state), so the `LoadError` test passes with or without the explicit term; it stays as the spec's defense-in-depth and the test pins the visible behavior.
+- **Focus tests**: jsdom does not blur a button when it becomes disabled, so a plain "has focus after export" test passes even without the restore code (verified). `focus returns …` blurs by hand during the pending export, which makes it fail without the restore (verified); `focus stays where the user moved it …` moves focus to the search input during the pending export, which makes it fail if the restore ignores the `document.body` condition (verified).
+- **`loadError` in `disabled`**: defense-in-depth only. In today's UI a failed load always leaves `players` empty (a successful load never re-fetches; retry is only reachable from the error state, which only a first failed load reaches), so "`LoadError` with rows from an earlier load" is unreachable and the `export is disabled when the list failed to load` test passes with or without the explicit term — it pins the visible behavior, **not** the term. Spec §4.4/§5.2 were corrected to say so.
 - **`players.test.ts` "one entry per value"**: done with a full-object `toEqual`, which also pins the exact Spanish texts.
-- **Test count**: Task 2 has 14 tests (spec §8.1 bullets + the missing-label case); Task 3 has 3; Task 4 has 8 (spec §8.3's double-click split into two tests, plus separate loading/empty and `LoadError` tests). Total +27.
-- **E2E data**: three players created through the UI (one with every nullable empty, one with a team + formula-injection probe + year-end birth date, one `baja` excluded by the Estatus filter) and one dedicated team; the exported file is read with `read-excel-file/node` 9.3.12 plus `unzip`/`grep` in the orchestrator's scratchpad; download captured with `page.waitForEvent('download')` with a `~/Downloads` fallback for CDP sessions.
+- **Test count**: Task 2 has 14 tests (spec §8.1 bullets + the missing-label case); Task 3 has 3; Task 4 has 10 (spec §8.3's double-click split into two tests, separate loading/empty and `LoadError` tests, plus the Estatus = Baja export and the focus-stays test). Total +29.
+- **E2E data**: three players created through the UI (one with every nullable empty, one with a team + formula-injection probe + year-end birth date, one `baja` excluded by the Estatus filter) and one dedicated team; the exported file is read with `read-excel-file/node` 9.3.12 plus `unzip`/`grep` in the orchestrator's scratchpad; download captured with `page.waitForEvent('download')` (fires over CDP), then `download.delete()`; fallback via CDP `Browser.setDownloadBehavior` into the scratchpad, never `~/Downloads`.
+- **Build check**: always on an env-injected build (`VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` placeholders) with positive controls; without them the entry chunk is empty of app code and the `sharedStrings` `0` is vacuous.
+- **E2E server**: detached worktree at `origin/develop` after merge with `.env` copied from the main checkout.
 - **Base ref**: the spec/plan PR is merged into `develop` before dispatch and the branch is cut from `origin/develop`, so every range check is against the remote ref.
