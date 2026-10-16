@@ -6,6 +6,17 @@ import type { PaymentState } from '../payments/payments'
 export type PlayerStatus = 'activo' | 'baja'
 export type AffiliationStatus = 'autoriza' | 'no_autoriza' | 'pendiente'
 
+export const PLAYER_STATUS_LABELS: Record<PlayerStatus, string> = {
+  activo: 'Activo',
+  baja: 'Baja',
+}
+
+export const AFFILIATION_STATUS_LABELS: Record<AffiliationStatus, string> = {
+  autoriza: 'Autoriza',
+  no_autoriza: 'No autoriza',
+  pendiente: 'Pendiente',
+}
+
 export interface PlayerRow {
   id: string
   tenant_id: string

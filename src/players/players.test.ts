@@ -1,5 +1,5 @@
 import { beforeEach, expect, vi } from 'vitest'
-import { fetchPlayers, fetchPlayer, playerCategoryText, createPlayer, updatePlayer, emptyPlayer, rowToValues, validatePhotoFile, uploadPlayerPhoto, removePlayerPhoto } from './players'
+import { fetchPlayers, fetchPlayer, playerCategoryText, createPlayer, updatePlayer, emptyPlayer, rowToValues, validatePhotoFile, uploadPlayerPhoto, removePlayerPhoto, PLAYER_STATUS_LABELS, AFFILIATION_STATUS_LABELS } from './players'
 import type { PlayerRow, PlayerFormValues } from './players'
 
 const mocks = vi.hoisted(() => ({
@@ -104,6 +104,16 @@ test('playerCategoryText shows out-of-category with the league age', () => {
 test('playerCategoryText shows bare out-of-category when there is no league age', () => {
   expect(playerCategoryText({ category_name: null, category_year: null, edad_liga: null }))
     .toBe('Fuera de categoría')
+})
+
+test('PLAYER_STATUS_LABELS has one label per status, as in the Estatus options', () => {
+  expect(PLAYER_STATUS_LABELS).toEqual({ activo: 'Activo', baja: 'Baja' })
+})
+
+test('AFFILIATION_STATUS_LABELS has one label per affiliation status, as in the form options', () => {
+  expect(AFFILIATION_STATUS_LABELS).toEqual({
+    autoriza: 'Autoriza', no_autoriza: 'No autoriza', pendiente: 'Pendiente',
+  })
 })
 
 test('createPlayer inserts with tenant_id and empty strings coerced to null', async () => {
