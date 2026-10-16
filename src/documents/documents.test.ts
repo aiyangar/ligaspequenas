@@ -1,6 +1,6 @@
 import { beforeEach, expect, vi } from 'vitest'
 import {
-  DOCUMENT_TYPES, consentGranted, filesInUse, playerFilePath, documentErrorMessage,
+  DOCUMENT_TYPES, DOCUMENT_TOTAL, consentGranted, filesInUse, playerFilePath, documentErrorMessage,
   validateDocumentFile, fetchPlayerDocuments, removeFile, setDocumentStatus, uploadDocument,
   getSignedFileUrl, CONSENT_REQUIRED_MESSAGE,
 } from './documents'
@@ -52,6 +52,10 @@ beforeEach(() => {
   mocks.storageFrom.mockReturnValue({
     upload: mocks.upload, remove: mocks.remove, list: mocks.list, createSignedUrl: mocks.createSignedUrl,
   })
+})
+
+test('DOCUMENT_TOTAL is the number of document types', () => {
+  expect(DOCUMENT_TOTAL).toBe(DOCUMENT_TYPES.length)
 })
 
 test('consentGranted needs both consents out of pendiente', () => {

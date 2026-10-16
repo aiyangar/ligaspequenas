@@ -38,6 +38,8 @@ export const DOCUMENT_TYPES: readonly DocumentType[] = [
   'medical_clearance',
 ]
 
+export const DOCUMENT_TOTAL = DOCUMENT_TYPES.length
+
 export const DOCUMENT_LABELS: Record<DocumentType, string> = {
   curp: 'CURP',
   birth_certificate: 'Acta de nacimiento',
