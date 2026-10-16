@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { categoryLabel } from '../lib/category'
 import { PLAYER_FILES_BUCKET, documentErrorMessage, playerFilePath, removeFile } from '../documents/documents'
+import type { PaymentState } from '../payments/payments'
 
 export type PlayerStatus = 'activo' | 'baja'
 export type AffiliationStatus = 'autoriza' | 'no_autoriza' | 'pendiente'
@@ -30,6 +31,8 @@ export interface PlayerRow {
   category_id: string | null
   team_id: string | null
   team_name: string | null
+  payment_state: PaymentState
+  docs_delivered: number
 }
 
 export async function fetchPlayers(): Promise<PlayerRow[]> {

@@ -8,9 +8,13 @@ import Typography from '@mui/material/Typography'
 import List from '@mui/material/List'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
+import Chip from '@mui/material/Chip'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
 import { LoadError } from '../app/LoadError'
+import { PAYMENT_STATE_COLOR, PAYMENT_STATE_LABELS } from '../payments/payments'
+import type { PaymentState } from '../payments/payments'
+import { DOCUMENT_TOTAL } from '../documents/documents'
 import { fetchPlayers, playerCategoryText } from './players'
 import type { PlayerRow, PlayerStatus } from './players'
 
@@ -19,10 +23,19 @@ interface FilterOption {
   name: string
 }
 
+type DocsFilter = '' | 'completos' | 'incompletos'
+
+const PAYMENT_STATE_OPTIONS: readonly PaymentState[] = ['con_adeudo', 'sin_pagos', 'al_corriente']
+
 function uniqueOptions(pairs: Array<[string | null, string | null]>): FilterOption[] {
   const byId = new Map<string, string>()
   for (const [id, name] of pairs) if (id && name) byId.set(id, name)
   return Array.from(byId, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+// >= so a count above the TS list (enum grew first) still reads as complete
+function docsComplete(p: Pick<PlayerRow, 'docs_delivered'>): boolean {
+  return p.docs_delivered >= DOCUMENT_TOTAL
 }
 
 export function PlayersPage() {
@@ -32,6 +45,8 @@ export function PlayersPage() {
   const [categoryId, setCategoryId] = useState('')
   const [status, setStatus] = useState<'' | PlayerStatus>('')
   const [teamId, setTeamId] = useState('')
+  const [paymentState, setPaymentState] = useState<'' | PaymentState>('')
+  const [docsFilter, setDocsFilter] = useState<DocsFilter>('')
   const [loadError, setLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
 
@@ -73,6 +88,9 @@ export function PlayersPage() {
     if (categoryId && p.category_id !== categoryId) return false
     if (status && p.status !== status) return false
     if (teamId && p.team_id !== teamId) return false
+    if (paymentState && p.payment_state !== paymentState) return false
+    if (docsFilter === 'completos' && !docsComplete(p)) return false
+    if (docsFilter === 'incompletos' && docsComplete(p)) return false
     return true
   })
 
@@ -152,15 +170,56 @@ export function PlayersPage() {
                 </option>
               ))}
             </TextField>
+            <TextField
+              select
+              label="Pago"
+              value={paymentState}
+              onChange={(e) => setPaymentState(e.target.value as '' | PaymentState)}
+              slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+              sx={{ minWidth: 160 }}
+            >
+              <option value="">Todos</option>
+              {PAYMENT_STATE_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {PAYMENT_STATE_LABELS[s]}
+                </option>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Documentos"
+              value={docsFilter}
+              onChange={(e) => setDocsFilter(e.target.value as DocsFilter)}
+              slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+              sx={{ minWidth: 160 }}
+            >
+              <option value="">Todos</option>
+              <option value="completos">Completos</option>
+              <option value="incompletos">Incompletos</option>
+            </TextField>
           </Stack>
 
           <List sx={{ mt: 2 }}>
             {visible.map((p) => (
               <ListItemButton key={p.id} component={RouterLink} to={`/jugadores/${p.id}`}>
-                <ListItemText
-                  primary={p.full_name}
-                  secondary={`${playerCategoryText(p)} · ${p.status}${p.team_name ? ` · ${p.team_name}` : ''}`}
-                />
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <ListItemText
+                    primary={p.full_name}
+                    secondary={`${playerCategoryText(p)} · ${p.status}${p.team_name ? ` · ${p.team_name}` : ''}`}
+                  />
+                  <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
+                    <Chip
+                      size="small"
+                      label={PAYMENT_STATE_LABELS[p.payment_state]}
+                      color={PAYMENT_STATE_COLOR[p.payment_state]}
+                    />
+                    <Chip
+                      size="small"
+                      label={`Docs ${p.docs_delivered}/${DOCUMENT_TOTAL}`}
+                      color={docsComplete(p) ? 'success' : 'warning'}
+                    />
+                  </Stack>
+                </Box>
               </ListItemButton>
             ))}
           </List>
