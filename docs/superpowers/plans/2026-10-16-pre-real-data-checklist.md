@@ -23,6 +23,7 @@
 - **Remote DB is shared and live.** Applying 0016 is irreversible except through the forward rollback (spec §4.4, reproduced in phase O). Order on branch 1: red run (read-only in effect: its fixtures are cleaned up) any time → pre-PR review clean → **apply 0016** → green run + regression + advisors → PR with the evidence → merge. Nothing is applied before the review is clean.
 - Fixture hygiene: fixed UUID prefixes only (`eeeeeeee-` for 0016; `aaaaaaaa-`/`bbbbbbbb-`/`11111111-`/`22222222-`/`33333333-`/`99999999-` for 0002; `cccccccc-` for 0012/0013). After **every** run the orchestrator runs the residue query (phase O, "Residue check") — all zeros/nulls — and the baseline count query — equal to Step O1.
 - Migration name in `apply_migration`: **`0016_revoke_anon_privileges`** (matches the remote history `0001_schema` … `0015_players_view_status_columns`; spec §4.2 said `revoke_anon_privileges` — the numbered form is the repo convention).
+- **Extensions after 0016.** `alter default privileges for role postgres revoke execute on functions from public` also covers functions of any extension installed later whose objects end up owned by `postgres` (e.g. `pg_trgm`/`unaccent` enabled from the Dashboard): `authenticated` would lose EXECUTE on them. After every future `create extension`, check `has_function_privilege('authenticated', '<schema>.<fn>(<args>)', 'EXECUTE')` for the functions the app or a policy calls and `grant execute … to authenticated` where it is `false`. Written into the checklist's Convenciones (Task 3, rule 3).
 - Code, identifiers, comments, commit messages: English. Comments only for a non-obvious *why*, one short line. The checklist document (Task 3) is **Spanish**, like the specs it belongs with.
 - Frontend is untouched, but each branch still closes with all three green: `pnpm exec vitest run`, `pnpm exec tsc -b`, `pnpm lint`. Baseline (`origin/develop` at dispatch): `Test Files 39 passed (39)` · `Tests 330 passed (330)`. Neither branch changes those numbers.
 
@@ -38,7 +39,7 @@
 
 # Branch `fix/revoke-anon-privileges` (Tasks 1–2 + phase O, `Refs #6`)
 
-Worktree: `/Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/revoke-anon-privileges` (shorthand `WT1`), created by the orchestrator from `origin/develop`.
+Worktree: `/Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/revoke-anon-privileges`, created by the orchestrator from `origin/develop`. `$WT1` below is shorthand for that absolute path, not a variable that exists in your shell: substitute the literal path in every command (or start each shell call with `WT1=/Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/revoke-anon-privileges;`).
 
 - [ ] **Step 0 (implementer): Install and confirm the baseline**
 
@@ -60,8 +61,8 @@ After 0016, functions created by `postgres` (including `pg_temp.*` and `tests.*`
 
 - [ ] **Step 1: Confirm the inventory**
 
-Run: `grep -rnE 'create (or replace )?function' supabase/tests`
-Expected (exactly these 5 lines):
+Run: `grep -rnE 'create (or replace )?function' supabase/tests | sort`
+Expected (exactly these 5 lines; `grep -r` order is filesystem-dependent, hence the `sort`):
 
 ```
 supabase/tests/0002_rls.test.sql:24:create or replace function tests.act_as(uid uuid) returns void language plpgsql as $$
@@ -110,7 +111,7 @@ grant execute on function pg_temp.try_sql(text), pg_temp.count_sql(text) to publ
 Run:
 - `grep -n 'grant execute on function' supabase/tests/0002_rls.test.sql supabase/tests/0012_player_files_storage.test.sql supabase/tests/0013_document_consent_rules.test.sql`
   Expected: exactly 3 lines — `0002_rls.test.sql:30:grant execute on function tests.act_as(uuid) to public;`, `0012_player_files_storage.test.sql:51:grant execute on function pg_temp.try_sql(text), pg_temp.count_sql(text) to public;`, `0013_document_consent_rules.test.sql:24:grant execute on function pg_temp.try_sql(text), pg_temp.count_sql(text) to public;`
-- `git -C $WT1 diff --stat` → 3 files changed, 3 insertions(+), 0 deletions.
+- `git -C $WT1 diff --stat` → last line `3 files changed, 3 insertions(+)` (git omits the deletions count when it is 0).
 
 (The behavioral proof is the orchestrator's: O3 before 0016 and O6 after it.)
 
@@ -271,7 +272,7 @@ Run:
 - `grep -c 'eeeeeeee-' supabase/tests/0016_revoke_anon_privileges.test.sql` → a number ≥ 1, and `grep -nE "'(aaaaaaaa|cccccccc)-" supabase/tests/0016_revoke_anon_privileges.test.sql` → empty (no fixture prefix collision with 0002/0012/0013).
 - `grep -cE '^(revoke|alter default privileges)' supabase/migrations/0016_revoke_anon_privileges.sql` → `8`; `grep -c 'grant ' supabase/migrations/0016_revoke_anon_privileges.sql` → `0`.
 - `pnpm exec vitest run` → `Test Files 39 passed (39)` · `Tests 330 passed (330)`; `pnpm exec tsc -b` → exit 0; `pnpm lint` → exit 0.
-- `git -C $WT1 diff --stat origin/develop` → exactly 5 files (the 3 tests from Task 1 + the 2 new files).
+- `git -C $WT1 status --porcelain` → exactly 2 lines, both `??`: `supabase/migrations/0016_revoke_anon_privileges.sql` and `supabase/tests/0016_revoke_anon_privileges.test.sql` (the new files are untracked until Step 4, so a `diff --stat` here would show only Task 1's 3 files).
 
 - [ ] **Step 4: Commit and report**
 
@@ -279,6 +280,8 @@ Run:
 git -C /Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/revoke-anon-privileges add supabase/tests/0016_revoke_anon_privileges.test.sql supabase/migrations/0016_revoke_anon_privileges.sql
 git -C /Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/revoke-anon-privileges commit -m "fix: revoke anon privileges on app objects and PUBLIC execute on private functions (#6)" -m "Claude-Session: https://claude.ai/code/session_014qeQvKRptEH9hDetwoCqc4"
 ```
+
+After the commit: `git -C $WT1 diff --stat origin/develop` → exactly 5 files (the 3 tests from Task 1 + the 2 new files); `git -C $WT1 status --porcelain` → empty.
 
 **Report (implementer, then stop):** the Step 0 baseline, every Step 1/5 and Task 2 Step 3 output, both commit SHAs. Do not attempt any SQL.
 
@@ -338,7 +341,7 @@ drop function if exists private.zz_acl_probe();
 - [ ] **Step O2 (orchestrator): Red run of 0016 (before applying)**
 
 1. `execute_sql` with **call 1**. Expected: success, no rows.
-2. `execute_sql` with **call 2**. Expected: 22 rows; **exactly these 10 start with `not ok`**: `A1`, `B1`, `B2`, `B4`, `C1`, `C2`, `C3`, `C5`, `D1`, `D2`; the other 12 (`A2`, `A3`, `A4`, the four `B3`, `C4`, `D3`, `D4`, `D5`, `D6`) are `ok`. Expected diagnostics on today's state: `A1` got `96`, `B1` got `9`, `B2` got `9`, `C1` got `12`, `C2` got `0`, `D1`/`D2` got `0` (RLS filtered instead of denying).
+2. `execute_sql` with **call 2**. Expected: 22 rows; **exactly these 10 start with `not ok`**: `A1`, `B1`, `B2`, `B4`, `C1`, `C2`, `C3`, `C5`, `D1`, `D2`; the other 12 (`A2`, `A3`, `A4`, the four `B3`, `C4`, `D3`, `D4`, `D5`, `D6`) are `ok`. Expected diagnostics on today's state: `A1` got `104` (the 96 audited privileges + 8 from `public.zz_acl_probe`, which call 2 creates before the assertions and which inherits today's default `anon=arwdDxtm`), `B1` got `10` and `B2` got `10` (the 9 audited `private` functions + `private.zz_acl_probe()`, born with `proacl` NULL = EXECUTE to PUBLIC), `C1` got `12`, `C2` got `0`, `D1`/`D2` got `0` (RLS filtered instead of denying).
 3. `execute_sql` with the **0016 cleanup**; then the residue check (all zero/null) and the baseline count query (equal to O1).
 
 If call 2 errors (syntax, missing column) the whole call rolled back: run the cleanup anyway (call 1 committed), send the exact error to the implementer, and repeat O2 after their fix commit. If a row outside the list above is `not ok`, or one inside it is `ok`, stop and investigate with `superpowers:systematic-debugging` before going on — the red state does not match the audit (spec §3.1-B) and applying 0016 would be unproven.
@@ -412,7 +415,7 @@ alter default privileges for role postgres in schema public grant execute on fun
 alter default privileges for role postgres grant execute on functions to public;
 ```
 
-Then re-run the O2 call 2 expectations (the red state must be back: same 10 `not ok`), cleanup + residue, escalate to the owner, and open a new branch to retry (spec §4.4). The repo bookkeeping (committing `0017_regrant_anon_privileges.sql` so the repo matches the remote history) goes on its own `fix/*` branch decided with the owner.
+Then repeat O2 **completely** — call 1 → call 2 → 0016 cleanup → residue check + baseline (call 2 alone would fail more rows, because the fixtures were already cleaned up). The red state must be back: the same 10 `not ok` with the O2 diagnostics (`A1` 104, `B1`/`B2` 10, `C1` 12, `C2` 0, `D1`/`D2` 0). Then escalate to the owner, and open a new branch to retry (spec §4.4). The repo bookkeeping (committing `0017_regrant_anon_privileges.sql` so the repo matches the remote history) goes on its own `fix/*` branch decided with the owner.
 
 ### Regression calls (orchestrator) — R-0002, R-0012, R-0013
 
@@ -600,14 +603,14 @@ where p.full_name = 'E2E Consent Lock' order by d.doc_type;
 
 Expected: 6 rows, all `pendiente`. Keep `tenant`, `player`, and the `doc_id` of the `curp` and `privacy_notice` rows. Test file: a minimal PDF (< 10 MB) and a small JPG for the photo, both in the orchestrator's scratchpad.
 
-API probe helper (inside `page.evaluate`, args `{ key, tenant, player, docId }`):
+API probe helper (inside `page.evaluate`, args `{ key, tenant, player, docId, uploadDoc }`; `uploadDoc` is the last path segment of the upload, `curp` unless a row says otherwise):
 
 ```js
-async ({ key, tenant, player, docId }) => {
+async ({ key, tenant, player, docId, uploadDoc = 'curp' }) => {
   const base = 'https://eksbaugyypadtanyjcje.supabase.co'
   const { access_token } = JSON.parse(localStorage.getItem('sb-eksbaugyypadtanyjcje-auth-token'))
   const auth = { apikey: key, Authorization: `Bearer ${access_token}` }
-  const up = await fetch(`${base}/storage/v1/object/player-files/${tenant}/${player}/curp`, {
+  const up = await fetch(`${base}/storage/v1/object/player-files/${tenant}/${player}/${uploadDoc}`, {
     method: 'POST', headers: { ...auth, 'Content-Type': 'application/pdf', 'x-upsert': 'false' },
     body: new Blob(['%PDF-1.4\n%%EOF\n'], { type: 'application/pdf' }),
   })
@@ -630,8 +633,8 @@ async ({ key, tenant, player, docId }) => {
 | E3 | admin; CURP digital + photo | Try Aviso de privacidad → `Pendiente` | Option disabled with helper `Quita primero la foto y los documentos digitales.` Direct PATCH of the privacy_notice row to `pendiente` (same headers as the probe, body `{"status":"pendiente"}`) → 4xx with `consent_in_use`. |
 | E3b | admin | CURP → `Físico` (confirm `Eliminar archivo`); `Quitar` the photo (confirm `Quitar foto`); Aviso de privacidad → `Pendiente` | Accepted; the info alert is back; non-consent upload buttons disabled again. API probe `upload` → 4xx RLS. |
 | E3c | admin (prep for E4) | Aviso de privacidad → `Físico`; upload the PDF on CURP | CURP chip `Digital`. |
-| E4 | readonly context | Open the same player page | No `Estatus` selects, no upload buttons, no info alert. `Ver` on CURP opens a `/storage/v1/object/sign/player-files/…token=` URL. API probe: `upload` 4xx RLS; `patch` → `200 []` or an RLS error; re-read with SQL: curp row unchanged (`digital`, same `file_path`). |
-| E5 | no session (Node, not the browser) | `curl -s -w '\n%{http_code}\n' 'https://eksbaugyypadtanyjcje.supabase.co/rest/v1/players?select=id' -H "apikey: $KEY"`; `curl -s -o /dev/null -w '%{http_code}\n' 'https://eksbaugyypadtanyjcje.supabase.co/storage/v1/object/public/player-files/<tenant>/<player>/curp'` | REST → `401` with `42501` in the body (before 0016 it was `200 []`); public Storage URL → not `200` (bucket private → `400`). |
+| E4 | readonly context | Open the same player page | No `Estatus` selects, no upload buttons, no info alert. `Ver` on CURP opens a `/storage/v1/object/sign/player-files/…token=` URL. API probe with `uploadDoc = 'birth_certificate'` (a path with no object, so the answer cannot be a duplicate error from the CURP object E3c left with `x-upsert: false`): `upload` any 4xx; `patch` → `200 []` or an RLS error; re-read with SQL: `select name, updated_at from storage.objects where name like '<tenant>/<player>/%'` → only the `…/curp` object, `updated_at` unchanged from before the probe (no `…/birth_certificate`), and the curp row unchanged (`digital`, same `file_path`). |
+| E5 | no session (shell, not the browser) | From the E2E worktree, in **one** bash call (the key is read from `.env` and never echoed or printed): `KEY=$(grep '^VITE_SUPABASE_PUBLISHABLE_KEY=' .env \| cut -d= -f2-); curl -s -w '\n%{http_code}\n' 'https://eksbaugyypadtanyjcje.supabase.co/rest/v1/players?select=id' -H "apikey: $KEY"`; `curl -s -o /dev/null -w '%{http_code}\n' 'https://eksbaugyypadtanyjcje.supabase.co/storage/v1/object/public/player-files/<tenant>/<player>/curp'` | REST → `401` with `42501` in the body (before 0016 it was `200 []`); public Storage URL → not `200` (bucket private → `400`). |
 
 A failure in E1–E4 blocks the data load: stop, keep #6 open, debug with `superpowers:systematic-debugging` on its own branch; if 0016 caused it, apply the Rollback first.
 
@@ -657,8 +660,8 @@ where n.nspname = 'public' order by c.relname, p.polname;
 ```
 
 (31 rows on 2026-10-16; record the count.)
-- [ ] **Step R3: B** — the §3.1-B union (expected 0 rows) and the global-row query (expected `1`), both copied from the checklist (Task 3) text.
-- [ ] **Step R4: C** — (1)–(5) exactly as written in the checklist (Task 3), with their positive controls: C(2) prints exactly `VITE_SUPABASE_PUBLISHABLE_KEY` and `VITE_SUPABASE_URL`; C(4) prints a list that contains a `/assets/browser-*.js` chunk and the match section is empty; C(5) `sb_publishable_` count ≥ 1, `browser-*.js` present in `dist/assets`, match section empty. If the auto-mode classifier blocks C(4)/(5) (it blocks scripts that grep for credential patterns), ask the owner to run them with `! bash <script>` and paste the output.
+- [ ] **Step R3: B** — the §3.1-B union (expected 0 rows) and the global-row query (expected `1`), both copied from the Task 3 template block in this plan (`docs/security/pre-real-data-checklist.md` does not exist until branch 2).
+- [ ] **Step R4: C** — (1)–(5) exactly as written in the Task 3 template block in this plan (section C), with their positive controls: C(2) prints exactly `VITE_SUPABASE_PUBLISHABLE_KEY` and `VITE_SUPABASE_URL`; C(4) prints a list that contains a `/assets/browser-*.js` chunk and the match section is empty; C(5) `sb_publishable_` count ≥ 1, `browser-*.js` present in `dist/assets`, match section empty. If the auto-mode classifier blocks C(4)/(5) (it blocks scripts that grep for credential patterns), ask the owner to run them with `! bash <script>` and paste the output.
 - [ ] **Step R5: D** — the two §3.1-D queries (0 rows) and the live curl against a real object path (status ≠ 200). The real path: any existing `storage.objects` row in `player-files` (`select name from storage.objects where bucket_id = 'player-files' limit 1;`) — if none exists after E3 cleanup, use the E5 result from phase E.
 - [ ] **Step R6: E** — R-0012 and R-0013 results (from O6 or a fresh run) + the phase E table.
 - [ ] **Step R7: F** — owner decision line (spec §3.1-F) and the current state of #87 (`gh issue view 87 --json state -q .state`).
@@ -671,7 +674,7 @@ If any of A–E is red or G shows a new lint, stop: #6 stays open and branch 2 i
 
 # Branch `update/pre-real-data-checklist` (Task 3, `Closes #6`)
 
-Worktree: `/Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/pre-real-data-checklist` (shorthand `WT2`), created by the orchestrator from `origin/develop` after phase R is green.
+Worktree: `/Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/pre-real-data-checklist`, created by the orchestrator from `origin/develop` after phase R is green. `$WT2` is shorthand for that absolute path (same rule as `$WT1`: substitute the literal path, or start the shell call with `WT2=/Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/pre-real-data-checklist;`).
 
 - [ ] **Step 0 (implementer): Install and baseline** — as branch 1 Step 0 (`update/pre-real-data-checklist`; expected 39/330).
 
@@ -843,6 +846,14 @@ grant execute on function tests.act_as(uuid) to public;
 
 Sin él, cualquier llamada hecha con `role` = `authenticated`/`anon` falla con `42501`.
 
+3. **Extensiones.** El default global de 0016 (`revoke execute on functions from public` para `postgres`) también aplica a las funciones de extensiones instaladas después si quedan con owner `postgres` (p. ej. `pg_trgm`/`unaccent` activadas desde el Dashboard). Después de cada `create extension`, para cada función que la app o una policy use:
+
+```sql
+select has_function_privilege('authenticated', '<schema>.<funcion>(<args>)', 'EXECUTE');
+```
+
+Si da `false`: `grant execute on function <schema>.<funcion>(<args>) to authenticated;` en la misma migración.
+
 ## Rollback de 0016 (forward)
 
 Solo si 0016 rompe algo en producción: aplicar como la siguiente migración libre (`<NNNN>_regrant_anon_privileges`) y abrir una rama nueva para reintentar.
@@ -934,7 +945,7 @@ Orchestrator (after branch 1): phase E all rows as expected and cleanup confirme
 | §3.1 A–G | Queries, expected results | Checklist A–G; phase R |
 | §4.1 | Nothing breaks for authenticated/service_role | A2–A4, B3, D3–D6 (Task 2); O6 regression; phase E |
 | §4.2 | Exact SQL, `apply_migration`, advisors | Task 2 Step 2; O5; O8 |
-| §4.3 | Conventions | Checklist "Convenciones"; Task 1 |
+| §4.3 | Conventions (+ extensions rule, review finding) | Checklist "Convenciones" (rules 1–3); Global Constraints; Task 1 |
 | §4.4 | Rollback SQL | Phase O "Rollback"; checklist |
 | §5.1 | `pg_temp.as_role` + grant | Task 2 Step 1 |
 | §5.2 | Fixtures, call order (fixtures call, then assertions call: as_role, probes, zz_results, D3, D6w, plan, union) | Task 2 Step 1 markers; O2/O6 |
@@ -953,6 +964,6 @@ Deviations from the spec, all justified above:
 - Regression of 0002/0012/0013 is run through R-calls (TAP capture into a temp table, fixtures + cleanup in the same atomic call) because the canonical files are not directly runnable over MCP; 0002's `reset()` is substituted and a follow-up issue is filed rather than editing it in this branch.
 - 0016 cleanup uses `drop … if exists` so it is safe after a rolled-back call 2.
 
-Verified read-only on the remote (2026-10-16): PG 17.6; MCP `session_user = postgres`; `tests` schema absent; no `reset()` function; pgTAP 1.3.3 owned by `supabase_admin`, `plan()` grants its temp objects to PUBLIC; `authenticated` has USAGE on `extensions` and EXECUTE on `is`/`throws_ok`; no global `pg_default_acl` row for `postgres`; red-state counts of the §3.1-B union (`relation` 96, `function` 10, `default_acl` 12) and of A1 (96), B1 (9), B2 (9), C1 (12), C2 (0); A2–A4 = 0 and B3 = true today; §3.1-A/D queries (0 rows) and the informative policy listing (31 rows); `seasons` columns and BEFORE-UPDATE-only `set_updated_at` trigger; the residue and baseline queries; the TAP ordering expression; `has_table_privilege(…, 'MAINTAIN')`.
+Verified read-only on the remote (2026-10-16): PG 17.6; MCP `session_user = postgres`; `tests` schema absent; no `reset()` function; pgTAP 1.3.3 owned by `supabase_admin`, `plan()` grants its temp objects to PUBLIC; `authenticated` has USAGE on `extensions` and EXECUTE on `is`/`throws_ok`; no global `pg_default_acl` row for `postgres`; red-state counts of the §3.1-B union (`relation` 96, `function` 10, `default_acl` 12) and of A1 (96), B1 (9), B2 (9), C1 (12), C2 (0) without the probe objects (call 2 adds them before asserting: O2 expects A1 104, B1/B2 10); A2–A4 = 0 and B3 = true today; §3.1-A/D queries (0 rows) and the informative policy listing (31 rows); `seasons` columns and BEFORE-UPDATE-only `set_updated_at` trigger; the residue and baseline queries; the TAP ordering expression; `has_table_privilege(…, 'MAINTAIN')`.
 
 Not verified (no DDL allowed while planning): the migration DDL itself, `pg_temp.as_role` and the D-group / C3–C5 rows, R-0002/0012/0013 and O7 as whole calls. The first real execution of the 0016 assertions is O2 (before applying, harmless); the R-calls are first exercised in O3 (before applying). Any syntax problem there is fixed before anything is applied.
