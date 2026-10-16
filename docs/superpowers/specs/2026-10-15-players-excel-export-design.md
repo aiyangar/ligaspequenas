@@ -1,7 +1,7 @@
 # Lista de jugadores: exportar a Excel (#5) — Diseño
 
 **Fecha:** 2026-10-15
-**Estado:** Borrador para revisión
+**Estado:** Revisado (revisión adversarial aplicada)
 **Issue:** [#5](https://github.com/aiyangar/ligaspequenas/issues/5)
 **Spec maestro:** `2026-06-22-liga-mty-registro-jugadores-design.md` §1, §8 y §9 (exportación a Excel)
 **Specs previos:** `2026-10-15-players-status-columns-design.md` (#4: columnas `payment_state` y `docs_delivered` en `players_with_category`, pensadas para que #5 las consuma)
@@ -71,7 +71,7 @@ Una hoja llamada **`Jugadores`**. Fila 1: encabezados en negritas (`fontWeight: 
 | 15 | Pago | `PAYMENT_STATE_LABELS[payment_state]` | texto | — |
 | 16 | Documentos | `` `${docs_delivered}/${DOCUMENT_TOTAL}` `` | texto, `format: '@'` | — |
 
-- **Vacía** = `null` en la posición de la celda (la librería acepta `null` como celda vacía). Nunca la cadena `"null"` ni `""`.
+- **Vacía** = `null` en la posición de la celda (la librería acepta `null` como celda vacía). Nunca la cadena `"null"` ni `""`, y **nunca** un objeto `{ value: null, format: '@' }` (la librería escribiría una celda vacía con estilo): un nulo **siempre** produce `null`, también en las columnas con `format: '@'` (p. ej. teléfono de emergencia).
 - Los teléfonos y "Documentos" llevan `format: '@'` (texto) para que Excel no los trate como número (`8112345678` en notación científica) ni "3/6" como fecha si alguien edita la celda.
 - **No se exportan:** `id`, `tenant_id`, `photo_path`, `created_at`, `updated_at`, `edad_liga`, `division`, `category_name`/`category_year`/`category_id` por separado (ya están en "Categoría"), `team_id`.
 - Anchos de columna fijos vía `columns: [{ width }]` en las opciones de hoja (en caracteres; p. ej. 28 para Nombre, 12 para fechas, 20 para CURP). Cosmético; no se prueba más allá de que haya uno por columna.
@@ -81,10 +81,12 @@ Una hoja llamada **`Jugadores`**. Fila 1: encabezados en negritas (`fontWeight: 
 `write-excel-file` convierte un `Date` a serial de Excel con `date.getTime() / día + 25569` (`modules/xlsx/helpers/convertDateToSerialNumber.js`), es decir, **en UTC**. Por eso:
 
 - **Correcto:** `new Date(Date.UTC(year, month - 1, day))` a partir de `'YYYY-MM-DD'` partido con `/^(\d{4})-(\d{2})-(\d{2})$/`. Da medianoche UTC → serial **entero** → Excel muestra exactamente ese día, en cualquier zona horaria de quien abra el archivo.
-- **Incorrecto:** `new Date(year, month - 1, day)` (medianoche local): en Monterrey (UTC−6) el serial queda con `.25` de fracción; en una zona UTC+ caería en el día anterior.
+- **Incorrecto:** `new Date(year, month - 1, day)` (medianoche local): en una zona UTC− (p. ej. Monterrey) el serial queda **no entero** (p. ej. `.25` o `.2083` según el horario de verano); en una zona UTC+ caería en el día anterior.
 - `new Date('YYYY-MM-DD')` también da medianoche UTC por especificación, pero no se usa: depende de una regla de parsing implícita (el mismo motivo por el que existe `formatPaymentDate`, `payments.ts:101-105`) y no valida la forma.
 
-Helpers en `playersSheet.ts`: `excelDate(value: string): Date | null` (devuelve `null` si la cadena no cumple el patrón) y `dateCell(value: string | null): Cell`: `null` → celda vacía (`null`); fecha válida → celda de fecha; cadena que no cumple el patrón (no debería pasar: son columnas `date` de Postgres) → **no tumba la exportación**: la celda sale como texto con el valor crudo.
+Las fechas vienen de columnas `date` de Postgres, así que una fecha de calendario inválida (`2015-02-30`) no puede llegar. Aun así `excelDate` valida el ida y vuelta: tras construir el `Date`, `getUTCFullYear()`, `getUTCMonth() + 1` y `getUTCDate()` deben coincidir con los componentes de la cadena (si no, `Date.UTC` habría desbordado al mes siguiente); si no coinciden, devuelve `null`.
+
+Helpers en `playersSheet.ts`: `excelDate(value: string): Date | null` (devuelve `null` si la cadena no cumple el patrón o no pasa el ida y vuelta) y `dateCell(value: string | null): Cell`: `null` → celda vacía (`null`); fecha válida → celda de fecha; cadena que no cumple el patrón o el ida y vuelta (no debería pasar: son columnas `date` de Postgres) → **no tumba la exportación**: la celda sale como texto con el valor crudo.
 
 El formato `dd/mm/yyyy` se escribe como formato personalizado en el archivo, así que Excel, LibreOffice, Google Sheets y Numbers lo muestran igual sin importar la configuración regional de quien lo abra; lo que sí depende del locale es cómo **edita** el usuario la fecha después.
 
@@ -111,7 +113,7 @@ Textos idénticos a las `<option>` actuales. Usarlos en esos `<option>` (y en la
 
 - `PLAYERS_SHEET_COLUMNS: readonly { header: string; width: number }[]` — las 16 columnas de §3.1 en orden.
 - `excelDate(value)` y `dateCell(value)` — §3.2.
-- `buildPlayersSheet(rows: readonly PlayerRow[]): SheetData` — fila de encabezados (`{ value: header, fontWeight: 'bold' }`) + una fila por jugador, en el orden recibido. Celdas de fecha: `{ value: Date, type: Date, format: 'dd/mm/yyyy' }`; texto con formato: `{ value, type: String, format: '@' }`; texto simple: el string; nulo: `null`.
+- `buildPlayersSheet(rows: readonly PlayerRow[]): SheetData` — fila de encabezados (`{ value: header, fontWeight: 'bold' }`) + una fila por jugador, en el orden recibido. Celdas de fecha: `{ value: Date, type: Date, format: 'dd/mm/yyyy' }`; texto con formato: `{ value, type: String, format: '@' }`; texto simple: el string; nulo: `null` **siempre**, nunca un objeto con `format` (§3.1). Ninguna celda usa `type: 'Formula'` (§7).
 - `playersExportFileName(today = localToday()): string` → `` `jugadores-${today}.xlsx` `` (parámetro inyectable para pruebas, como `emptyPayment(today)` en `payments.ts:79`).
 
 Solo `import type { Cell, SheetData } from 'write-excel-file/browser'`: el import de tipo se borra al compilar, así que este módulo **no** arrastra la librería al bundle principal.
@@ -133,10 +135,10 @@ Cualquier fallo (chunk que no carga tras un deploy, error al comprimir) se propa
 
 ### 4.4 `src/players/PlayersPage.tsx`
 
-- Estado `exporting: boolean` y `exportError: string | null`; un `useRef<boolean>` como guarda síncrona contra doble clic (el `disabled` por estado llega un render tarde; dos clics en el mismo tick pasarían ambos).
-- `handleExport()`: si la ref está activa, sale; si no, la activa, `setExporting(true)`, `setExportError(null)`, `await exportPlayersToExcel(visible)`; en `catch`, `setExportError('No se pudo generar el archivo de Excel. Intenta de nuevo.')`; en `finally`, libera la ref y `setExporting(false)`.
-- Encabezado: dentro de `{isAdmin(role) && …}`, un `Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}` con `Button variant="outlined"` **"Exportar a Excel"** y el "Nuevo jugador" actual (sin cambios). El botón queda `disabled` si `visible.length === 0 || exporting`. El texto no cambia mientras genera (las pruebas lo buscan por nombre); el `disabled` es el indicador.
-- `exportError` se muestra como `<Alert role="alert" severity="error" sx={{ mt: 2 }}>` bajo el encabezado y se limpia al intentar de nuevo.
+- Estado `exporting: boolean` y `exportError: string | null`; un `useRef<boolean>` como guarda síncrona contra doble clic (el `disabled` por estado llega un render tarde; dos clics en el mismo tick pasarían ambos); un `useRef<HTMLButtonElement>` al botón para devolverle el foco.
+- `handleExport()`: si la ref está activa, sale; si no, la activa, `setExporting(true)`, `setExportError(null)`, `await exportPlayersToExcel(visible)`; en `catch`, `setExportError('No se pudo generar el archivo de Excel. Intenta de nuevo.')`; en `finally`, libera la ref, `setExporting(false)` y, si `document.activeElement === document.body` (el botón perdió el foco al deshabilitarse), devuelve el foco al botón con la ref.
+- Encabezado: dentro de `{isAdmin(role) && …}`, un `Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}` con `Button variant="outlined"` **"Exportar a Excel"** y el "Nuevo jugador" actual (sin cambios). El botón queda `disabled={loadError || visible.length === 0 || exporting}` (`loadError` explícito: tras un reintento fallido `players` conserva las filas anteriores y `visible` no estaría vacío) y lleva `aria-busy={exporting}`. El texto no cambia mientras genera (las pruebas lo buscan por nombre); `disabled` + `aria-busy` son el indicador.
+- `exportError` se muestra como `<Alert role="alert" severity="error" sx={{ mt: 2 }}>` justo bajo el `Stack` del encabezado, **fuera** de la rama `loadError ? <LoadError/> : …` (va antes de ella), y se limpia al intentar de nuevo.
 
 ## 5. UI y comportamiento
 
@@ -150,11 +152,11 @@ Cualquier fallo (chunk que no carga tras un deploy, error al comprimir) se propa
 | Situación | Botón |
 |---|---|
 | Cargando la lista (`players` aún `[]`) | deshabilitado |
-| Error de carga (`LoadError`) | deshabilitado (`visible` vacío) |
+| Error de carga (`LoadError`) | deshabilitado (`loadError` explícito en `disabled`, aunque `players` conserve filas de una carga anterior) |
 | Filtros sin resultados | deshabilitado |
 | Hay al menos un jugador visible | habilitado |
 | Generando | deshabilitado; un segundo clic no hace nada |
-| Falló la generación | habilitado de nuevo + `Alert` de error |
+| Falló la generación | habilitado de nuevo + `Alert` de error (bajo el encabezado, fuera de la rama de `LoadError`) |
 
 Los jugadores con estatus `baja` se exportan si están visibles (con filtro "Todos" o "Baja"); el archivo refleja la pantalla, no reglas propias.
 
@@ -174,25 +176,30 @@ En `xs` el encabezado ya apila en columna (`direction={{ xs: 'column', sm: 'row'
 - El archivo contiene **datos personales de menores** (nombre, fecha de nacimiento, CURP) y de sus tutores (WhatsApp, correo, contacto de emergencia). No incluye fotos ni archivos de documentos, solo el conteo.
 - Se genera **por completo en el navegador** con los datos que la página ya tiene; no se sube a ningún servicio, no se guarda en Storage, no hay endpoint nuevo.
 - **Solo admin** es una restricción de **interfaz**: el usuario readonly ya puede leer esas mismas filas por RLS (`players_with_category` con `security_invoker`) y verlas en pantalla. El objetivo es no facilitar la extracción masiva de datos de menores a cuentas de solo lectura, no crear una barrera de seguridad nueva. Si algún día se requiere que readonly no pueda leer ciertas columnas, eso es RLS/vista, no este botón.
+- **Inyección de fórmulas (CSV/Excel injection):** `write-excel-file` escribe todo `String` como *shared string* (`t="s"`, `sharedStrings.xml`), nunca como fórmula; las fórmulas solo salen de celdas con `type: 'Formula'` (`<f>`). Así, valores capturados como `=HYPERLINK(...)`, `@SUM(1)`, `+52 81` o `-1` quedan como **texto** literal. `buildPlayersSheet` **nunca** usa `type: 'Formula'`; una prueba lo fija (§8.1).
 - El archivo descargado queda fuera del control de la app; es responsabilidad de la mesa directiva (igual que hoy con cualquier captura).
 
 ## 8. Pruebas (Vitest + Testing Library)
 
 ### 8.1 `src/players/playersSheet.test.ts` (sin la librería)
 
+Define su **propio** builder mínimo de `PlayerRow` (p. ej. `row(overrides)`) dentro del archivo; no se refactoriza ni se importa nada de `PlayersPage.test.tsx`.
+
+- `PLAYERS_SHEET_COLUMNS.length === 16`.
 - Encabezados: la fila 0 son exactamente los 16 textos de §3.1, en orden, en negritas.
 - Orden: con 3 filas de entrada en un orden arbitrario, las filas de salida conservan ese orden (no reordena).
 - Fechas: `'2015-06-10'` → celda con `type: Date`, `format: 'dd/mm/yyyy'` y `value.getTime() === Date.UTC(2015, 5, 10)`; la prueba corre con `TZ: 'America/Monterrey'` (`vite.config.ts`), así que un `new Date(y, m, d)` local fallaría. Un caso de fin de año (`'2026-12-31'`) para cubrir el desfase de día.
-- `excelDate`: cadena malformada (`'10/06/2015'`, `''`) → `null`. `dateCell`: `null` → `null`; cadena malformada → la cadena cruda como texto.
-- Vacíos: `curp`, `team_name`, `tutor_email`, `emergency_contact_*`, `affiliation_date` en `null` → `null` en su posición (no `''` ni `'null'`).
+- `excelDate`: cadena malformada (`'10/06/2015'`, `''`) → `null`; fecha que no pasa el ida y vuelta (`'2015-02-30'`) → `null`. `dateCell`: `null` → `null`; cadena malformada → la cadena cruda como texto.
+- Vacíos: `curp`, `team_name`, `tutor_email`, `emergency_contact_*`, `affiliation_date` en `null` → `null` en su posición (no `''` ni `'null'`); en particular `emergency_contact_phone: null` → exactamente `null`, no `{ value: null, format: '@' }`.
 - Etiquetas: `status: 'baja'` → "Baja"; cada `AffiliationStatus` → su etiqueta; cada `PaymentState` → `PAYMENT_STATE_LABELS`; "Documentos" → `` `2/${DOCUMENT_TOTAL}` ``; categoría fuera de rango → "Fuera de categoría (edad 25)".
 - Texto con formato: WhatsApp, teléfono de emergencia y Documentos llevan `format: '@'`.
+- Fórmulas: `full_name: '=1+1'` → la celda de Nombre tiene ese valor como string y **no** es `{ type: 'Formula' }`; además ninguna celda de la hoja tiene `type: 'Formula'`.
 - `playersExportFileName('2026-10-15')` → `'jugadores-2026-10-15.xlsx'`.
 - `players.test.ts`: los mapas tienen una entrada por valor del tipo (comparando contra las listas literales).
 
 ### 8.2 `src/players/exportPlayers.test.ts`
 
-`vi.mock('write-excel-file/browser')` con un `default` que devuelve `{ toFile: vi.fn() }`. Verifica que se llama con `buildPlayersSheet(rows)` y `sheet: 'Jugadores'`, que `toFile` recibe `jugadores-<localToday()>.xlsx`, y que un `toFile` que rechaza propaga el rechazo.
+`vi.mock('write-excel-file/browser')` con un `default` que devuelve `{ toFile: vi.fn() }`. Verifica que se llama con `buildPlayersSheet(rows)` y con opciones `sheet: 'Jugadores'`, `stickyRowsCount: 1` y `columns.length === 16`; que `toFile` recibe el nombre con la fecha fijada por `vi.useFakeTimers()` + `vi.setSystemTime(...)` (p. ej. `new Date(2026, 9, 15, 12)` → `'jugadores-2026-10-15.xlsx'`; `vi.useRealTimers()` en `afterEach`), y que un `toFile` que rechaza propaga el rechazo.
 
 ### 8.3 `src/players/PlayersPage.test.tsx`
 
@@ -201,7 +208,11 @@ Se mockea `./exportPlayers` (`vi.hoisted` + `vi.mock`, como `fetchPlayers` hoy).
 - **admin** ve "Exportar a Excel"; **readonly** no (`queryByRole('button', { name: 'Exportar a Excel' })` nulo).
 - Deshabilitado mientras carga y cuando un filtro deja la lista vacía (buscar "zzz").
 - Con un filtro activo (p. ej. Estatus = Activo, o búsqueda), al hacer clic `exportPlayersToExcel` se llama **una vez** con exactamente las filas visibles, en orden (comparar `id`s).
-- **Doble clic:** el mock devuelve una promesa que no resuelve hasta que la prueba la libera; `user.dblClick` → una sola llamada; el botón queda deshabilitado; al resolver, se habilita.
+- **Doble clic (dos casos):** el mock devuelve una promesa que no resuelve hasta que la prueba la libera.
+  - `user.dblClick` → una sola llamada; el botón queda deshabilitado (y `aria-busy="true"`); al resolver, se habilita.
+  - **Mismo tick:** `act(() => { btn.click(); btn.click() })` → `exportPlayersToExcel` se llama **una vez**. Este caso prueba la guarda `useRef` (sin ella, ambos clics pasan antes del re-render y hay 2 llamadas; verificado en la revisión).
+- **Foco:** tras una exportación que resuelve, el foco vuelve al botón "Exportar a Excel" (`expect(btn).toHaveFocus()`).
+- **Deshabilitado con `LoadError`:** `fetchPlayers` rechaza → se muestra `LoadError` y el botón está deshabilitado.
 - **Error:** el mock rechaza → aparece `role="alert"` con el mensaje de §4.4 y el botón vuelve a estar habilitado; un nuevo clic exitoso borra el `Alert`.
 - Las pruebas existentes no cambian (el botón nuevo no colisiona con textos buscados hoy).
 
@@ -218,7 +229,7 @@ Sin pgTAP (no hay cambios de base de datos).
 | `src/players/playersSheet.test.ts` | Nuevo (§8.1). |
 | `src/players/exportPlayers.ts` | Nuevo (§4.3). |
 | `src/players/exportPlayers.test.ts` | Nuevo (§8.2). |
-| `src/players/PlayersPage.tsx` | Botón, guarda, `Alert` (§4.4). |
+| `src/players/PlayersPage.tsx` | Botón (`aria-busy`, retorno de foco), guarda, `Alert` (§4.4). |
 | `src/players/PlayersPage.test.tsx` | Casos de §8.3. |
 
 ## 10. Entrega
@@ -230,14 +241,17 @@ Orden dentro de la rama (TDD): (1) dependencia + mapas de etiquetas; (2) `player
 Verificación:
 
 - `pnpm exec vitest run`, `tsc -b`, `pnpm lint` en verde;
-- `pnpm build`: la salida lista un chunk aparte para la librería, y el chunk de entrada (`dist/assets/index-*.js`) **no** contiene código de `write-excel-file` (p. ej. `grep -L sharedStrings dist/assets/index-*.js`). Registrar el tamaño del chunk nuevo en el PR;
+- `pnpm build`: la salida lista un chunk aparte para la librería (se espera `dist/assets/browser-*.js`, nombrado por el entry `write-excel-file/browser`), y:
+  - `grep -c sharedStrings dist/assets/index-*.js` → `0` (el chunk de entrada no contiene la librería);
+  - `grep -l sharedStrings dist/assets/browser-*.js` → **exactamente un** archivo (control positivo: el string sí existe en el chunk de la librería, así que el `0` anterior significa algo).
+  Registrar el tamaño del chunk nuevo en el PR;
 - **E2E en navegador** (el orquestador, con Playwright; el owner pega el magic link):
-  - **datos:** se crean jugadores dedicados con prefijo `E2E Export` en el nombre (al menos uno con `curp`, `tutor_email` y `affiliation_date` nulos, uno con equipo y uno en `baja`); **nunca** se exporta ni se inspecciona la lista real completa;
+  - **datos:** se crean jugadores dedicados con prefijo `E2E Export` en el nombre (al menos uno con `curp`, `tutor_email` y `affiliation_date` nulos, uno con equipo y uno en `baja`). Para el caso "con equipo", el tester (orquestador) crea un **equipo dedicado** cuyo nombre empieza con `E2E Export`; **nunca** se usa ni se modifica un equipo real. **Nunca** se exporta ni se inspecciona la lista real completa;
   - como admin, buscar "E2E Export" (y combinar con un filtro de Estatus), clic en "Exportar a Excel", capturar con `page.waitForEvent('download')`, comprobar el nombre `jugadores-<hoy local>.xlsx`;
   - inspeccionar el archivo fuera del repo (scratchpad, p. ej. `read-excel-file/node` o `openpyxl`): encabezados de §3.1, una fila por jugador visible en el mismo orden, fechas como celdas numéricas con formato `dd/mm/yyyy` y el día correcto, nulos vacíos, etiquetas humanas;
   - comprobar que el chunk de la librería se descarga **solo** al hacer clic (pestaña de red / `page.on('request')`);
   - como readonly, el botón no aparece; en 360 px, sin scroll horizontal;
-  - **limpieza:** borrar el `.xlsx` descargado y los jugadores por SQL (`delete from players where full_name like 'E2E Export%'`; documentos y pagos caen por `on delete cascade`) y confirmar que no queda ninguno.
+  - **limpieza:** borrar el `.xlsx` descargado; por SQL, primero los jugadores (`delete from players where full_name like 'E2E Export%'`; documentos, pagos y `team_players` caen por `on delete cascade`) y **después** el equipo dedicado (`delete from teams where name like 'E2E Export%'`); confirmar con `select` que no queda ningún jugador ni equipo `E2E Export`.
 
 ## 11. Riesgos abiertos
 
