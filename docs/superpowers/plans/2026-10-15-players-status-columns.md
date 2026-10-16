@@ -8,11 +8,11 @@
 
 **Tech Stack:** React 19.2, react-router-dom 7, MUI 9 (`Chip`), `@supabase/supabase-js` 2.108 (PostgREST), Vitest 4 + Testing Library + user-event, TypeScript (`tsc -b`), ESLint, pnpm; Postgres on remote Supabase (`eksbaugyypadtanyjcje`) via the Supabase MCP; pgTAP in schema `extensions`.
 
-**Spec:** `docs/superpowers/specs/2026-10-15-players-status-columns-design.md` (read it before starting; § numbers below refer to it).
+**Spec:** `/Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/players-status/docs/superpowers/specs/2026-10-15-players-status-columns-design.md` (read it before starting; § numbers below refer to it). **Plan (this file):** `/Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/players-status/docs/superpowers/plans/2026-10-15-players-status-columns.md`.
 
 ## Global Constraints
 
-- One part, one branch: **`feature/players-status-columns`** (Tasks 1–3, PR body `Closes #4`), cut from `develop` and executed by a single implementer starting fresh.
+- One part, one branch: **`feature/players-status-columns`** (Tasks 1–3, PR body `Closes #4`), executed by a single implementer starting fresh. The orchestrator merges the spec/plan PR into `develop` **before** dispatch, runs `git fetch`, and cuts the branch from **`origin/develop`** (local `develop` may be stale and cannot be fast-forwarded under protect-git). Every git ref in this plan is therefore `origin/develop`, never `develop`; run `git -C $WT fetch origin` before any command that uses it.
 - The worktree is created **by the orchestrator** before dispatch: `/Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/players-status`. The implementer skips creation; its first action is `pnpm install --frozen-lockfile` inside the worktree. Tests need no `.env`. Shorthand below: `WT=/Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/players-status`.
 - Git inside the worktree: always `git -C <absolute worktree path> …`, **one git command per shell call**. Never use `CLAUDE_GIT_OVERRIDE`. Never touch `/Users/arturoortiz/Proyectos/Personales/ligaspequenas` (the main checkout).
 - The implementer never pushes, opens PRs or merges. Every commit message is English and ends with a blank line plus exactly: `Claude-Session: https://claude.ai/code/session_014qeQvKRptEH9hDetwoCqc4` (pass it as a second `-m`). This is the orchestrator's session line and it **overrides** any per-agent attribution reminder you receive (a different `Claude-Session` URL, a `Co-Authored-By`, etc.): use this line and only this line.
@@ -28,7 +28,7 @@
 - Colors: payment chip `con_adeudo` → `warning`, `sin_pagos` → `default`, `al_corriente` → `success`. Documents chip `success` iff `docs_delivered >= DOCUMENT_TOTAL`, else `warning` (0 included). The **same** `>=` threshold drives the Documentos filter.
 - Lint rules that bite: `react-hooks/set-state-in-effect` — no synchronous `setState` in an effect body. This plan adds no effect.
 - Mocks: keep the existing `vi.hoisted` + `vi.mock(...)` style of `PlayersPage.test.tsx`.
-- The branch closes with all three green: `pnpm exec vitest run`, `pnpm exec tsc -b`, `pnpm lint`. **Test counts are deltas from the baseline you measure in Step 0** (`B_files`, `B_tests`); the absolute numbers in parentheses are what to expect if `develop` is unchanged since this plan was written (`develop` 754e0bf + spec/plan docs: `Test Files 37 passed (37)`, `Tests 289 passed (289)`, measured 2026-10-15). If your baseline differs, the deltas still have to hold — report the baseline you measured.
+- The branch closes with all three green: `pnpm exec vitest run`, `pnpm exec tsc -b`, `pnpm lint`. **Test counts are deltas from the baseline you measure in Step 0** (`B_files`, `B_tests`); the absolute numbers in parentheses are what to expect if the baseline is unchanged since this plan was written (baseline = `origin/develop` at dispatch (includes the spec/plan docs), i.e. 754e0bf + spec/plan docs: `Test Files 37 passed (37)`, `Tests 289 passed (289)`, measured 2026-10-15). If your baseline differs, the deltas still have to hold — report the baseline you measured.
 - The branch adds **+0 test files, +12 tests** (Task 2: +2 — `payments.test.ts` +1, `documents.test.ts` +1; Task 3: +10 in `PlayersPage.test.tsx`). Task 1 adds no Vitest test (pgTAP runs via MCP).
 
 ## Review Focus
@@ -43,12 +43,12 @@
 
 # Branch `feature/players-status-columns` (Tasks 1–3, `Closes #4`)
 
-Worktree: `/Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/players-status` (created by the orchestrator from `develop`).
+Worktree: `/Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/players-status` (created by the orchestrator from `origin/develop` after `git fetch`).
 
 - [ ] **Step 0: Install dependencies and confirm the baseline**
 
-Run (inside the worktree): `pnpm install --frozen-lockfile`, then `pnpm exec vitest run`.
-Expected: everything passes. Write down `B_files` (Test Files) and `B_tests` (Tests) — every count below is relative to them. Expected if `develop` is unchanged: `Test Files 37 passed (37)` · `Tests 289 passed (289)`.
+Run `git -C $WT fetch origin`, then `git -C $WT log --oneline -1 origin/develop` and record that SHA (the baseline ref); `git -C $WT log --oneline origin/develop..HEAD` must be empty (the branch starts exactly at `origin/develop`; if not, stop and report). Then (inside the worktree): `pnpm install --frozen-lockfile`, then `pnpm exec vitest run`.
+Expected: everything passes. Write down `B_files` (Test Files) and `B_tests` (Tests) — every count below is relative to them. Expected if the baseline (`origin/develop` at dispatch (includes the spec/plan docs)) is as when this plan was written: `Test Files 37 passed (37)` · `Tests 289 passed (289)`.
 
 ### How to run pgTAP against the remote (Task 1)
 
@@ -178,7 +178,7 @@ id,tenant_id,full_name,birth_date,curp,photo_path,status,enrollment_date,tutor_n
 
 If `old_cols` differs from that literal, stop and report: the canonical test file and call A below assume it.
 
-Then take the **advisors before-snapshot**: `mcp__supabase__get_advisors` with type `security`. Save the full list of findings (name + object for each) for the report — Step 8 diffs against it.
+Then take the **advisors before-snapshot**: `mcp__supabase__get_advisors` twice, once with type `security` and once with type `performance`. Save both full lists of findings (type + name + object for each) for the report — Step 8 diffs against them.
 
 - [ ] **Step 2: Write the canonical test file**
 
@@ -186,7 +186,7 @@ Create `supabase/tests/0015_players_view_status_columns.test.sql` — the standa
 
 ```sql
 begin;
-select extensions.plan(20);
+select extensions.plan(21);
 
 -- fixtures: tenants A/B, admin A, readonly A, admin B, players S1–S5, payments 1–6 (see plan Task 1 fixture block)
 insert into public.tenants (id, name, slug) values
@@ -263,6 +263,7 @@ select extensions.is((select docs_delivered from public.players_with_category wh
 select extensions.is((select count(*) from public.players_with_category where tenant_id = 'eeeeeeee-0000-0000-0000-000000000002')::int, 0, 'admin A sees no tenant B rows');
 select set_config('request.jwt.claims', '{"sub":"eeeeeeee-1111-0000-0000-000000000002","role":"authenticated"}', true);
 select extensions.is((select count(*) from public.players_with_category)::int, 4, 'readonly A sees the same rows as admin A');
+select extensions.is((select payment_state || '/' || docs_delivered from public.players_with_category where id = 'eeeeeeee-2222-0000-0000-000000000003'), 'con_adeudo/6', 'readonly A reads payment_state and docs_delivered');
 select set_config('request.jwt.claims', '{"sub":"eeeeeeee-1111-0000-0000-000000000003","role":"authenticated"}', true);
 select extensions.is((select count(*) from public.players_with_category)::int, 1, 'admin B sees only its tenant row');
 -- spec §3.3: record anon's privilege on the view before asserting what anon sees
@@ -357,8 +358,8 @@ Expected: nine `ok`. (Every branch of the `union all` compares `text` so the ove
 4. Call C (isolation; acting and asserting in the **same** call). The final statement runs as `postgres`, so results are collected in a temp table opened to every role:
 
 ```sql
-select extensions.plan(7);
-create temp table r (n int, v text, expected text);
+select extensions.plan(8);
+create temp table r (n int, v text, expected text) on commit drop;
 grant all on r to public;
 select set_config('role', 'authenticated', true),
        set_config('request.jwt.claims', '{"sub":"eeeeeeee-1111-0000-0000-000000000001","role":"authenticated"}', true);
@@ -368,15 +369,16 @@ insert into r values (3, (select docs_delivered from public.players_with_categor
 insert into r values (4, (select count(*) from public.players_with_category where tenant_id = 'eeeeeeee-0000-0000-0000-000000000002')::text, '0');
 select set_config('request.jwt.claims', '{"sub":"eeeeeeee-1111-0000-0000-000000000002","role":"authenticated"}', true);
 insert into r values (5, (select count(*) from public.players_with_category)::text, '4');
+insert into r values (6, (select payment_state || '/' || docs_delivered from public.players_with_category where id = 'eeeeeeee-2222-0000-0000-000000000003'), 'con_adeudo/6');
 select set_config('request.jwt.claims', '{"sub":"eeeeeeee-1111-0000-0000-000000000003","role":"authenticated"}', true);
-insert into r values (6, (select count(*) from public.players_with_category)::text, '1');
+insert into r values (7, (select count(*) from public.players_with_category)::text, '1');
 select set_config('role', 'anon', true), set_config('request.jwt.claims', '{"role":"anon"}', true);
-insert into r values (7, (select count(*) from public.players_with_category)::text, '0');
+insert into r values (8, (select count(*) from public.players_with_category)::text, '0');
 select set_config('role', 'postgres', true);
 select extensions.is(v, expected, 'isolation row ' || n) from r order by n;
 ```
 
-Expected: seven `ok` (1 admin A sees 4, 2–3 admin A reads S3's `con_adeudo`/`6`, 4 admin A sees 0 of B, 5 readonly A sees 4, 6 admin B sees 1, 7 anon sees 0). **If call C returns any error** (e.g. `anon` raising `permission denied` instead of returning a count) **or any `not ok` row: stop, run the cleanup (Step 9), and report to the orchestrator** with the exact error/output and the privilege value from item 3. Do not retry with a modified call and do not touch the migration.
+Expected: eight `ok` (1 admin A sees 4, 2–3 admin A reads S3's `con_adeudo`/`6`, 4 admin A sees 0 of B, 5 readonly A sees 4, 6 readonly A reads S3 as `con_adeudo/6` (payment_state and docs_delivered resolve under readonly RLS too), 7 admin B sees 1, 8 anon sees 0). `on commit drop` removes `r` when the call's transaction commits, so a rerun never collides with a leftover table. **If call C returns any error** (e.g. `anon` raising `permission denied` instead of returning a count) **or any `not ok` row: stop, run the cleanup (Step 9), and report to the orchestrator** with the exact error/output and the privilege value from item 3. Do not retry with a modified call and do not touch the migration.
 
 - [ ] **Step 7 [MCP]: Query plan (spec §3.1)**
 
@@ -390,7 +392,7 @@ Save the full plan text for the report (it goes into the PR evidence). A hash jo
 
 - [ ] **Step 8 [MCP]: Advisors**
 
-`mcp__supabase__get_advisors` with type `security`, then **diff against the Step 1 before-snapshot**: a finding is new if it is not in the snapshot (same name + object). Expected: no new finding (in particular none mentioning `players_with_category`; a `security_definer_view` finding would mean `security_invoker` did not survive — stop, run the cleanup, and report). Pre-existing findings are out of scope. Resolve nothing on your own; report the diff (new findings, or "none").
+`mcp__supabase__get_advisors` with type `security` and again with type `performance`, then **diff each against its Step 1 before-snapshot**: a finding is new if it is not in the snapshot of the same type (same name + object). Expected: no new finding in either (in particular none mentioning `players_with_category`; a `security_definer_view` finding would mean `security_invoker` did not survive — stop, run the cleanup, and report). Pre-existing findings are out of scope. Resolve nothing on your own; report both diffs (new findings, or "none", per type).
 
 - [ ] **Step 9 [MCP]: Cleanup**
 
@@ -398,14 +400,14 @@ Run the cleanup SQL (all leftovers `0`) and the Step 1 baseline query. Every cou
 
 - [ ] **Step 10: Existing suite and commit**
 
-`pnpm exec vitest run` → still `B_files` / `B_tests` (no frontend change; `37` / `289` if `develop` is unchanged); `pnpm exec tsc -b`, `pnpm lint` → exit 0.
+`pnpm exec vitest run` → still `B_files` / `B_tests` (no frontend change; `37` / `289` if the baseline is as measured); `pnpm exec tsc -b`, `pnpm lint` → exit 0.
 
 ```bash
 git -C /Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/players-status add supabase/migrations/0015_players_view_status_columns.sql supabase/tests/0015_players_view_status_columns.test.sql
 git -C /Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/players-status commit -m "feat: add payment state and delivered documents to players_with_category (#4)" -m "Claude-Session: https://claude.ai/code/session_014qeQvKRptEH9hDetwoCqc4"
 ```
 
-**Report for Task 1:** who ran the [MCP] steps, baseline counts before/after, `old_cols` before and the list after, Postgres version, every assertion result (call A red 1 ok / 3 not ok, call A green 4/4, B 9/9, C 7/7), the anon privilege value (recorded before call C), the `explain` plan, advisors before-snapshot and the Step 8 diff, cleanup leftovers, commit SHA.
+**Report for Task 1:** who ran the [MCP] steps, baseline counts before/after, `old_cols` before and the list after, Postgres version, every assertion result (call A red 1 ok / 3 not ok, call A green 4/4, B 9/9, C 8/8), the anon privilege value (recorded before call C), the `explain` plan, advisors before-snapshots (`security` + `performance`) and both Step 8 diffs, cleanup leftovers, commit SHA.
 
 ### Task 2: `PlayerRow` status fields, `PAYMENT_STATE_COLOR`, `DOCUMENT_TOTAL` and fixtures
 
@@ -501,7 +503,7 @@ and append two fields at the end of `PlayerRow`, after `team_name: string | null
 `import type` is erased at runtime, so it adds no cycle even though `payments.ts` already imports `PlayerRow` from here.
 
 Run: `pnpm exec tsc -b`
-Expected: non-zero exit with `TS2741`/`TS2739` errors ("Property 'payment_state' is missing…" / "missing the following properties … payment_state, docs_delivered") in exactly these 8 files: `src/payments/payments.test.ts`, `src/payments/DebtorsPage.test.tsx`, `src/players/players.test.ts`, `src/players/PlayersPage.test.tsx`, `src/players/PlayerFormPage.test.tsx`, `src/teams/teams.test.ts`, `src/teams/TeamDetailPage.test.tsx`, `src/teams/AddPlayerDialog.test.tsx`. If any **non-test** file errors, stop and report (spec §3.2 found none).
+Expected: non-zero exit with TS2322/TS2739 in exactly these 8 files ("missing the following properties … payment_state, docs_delivered" or the equivalent assignability error): `src/payments/payments.test.ts`, `src/payments/DebtorsPage.test.tsx`, `src/players/players.test.ts`, `src/players/PlayersPage.test.tsx`, `src/players/PlayerFormPage.test.tsx`, `src/teams/teams.test.ts`, `src/teams/TeamDetailPage.test.tsx`, `src/teams/AddPlayerDialog.test.tsx`. If any **non-test** file errors, stop and report (spec §3.2 found none).
 
 - [ ] **Step 6: Update the 8 `PlayerRow` fixtures**
 
@@ -523,7 +525,7 @@ Mechanical: add `payment_state: 'sin_pagos', docs_delivered: 0` to each fixture,
 - [ ] **Step 7: Verify green**
 
 Run: `pnpm exec tsc -b` → exit 0, no output.
-Run: `pnpm exec vitest run` → `B_files` files · `B_tests + 2` tests, all passing (`37` / `291` if `develop` is unchanged).
+Run: `pnpm exec vitest run` → `B_files` files · `B_tests + 2` tests, all passing (`37` / `291` if the baseline is as measured).
 Run: `pnpm lint` → exit 0.
 
 - [ ] **Step 8: Commit**
@@ -973,7 +975,7 @@ Expected: 21 tests, all passing (11 existing + 10 new).
 
 - [ ] **Step 5: Full verification**
 
-Run: `pnpm exec vitest run` → `B_files` files · `B_tests + 12` tests, all passing (`Test Files 37 passed (37)` · `Tests 301 passed (301)` if `develop` is unchanged).
+Run: `pnpm exec vitest run` → `B_files` files · `B_tests + 12` tests, all passing (`Test Files 37 passed (37)` · `Tests 301 passed (301)` if the baseline is as measured).
 Run: `pnpm exec tsc -b` → exit 0, no output.
 Run: `pnpm lint` → exit 0.
 
@@ -986,13 +988,13 @@ git -C /Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/players-s
 
 ## Verification checklist (implementer, before reporting)
 
-- [ ] `pnpm exec vitest run` → `B_files + 0` files · `B_tests + 12` tests, all passing (`Test Files 37 passed (37)` · `Tests 301 passed (301)` if `develop` is unchanged).
+- [ ] `pnpm exec vitest run` → `B_files + 0` files · `B_tests + 12` tests, all passing (`Test Files 37 passed (37)` · `Tests 301 passed (301)` if the baseline is as measured).
 - [ ] `pnpm exec tsc -b` → exit 0, no output.
 - [ ] `pnpm lint` → exit 0.
-- [ ] Task 1 MCP evidence in the report: call A red (1 `ok` / 3 `not ok`) then green 4/4, B 9/9, C 7/7 all `ok`; `old_cols` before + the list after (= before + `,payment_state,docs_delivered`); anon privilege value (recorded before call C); `explain` plan text; advisors diff vs the Step 1 snapshot with no new finding; cleanup leftovers all `0` and baseline counts equal (incl. `auth.users` and `documents`).
-- [ ] `git -C $WT diff --stat develop..HEAD -- supabase` lists only the two `0015` files; `git -C $WT diff develop..HEAD -- supabase/migrations/0015_players_view_status_columns.sql` matches Task 1 Step 4 exactly (never edited after apply).
-- [ ] `grep -rnE "Docs [0-9]" src/players` → no output (every `Docs …` text is built from `DOCUMENT_TOTAL`; no literal total in UI code or UI tests).
-- [ ] `git -C $WT log --oneline develop..HEAD` shows exactly 3 commits (Tasks 1–3), each ending with the `Claude-Session` line; `git -C $WT status --short` is empty.
+- [ ] Task 1 MCP evidence in the report: call A red (1 `ok` / 3 `not ok`) then green 4/4, B 9/9, C 8/8 all `ok`; `old_cols` before + the list after (= before + `,payment_state,docs_delivered`); anon privilege value (recorded before call C); `explain` plan text; advisors diffs (`security` and `performance`) vs the Step 1 snapshots with no new finding; cleanup leftovers all `0` and baseline counts equal (incl. `auth.users` and `documents`).
+- [ ] `git -C $WT fetch origin` first; then `git -C $WT diff --stat origin/develop..HEAD -- supabase` lists only the two `0015` files; `git -C $WT diff origin/develop..HEAD -- supabase/migrations/0015_players_view_status_columns.sql` matches Task 1 Step 4 exactly (never edited after apply).
+- [ ] `grep -rnE "Docs [0-9]+/[0-9]" src/players` → empty (a literal total is forbidden; literal counts with `${DOCUMENT_TOTAL}`, e.g. `` `Docs 2/${DOCUMENT_TOTAL}` ``, are fine).
+- [ ] `git -C $WT log --oneline origin/develop..HEAD` shows exactly 3 commits (Tasks 1–3), each ending with the `Claude-Session` line; `git -C $WT status --short` is empty.
 - [ ] `git -C $WT ls-files | grep -E '^\.env'` → empty.
 
 **Report:** commit SHAs, baseline and final test counts, Task 1 evidence (or "MCP run by orchestrator" with their evidence), anything adapted from the plan and why. The orchestrator copies the `explain` plan and the pgTAP results into the PR body (`Closes #4`).
@@ -1051,10 +1053,10 @@ After merge: #4 closes via `Closes #4`. The orchestrator files the follow-up iss
 | §3.1 PostgREST reload | `notify pgrst` if columns missing | E2E preflight |
 | §3.1 `explain` recorded in PR | | Task 1 Step 7, Report |
 | §3.2 consumers: 8 `PlayerRow` fixtures | | Task 2 Steps 5–6 |
-| §3.3 canonical file + MCP run (`eeeeeeee-` prefix, explicit cleanup incl. `auth.users`, counts to baseline, role + assertion same call, `is()`-only, catalog structure, advisors) | | Task 1 Steps 1–9 |
+| §3.3 canonical file + MCP run (`eeeeeeee-` prefix, explicit cleanup incl. `auth.users`, counts to baseline, role + assertion same call, `is()`-only, catalog structure, advisors `security` + `performance` before/after diff) | | Task 1 Steps 1–9 |
 | §3.3 old column list captured before apply and compared | | Task 1 Steps 1, 5 |
 | §3.3 value cases (sin pagos/0, pagado, pendiente, 3 fisico, 5 fisico + digital = 6, baja parcial, one row per player) | | Task 1 call B |
-| §3.3 isolation (admin A rows + values, 0 of B, readonly = admin, admin B, anon diag then 0) | | Task 1 Step 6 item 3 + call C |
+| §3.3 isolation (admin A rows + values, 0 of B, readonly = admin (rows + S3 values), admin B, anon diag then 0) | | Task 1 Step 6 item 3 + call C |
 | §4 `PlayerRow` + 2 fields, `import type` | | Task 2 Step 5 |
 | §5.1 Box/Stack layout, payment chip, docs chip colors, baja included | | Task 3 Step 3; tests 1–3 |
 | §5.2 Pago/Documentos filters, options, `>=` threshold | | Task 3 Step 3; tests 4–6 |
@@ -1075,4 +1077,6 @@ Decisions the spec left open, resolved here:
 - A shared `docsComplete()` helper drives both the chip color and the Documentos filter, so the `>=` threshold cannot drift between them; Pago options come from a fixed `PAYMENT_STATE_OPTIONS` order with texts from `PAYMENT_STATE_LABELS`.
 - Mobile E2E checks both 360 px (spec §5.4) and 390 px (orchestrator's standard viewport).
 - E2E creates the two `E2E Status` players through the UI (no SQL seeding), which also exercises the `0008` document seeding on a fresh player (`Docs 0/6`).
-- No literal total: the verification checklist greps `src/players` for a hard-coded `Docs N` text.
+- No literal total: the verification checklist greps `src/players` for a hard-coded `Docs N/M` text (`Docs [0-9]+/[0-9]`); a literal count followed by `${DOCUMENT_TOTAL}` is allowed.
+- Base ref: the spec/plan PR is merged into `develop` before dispatch and the branch is cut from `origin/develop`, so every range check (`origin/develop..HEAD` = exactly 3 commits) is against the remote ref, not a possibly stale local `develop`.
+- Readonly A's value check (call C row 6, canonical assertion 19 of 21) folds `payment_state` and `docs_delivered` into one `con_adeudo/6` text so it costs a single `is()`: call C is `plan(8)`, the canonical file `plan(21)`.
