@@ -30,6 +30,7 @@ function row(over: Partial<PlayerRow> = {}): PlayerRow {
     created_at: '2026-07-01T00:00:00Z', updated_at: '2026-07-01T00:00:00Z',
     edad_liga: 11, division: 'Infantil', category_name: 'Infantil Mayor', category_year: 1,
     category_id: 'cat1', team_id: null, team_name: null,
+    payment_state: 'sin_pagos', docs_delivered: 0,
     ...over,
   }
 }

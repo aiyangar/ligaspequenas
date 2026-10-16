@@ -196,6 +196,12 @@ export const PAYMENT_STATE_LABELS: Record<PaymentState, string> = {
   al_corriente: 'Al corriente',
 }
 
+export const PAYMENT_STATE_COLOR: Record<PaymentState, 'warning' | 'default' | 'success'> = {
+  con_adeudo: 'warning',
+  sin_pagos: 'default',
+  al_corriente: 'success',
+}
+
 export interface PaymentStatusRow {
   player_id: string
   tenant_id: string

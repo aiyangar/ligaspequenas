@@ -2,7 +2,7 @@ import { beforeEach, expect, vi } from 'vitest'
 import {
   localToday, emptyPayment, paymentToValues, formatPaymentDate, normalizeAmount, validatePayment,
   paymentText, formatMoney, paymentErrorMessage, fetchPlayerPayments, createPayment, updatePayment,
-  deletePayment, PAYMENT_STATE_LABELS, fetchPaymentStatuses, fetchOutstandingPayments, buildDebtGroups,
+  deletePayment, PAYMENT_STATE_LABELS, PAYMENT_STATE_COLOR, fetchPaymentStatuses, fetchOutstandingPayments, buildDebtGroups,
 } from './payments'
 import type { PaymentFormValues, PaymentRow, PaymentStatusRow } from './payments'
 import type { PlayerRow } from '../players/players'
@@ -200,7 +200,7 @@ function player(over: Partial<PlayerRow>): PlayerRow {
     emergency_contact_phone: null, affiliation_status: 'pendiente', affiliation_date: null,
     created_at: '', updated_at: '', edad_liga: 11, division: 'Infantil',
     category_name: 'Infantil Mayor', category_year: 1, category_id: 'cat1',
-    team_id: null, team_name: null, ...over,
+    team_id: null, team_name: null, payment_state: 'sin_pagos', docs_delivered: 0, ...over,
   }
 }
 
@@ -211,6 +211,12 @@ function state(player_id: string, payment_state: PaymentStatusRow['payment_state
 test('PAYMENT_STATE_LABELS has the three group names', () => {
   expect(PAYMENT_STATE_LABELS).toEqual({
     con_adeudo: 'Con adeudo', sin_pagos: 'Sin pagos', al_corriente: 'Al corriente',
+  })
+})
+
+test('PAYMENT_STATE_COLOR maps each state to its chip color', () => {
+  expect(PAYMENT_STATE_COLOR).toEqual({
+    con_adeudo: 'warning', sin_pagos: 'default', al_corriente: 'success',
   })
 })
 
