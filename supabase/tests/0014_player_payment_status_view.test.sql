@@ -61,7 +61,7 @@ select extensions.is((select count(*) from public.player_payment_status)::int, 1
 -- spec §3.2: record anon's privilege on the view before asserting what anon sees
 select extensions.diag('anon select on player_payment_status: ' || has_table_privilege('anon', 'public.player_payment_status', 'select')::text);
 select set_config('role', 'anon', true), set_config('request.jwt.claims', '{"role":"anon"}', true);
-select extensions.is((select count(*) from public.player_payment_status)::int, 0, 'anon sees no rows');
+select extensions.throws_ok($$select count(*) from public.player_payment_status$$, '42501', null, 'anon is denied on player_payment_status');
 select set_config('role', 'postgres', true);
 
 select * from extensions.finish();
