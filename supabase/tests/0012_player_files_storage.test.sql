@@ -48,6 +48,7 @@ begin
   return n;
 end;
 $$;
+grant execute on function pg_temp.try_sql(text), pg_temp.count_sql(text) to public;
 
 select set_config('role', 'postgres', true);
 insert into storage.objects (bucket_id, name) values

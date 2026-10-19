@@ -27,6 +27,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', uid::text, 'role', 'authenticated')::text, true);
 end;
 $$;
+grant execute on function tests.act_as(uuid) to public;
 
 -- 1: admin A can read their player
 select tests.act_as('11111111-1111-1111-1111-111111111111');

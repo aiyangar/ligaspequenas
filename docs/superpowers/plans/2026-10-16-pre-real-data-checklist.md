@@ -21,7 +21,7 @@
 - **Who runs SQL.** Implementers do **not** use the Supabase MCP (they may not have it) and never reach the database any other way. Every `execute_sql`, `apply_migration` and `get_advisors` in this plan is an **ORCHESTRATOR step**, marked as such. The implementer writes the files exactly as given here and commits; the orchestrator copies SQL out of the committed files (or out of this plan where the plan says so), runs it, and pastes results into the PR / the checklist.
 - **MCP mechanics** (project memory, re-verified 2026-10-16): `execute_sql` runs as `postgres` (`session_user = postgres`, `search_path = "$user", public, extensions`); one call = one implicit transaction that **commits** on success and rolls back entirely on any error; only the **last** statement's rows are returned; `pg_temp` objects and `set_config(…, true)` live only for that call. Each pgTAP run therefore is **one** `execute_sql` call. Only `extensions.is()` (plus `throws_ok`/`lives_ok` inside 0002) — no structural pgTAP.
 - **Remote DB is shared and live.** Applying 0016 is irreversible except through the forward rollback (spec §4.4, reproduced in phase O). Order on branch 1: red run (read-only in effect: its fixtures are cleaned up) any time → pre-PR review clean → **apply 0016** → green run + regression + advisors → PR with the evidence → merge. Nothing is applied before the review is clean.
-- Fixture hygiene: fixed UUID prefixes only (`eeeeeeee-` for 0016; `aaaaaaaa-`/`bbbbbbbb-`/`11111111-`/`22222222-`/`33333333-`/`99999999-` for 0002; `cccccccc-` for 0012/0013). After **every** run the orchestrator runs the residue query (phase O, "Residue check") — all zeros/nulls — and the baseline count query — equal to Step O1.
+- Fixture hygiene: fixed UUID prefixes only (`eeeeeeee-` for 0016; `aaaaaaaa-`/`bbbbbbbb-`/`11111111-`/`22222222-`/`33333333-`/`99999999-` for 0002; `cccccccc-` for 0012/0013; `dddddddd-` for 0014; `eeeeeeee-` also for 0015, which shares UUIDs with 0016 — never run R-0015 interleaved with 0016's calls). After **every** run the orchestrator runs the residue query (phase O, "Residue check") — all zeros/nulls — and the baseline count query — equal to Step O1.
 - Migration name in `apply_migration`: **`0016_revoke_anon_privileges`** (matches the remote history `0001_schema` … `0015_players_view_status_columns`; spec §4.2 said `revoke_anon_privileges` — the numbered form is the repo convention).
 - **Extensions after 0016.** `alter default privileges for role postgres revoke execute on functions from public` also covers functions of any extension installed later whose objects end up owned by `postgres` (e.g. `pg_trgm`/`unaccent` enabled from the Dashboard): `authenticated` would lose EXECUTE on them. After every future `create extension`, check `has_function_privilege('authenticated', '<schema>.<fn>(<args>)', 'EXECUTE')` for the functions the app or a policy calls and `grant execute … to authenticated` where it is `false`. Written into the checklist's Convenciones (Task 3, rule 3).
 - Code, identifiers, comments, commit messages: English. Comments only for a non-obvious *why*, one short line. The checklist document (Task 3) is **Spanish**, like the specs it belongs with.
@@ -306,11 +306,12 @@ select (select count(*) from public.tenants) as tenants, (select count(*) from p
 
 ```sql
 select
-  (select count(*) from public.tenants where id::text like any (array['aaaaaaaa-%', 'bbbbbbbb-%', 'cccccccc-%', 'eeeeeeee-%'])) as tenants,
-  (select count(*) from auth.users where id::text like any (array['11111111-%', '22222222-%', '33333333-%', 'cccccccc-%', 'eeeeeeee-%'])) as users,
-  (select count(*) from public.profiles where id::text like any (array['11111111-%', '22222222-%', '33333333-%', 'cccccccc-%', 'eeeeeeee-%'])) as profiles,
-  (select count(*) from public.players where id::text like any (array['99999999-%', 'cccccccc-%', 'eeeeeeee-%']) or tenant_id::text like any (array['aaaaaaaa-%', 'bbbbbbbb-%', 'cccccccc-%', 'eeeeeeee-%'])) as players,
-  (select count(*) from public.documents where tenant_id::text like any (array['aaaaaaaa-%', 'bbbbbbbb-%', 'cccccccc-%', 'eeeeeeee-%'])) as documents,
+  (select count(*) from public.tenants where id::text like any (array['aaaaaaaa-%', 'bbbbbbbb-%', 'cccccccc-%', 'dddddddd-%', 'eeeeeeee-%'])) as tenants,
+  (select count(*) from auth.users where id::text like any (array['11111111-%', '22222222-%', '33333333-%', 'cccccccc-%', 'dddddddd-%', 'eeeeeeee-%'])) as users,
+  (select count(*) from public.profiles where id::text like any (array['11111111-%', '22222222-%', '33333333-%', 'cccccccc-%', 'dddddddd-%', 'eeeeeeee-%'])) as profiles,
+  (select count(*) from public.players where id::text like any (array['99999999-%', 'cccccccc-%', 'dddddddd-%', 'eeeeeeee-%']) or tenant_id::text like any (array['aaaaaaaa-%', 'bbbbbbbb-%', 'cccccccc-%', 'dddddddd-%', 'eeeeeeee-%'])) as players,
+  (select count(*) from public.documents where tenant_id::text like any (array['aaaaaaaa-%', 'bbbbbbbb-%', 'cccccccc-%', 'dddddddd-%', 'eeeeeeee-%'])) as documents,
+  (select count(*) from public.payments where id::text like any (array['dddddddd-%', 'eeeeeeee-%']) or tenant_id::text like any (array['dddddddd-%', 'eeeeeeee-%'])) as payments,
   (select count(*) from public.seasons where id::text like 'eeeeeeee-%') as seasons,
   (select count(*) from storage.objects where bucket_id = 'player-files' and name like any (array['cccccccc-%', 'eeeeeeee-%'])) as objects,
   to_regclass('public.zz_acl_probe') as probe_table,
@@ -348,7 +349,7 @@ If call 2 errors (syntax, missing column) the whole call rolled back: run the cl
 
 - [ ] **Step O3 (orchestrator): Regression harness on today's state (before applying)**
 
-Run the three regression calls R-0002, R-0012, R-0013 (defined below) once now, with the Task 1 edits in place. Expected: each returns all `ok` (0002: 6 rows; 0012: 25; 0013: 21). This proves the harness and the edited files are green **before** 0016, so a failure in O6 is attributable to 0016. Residue check + baseline after each.
+Run the five regression calls R-0002, R-0012, R-0013, R-0014, R-0015 (defined below) once now, with the Task 1 edits and the 0014/0015 anon edits in place. Expected: R-0002/R-0012/R-0013 all `ok` (0002: 6 rows; 0012: 25; 0013: 21); R-0014 17 rows with exactly `not ok 17` (anon is denied on player_payment_status) and R-0015 21 rows with exactly `not ok 21` (anon is denied on players_with_category) — anon still gets 0 rows without an error before 0016; every other row `ok`. This proves the harness and the edited files are green (or red only where 0016 must change behaviour) **before** 0016, so a failure in O6 is attributable to 0016. Residue check + baseline after each.
 
 - [ ] **Step O4: Pre-PR review**
 
@@ -362,7 +363,7 @@ Dispatch the pre-PR reviewer on `$WT1` with this plan, the spec, and the O2/O3 o
 
 1. Call 1, call 2 of 0016. Expected: 22 rows, **all `ok`**.
 2. 0016 cleanup, residue check, baseline count query.
-3. R-0002, R-0012, R-0013 again. Expected: all `ok` (6 / 25 / 21). Residue + baseline after each.
+3. R-0002, R-0012, R-0013, R-0014, R-0015 again. Expected: all `ok` (6 / 25 / 21 / 17 / 21) — R-0014 row 17 and R-0015 row 21 flip from `not ok` to `ok`. Residue + baseline after each.
 
 - [ ] **Step O7 (orchestrator): Load-bearing check for the helper grants**
 
@@ -396,7 +397,7 @@ Expected after 0016: `ungranted = 42501`, `granted = ran`. (Before 0016 both wou
 
 - [ ] **Step O9 (orchestrator): Frontend still green, PR, merge**
 
-In `$WT1`: `pnpm exec vitest run` (39/330), `pnpm exec tsc -b`, `pnpm lint` → green. Push and open the PR to `develop` with body `Refs #6`, containing: O2 red output (22 rows), O5 apply result, O6 green output (22 rows) and the three regression outputs, O7 output, O8 advisors, residue/baseline before/after, and the line `0016 applied to remote eksbaugyypadtanyjcje on <date> before merge`. Merge (orchestrator is authorized for `develop`). The production deploy (`main`) is not affected by the merge, but the **database change is already live for production** since O5 — say so in the PR.
+In `$WT1`: `pnpm exec vitest run` (39/330), `pnpm exec tsc -b`, `pnpm lint` → green. Push and open the PR to `develop` with body `Refs #6`, containing: O2 red output (22 rows), O5 apply result, O6 green output (22 rows) and the five regression outputs (O3 and O6), O7 output, O8 advisors, residue/baseline before/after, and the line `0016 applied to remote eksbaugyypadtanyjcje on <date> before merge`. Merge (orchestrator is authorized for `develop`). The production deploy (`main`) is not affected by the merge, but the **database change is already live for production** since O5 — say so in the PR.
 
 ### Rollback (only if 0016 breaks the app — spec §4.4)
 
@@ -417,7 +418,7 @@ alter default privileges for role postgres grant execute on functions to public;
 
 Then repeat O2 **completely** — call 1 → call 2 → 0016 cleanup → residue check + baseline (call 2 alone would fail more rows, because the fixtures were already cleaned up). The red state must be back: the same 10 `not ok` with the O2 diagnostics (`A1` 104, `B1`/`B2` 10, `C1` 12, `C2` 0, `D1`/`D2` 0). Then escalate to the owner, and open a new branch to retry (spec §4.4). The repo bookkeeping (committing `0017_regrant_anon_privileges.sql` so the repo matches the remote history) goes on its own `fix/*` branch decided with the owner.
 
-### Regression calls (orchestrator) — R-0002, R-0012, R-0013
+### Regression calls (orchestrator) — R-0002, R-0012, R-0013, R-0014, R-0015
 
 The canonical files keep the `begin; plan; …; finish; rollback;` form and cannot be pasted as they are (0002 relies on a `tests` schema that does not exist on the remote and calls a nonexistent `reset()`; 0012 keeps its consent setup in comments). Each R-call below is **one** `execute_sql` that wraps the file's statements **unchanged in order and content** except for these mechanical rules:
 
@@ -578,6 +579,195 @@ Expected: 25 rows, all `ok`.
 **R-0013** (`plan(21)`): `create temp table tap (line text); grant all on tap to public; select extensions.plan(21);`, then the **fixture block**, then the file's text **verbatim** from the first `create or replace function pg_temp.try_sql` through the last `select set_config('role', 'postgres', true);` (the line right before `select * from extensions.finish();`) — helpers, the Task 1 grant line and body — applying rule 1 to every `select extensions.is(` (21 occurrences), then the **cleanup block**, then the final `select line from tap order by …`.
 
 Expected: 21 rows, all `ok`.
+
+**R-0014 and R-0015** (anon assertion changed to `throws_ok(…, '42501', …)` in this branch): the files' own fixtures, assertions and cleanup in one call each. Rule 1 also covers the structural assertions of 0014 (`has_view`, `has_column`). The `diag` line stays a plain `select` (informational, not counted by `plan`). The cleanup deletes every fixture row the file inserts, FK-safe (payments → documents seeded by `trg_players_seed_documents` → players → profiles → auth.users → tenants); neither file inserts seasons, teams, team_players or storage objects.
+
+**R-0014** (`plan(17)`, `dddddddd-` UUIDs):
+
+```sql
+create temp table tap (line text);
+grant all on tap to public;
+select extensions.plan(17);
+
+-- fixtures: tenants A/B, admin A, readonly A, admin B, players P1–P6, payments 1–6 (see plan Task 1 fixture block)
+insert into public.tenants (id, name, slug) values
+  ('dddddddd-0000-0000-0000-000000000001', 'Test Pay A', 'test-pay-a'),
+  ('dddddddd-0000-0000-0000-000000000002', 'Test Pay B', 'test-pay-b');
+insert into auth.users (id, email) values
+  ('dddddddd-1111-0000-0000-000000000001', 'admin-a@pay.test'),
+  ('dddddddd-1111-0000-0000-000000000002', 'readonly-a@pay.test'),
+  ('dddddddd-1111-0000-0000-000000000003', 'admin-b@pay.test');
+insert into public.profiles (id, tenant_id, full_name, role) values
+  ('dddddddd-1111-0000-0000-000000000001', 'dddddddd-0000-0000-0000-000000000001', 'Admin A', 'admin'),
+  ('dddddddd-1111-0000-0000-000000000002', 'dddddddd-0000-0000-0000-000000000001', 'Readonly A', 'readonly'),
+  ('dddddddd-1111-0000-0000-000000000003', 'dddddddd-0000-0000-0000-000000000002', 'Admin B', 'admin');
+insert into public.players (id, tenant_id, full_name, birth_date, tutor_name, tutor_whatsapp, status) values
+  ('dddddddd-2222-0000-0000-000000000001', 'dddddddd-0000-0000-0000-000000000001', 'Pay Test Sin Pagos', '2015-06-10', 'Tutor', '111', 'activo'),
+  ('dddddddd-2222-0000-0000-000000000002', 'dddddddd-0000-0000-0000-000000000001', 'Pay Test Pagado', '2015-06-10', 'Tutor', '111', 'activo'),
+  ('dddddddd-2222-0000-0000-000000000003', 'dddddddd-0000-0000-0000-000000000001', 'Pay Test Parcial', '2015-06-10', 'Tutor', '111', 'activo'),
+  ('dddddddd-2222-0000-0000-000000000004', 'dddddddd-0000-0000-0000-000000000001', 'Pay Test Pendiente', '2015-06-10', 'Tutor', '111', 'activo'),
+  ('dddddddd-2222-0000-0000-000000000005', 'dddddddd-0000-0000-0000-000000000001', 'Pay Test Baja', '2015-06-10', 'Tutor', '111', 'baja'),
+  ('dddddddd-2222-0000-0000-000000000006', 'dddddddd-0000-0000-0000-000000000002', 'Pay Test B', '2015-06-10', 'Tutor', '111', 'activo');
+insert into public.payments (id, tenant_id, player_id, concept, amount, method, status) values
+  ('dddddddd-3333-0000-0000-000000000001', 'dddddddd-0000-0000-0000-000000000001', 'dddddddd-2222-0000-0000-000000000002', 'inscripcion', 500, 'efectivo', 'pagado'),
+  ('dddddddd-3333-0000-0000-000000000002', 'dddddddd-0000-0000-0000-000000000001', 'dddddddd-2222-0000-0000-000000000003', 'inscripcion', 500, 'efectivo', 'pagado'),
+  ('dddddddd-3333-0000-0000-000000000003', 'dddddddd-0000-0000-0000-000000000001', 'dddddddd-2222-0000-0000-000000000003', 'mensualidad', 200, 'transferencia', 'parcial'),
+  ('dddddddd-3333-0000-0000-000000000004', 'dddddddd-0000-0000-0000-000000000001', 'dddddddd-2222-0000-0000-000000000004', 'uniforme', 300, 'efectivo', 'pendiente'),
+  ('dddddddd-3333-0000-0000-000000000005', 'dddddddd-0000-0000-0000-000000000001', 'dddddddd-2222-0000-0000-000000000005', 'mensualidad', 100, 'efectivo', 'pendiente'),
+  ('dddddddd-3333-0000-0000-000000000006', 'dddddddd-0000-0000-0000-000000000002', 'dddddddd-2222-0000-0000-000000000006', 'inscripcion', 500, 'efectivo', 'pendiente');
+
+-- structure
+insert into tap select extensions.has_view('public', 'player_payment_status', 'player_payment_status is a view');
+insert into tap select extensions.has_column('public', 'player_payment_status', 'player_id', 'view has player_id');
+insert into tap select extensions.has_column('public', 'player_payment_status', 'tenant_id', 'view has tenant_id');
+insert into tap select extensions.has_column('public', 'player_payment_status', 'payment_state', 'view has payment_state');
+insert into tap select extensions.is(
+  (select 'security_invoker=true' = any(reloptions) from pg_class where oid = 'public.player_payment_status'::regclass),
+  true, 'view runs as security invoker');
+insert into tap select extensions.is(
+  (select string_agg(column_name::text, ',' order by ordinal_position) from information_schema.columns
+    where table_schema = 'public' and table_name = 'player_payment_status'),
+  'player_id,tenant_id,payment_state', 'view exposes exactly player_id, tenant_id, payment_state');
+
+-- grouping (as postgres)
+insert into tap select extensions.is((select payment_state from public.player_payment_status where player_id = 'dddddddd-2222-0000-0000-000000000001'), 'sin_pagos', 'no payments is sin_pagos');
+insert into tap select extensions.is((select payment_state from public.player_payment_status where player_id = 'dddddddd-2222-0000-0000-000000000002'), 'al_corriente', 'only pagado is al_corriente');
+insert into tap select extensions.is((select payment_state from public.player_payment_status where player_id = 'dddddddd-2222-0000-0000-000000000003'), 'con_adeudo', 'pagado + parcial is con_adeudo');
+insert into tap select extensions.is((select payment_state from public.player_payment_status where player_id = 'dddddddd-2222-0000-0000-000000000004'), 'con_adeudo', 'only pendiente is con_adeudo');
+insert into tap select extensions.is((select payment_state from public.player_payment_status where player_id = 'dddddddd-2222-0000-0000-000000000005'), 'con_adeudo', 'baja player still appears');
+insert into tap select extensions.is((select count(*) from public.player_payment_status where player_id = 'dddddddd-2222-0000-0000-000000000003')::int, 1, 'one row per player with several payments');
+
+-- isolation (security_invoker → players/payments RLS applies)
+select set_config('role', 'authenticated', true),
+       set_config('request.jwt.claims', '{"sub":"dddddddd-1111-0000-0000-000000000001","role":"authenticated"}', true);
+insert into tap select extensions.is((select count(*) from public.player_payment_status)::int, 5, 'admin A sees the 5 tenant A players');
+insert into tap select extensions.is((select count(*) from public.player_payment_status where tenant_id = 'dddddddd-0000-0000-0000-000000000002')::int, 0, 'admin A sees no tenant B rows');
+select set_config('request.jwt.claims', '{"sub":"dddddddd-1111-0000-0000-000000000002","role":"authenticated"}', true);
+insert into tap select extensions.is((select count(*) from public.player_payment_status)::int, 5, 'readonly A reads its tenant rows');
+select set_config('request.jwt.claims', '{"sub":"dddddddd-1111-0000-0000-000000000003","role":"authenticated"}', true);
+insert into tap select extensions.is((select count(*) from public.player_payment_status)::int, 1, 'admin B sees only its tenant row');
+-- spec §3.2: record anon's privilege on the view before asserting what anon sees
+select extensions.diag('anon select on player_payment_status: ' || has_table_privilege('anon', 'public.player_payment_status', 'select')::text);
+select set_config('role', 'anon', true), set_config('request.jwt.claims', '{"role":"anon"}', true);
+insert into tap select extensions.throws_ok($$select count(*) from public.player_payment_status$$, '42501', null, 'anon is denied on player_payment_status');
+select set_config('role', 'postgres', true);
+
+select set_config('role', 'postgres', true), set_config('request.jwt.claims', '', true);
+delete from public.payments where id::text like 'dddddddd-3333-%';
+delete from public.documents where player_id::text like 'dddddddd-2222-%';
+delete from public.players where id::text like 'dddddddd-2222-%';
+delete from public.profiles where id::text like 'dddddddd-1111-%';
+delete from auth.users where id::text like 'dddddddd-1111-%';
+delete from public.tenants where id::text like 'dddddddd-0000-%';
+select line from tap order by substring(line from '^(?:not )?ok (\d+)')::int;
+```
+
+Expected: **before** 0016 (O3), 17 rows — `ok 1` … `ok 16` and `not ok 17 - anon is denied on player_payment_status` (anon gets 0 rows, no error; the `diag` reports `true`). **After** 0016 (O6), 17 rows, all `ok` (the `diag` reports `false`).
+
+**R-0015** (`plan(21)`, `eeeeeeee-` UUIDs):
+
+```sql
+create temp table tap (line text);
+grant all on tap to public;
+select extensions.plan(21);
+
+-- fixtures: tenants A/B, admin A, readonly A, admin B, players S1–S5, payments 1–6 (see plan Task 1 fixture block)
+insert into public.tenants (id, name, slug) values
+  ('eeeeeeee-0000-0000-0000-000000000001', 'Test Status A', 'test-status-a'),
+  ('eeeeeeee-0000-0000-0000-000000000002', 'Test Status B', 'test-status-b');
+insert into auth.users (id, email) values
+  ('eeeeeeee-1111-0000-0000-000000000001', 'admin-a@status.test'),
+  ('eeeeeeee-1111-0000-0000-000000000002', 'readonly-a@status.test'),
+  ('eeeeeeee-1111-0000-0000-000000000003', 'admin-b@status.test');
+insert into public.profiles (id, tenant_id, full_name, role) values
+  ('eeeeeeee-1111-0000-0000-000000000001', 'eeeeeeee-0000-0000-0000-000000000001', 'Admin A', 'admin'),
+  ('eeeeeeee-1111-0000-0000-000000000002', 'eeeeeeee-0000-0000-0000-000000000001', 'Readonly A', 'readonly'),
+  ('eeeeeeee-1111-0000-0000-000000000003', 'eeeeeeee-0000-0000-0000-000000000002', 'Admin B', 'admin');
+insert into public.players (id, tenant_id, full_name, birth_date, tutor_name, tutor_whatsapp, status) values
+  ('eeeeeeee-2222-0000-0000-000000000001', 'eeeeeeee-0000-0000-0000-000000000001', 'Status Test Sin Pagos', '2015-06-10', 'Tutor', '111', 'activo'),
+  ('eeeeeeee-2222-0000-0000-000000000002', 'eeeeeeee-0000-0000-0000-000000000001', 'Status Test Al Corriente', '2015-06-10', 'Tutor', '111', 'activo'),
+  ('eeeeeeee-2222-0000-0000-000000000003', 'eeeeeeee-0000-0000-0000-000000000001', 'Status Test Con Adeudo', '2015-06-10', 'Tutor', '111', 'activo'),
+  ('eeeeeeee-2222-0000-0000-000000000004', 'eeeeeeee-0000-0000-0000-000000000001', 'Status Test Baja', '2015-06-10', 'Tutor', '111', 'baja'),
+  ('eeeeeeee-2222-0000-0000-000000000005', 'eeeeeeee-0000-0000-0000-000000000002', 'Status Test B', '2015-06-10', 'Tutor', '111', 'activo');
+insert into public.payments (id, tenant_id, player_id, concept, amount, method, status) values
+  ('eeeeeeee-3333-0000-0000-000000000001', 'eeeeeeee-0000-0000-0000-000000000001', 'eeeeeeee-2222-0000-0000-000000000002', 'inscripcion', 500, 'efectivo', 'pagado'),
+  ('eeeeeeee-3333-0000-0000-000000000002', 'eeeeeeee-0000-0000-0000-000000000001', 'eeeeeeee-2222-0000-0000-000000000002', 'mensualidad', 200, 'efectivo', 'pagado'),
+  ('eeeeeeee-3333-0000-0000-000000000003', 'eeeeeeee-0000-0000-0000-000000000001', 'eeeeeeee-2222-0000-0000-000000000003', 'uniforme', 300, 'efectivo', 'pendiente'),
+  ('eeeeeeee-3333-0000-0000-000000000004', 'eeeeeeee-0000-0000-0000-000000000001', 'eeeeeeee-2222-0000-0000-000000000003', 'inscripcion', 500, 'transferencia', 'pagado'),
+  ('eeeeeeee-3333-0000-0000-000000000005', 'eeeeeeee-0000-0000-0000-000000000001', 'eeeeeeee-2222-0000-0000-000000000004', 'mensualidad', 100, 'efectivo', 'parcial'),
+  ('eeeeeeee-3333-0000-0000-000000000006', 'eeeeeeee-0000-0000-0000-000000000002', 'eeeeeeee-2222-0000-0000-000000000005', 'inscripcion', 500, 'efectivo', 'pendiente');
+update public.documents set status = 'fisico'
+  where player_id = 'eeeeeeee-2222-0000-0000-000000000002'
+    and doc_type in ('curp', 'birth_certificate', 'proof_of_address');
+update public.documents set status = 'fisico'
+  where player_id = 'eeeeeeee-2222-0000-0000-000000000003'
+    and doc_type <> 'image_consent';
+update public.documents
+  set status = 'digital',
+      file_path = 'eeeeeeee-0000-0000-0000-000000000001/eeeeeeee-2222-0000-0000-000000000003/image_consent'
+  where player_id = 'eeeeeeee-2222-0000-0000-000000000003'
+    and doc_type = 'image_consent';
+
+-- structure
+insert into tap select extensions.is(
+  (select 'security_invoker=true' = any(reloptions) from pg_class where oid = 'public.players_with_category'::regclass),
+  true, 'view still runs as security invoker');
+insert into tap select extensions.is(
+  (select string_agg(column_name::text, ',' order by ordinal_position) from information_schema.columns
+    where table_schema = 'public' and table_name = 'players_with_category'),
+  'id,tenant_id,full_name,birth_date,curp,photo_path,status,enrollment_date,tutor_name,tutor_whatsapp,tutor_email,emergency_contact_name,emergency_contact_phone,affiliation_status,affiliation_date,created_at,updated_at,edad_liga,division,category_name,category_year,category_id,team_id,team_name,payment_state,docs_delivered',
+  'existing columns keep their order and the two new ones are appended');
+insert into tap select extensions.is(
+  (select data_type::text from information_schema.columns
+    where table_schema = 'public' and table_name = 'players_with_category' and column_name = 'docs_delivered'),
+  'integer', 'docs_delivered is integer');
+insert into tap select extensions.is(
+  (select data_type::text from information_schema.columns
+    where table_schema = 'public' and table_name = 'players_with_category' and column_name = 'payment_state'),
+  'text', 'payment_state is text');
+
+-- values (as postgres)
+insert into tap select extensions.is((select payment_state from public.players_with_category where id = 'eeeeeeee-2222-0000-0000-000000000001'), 'sin_pagos', 'no payments is sin_pagos');
+insert into tap select extensions.is((select docs_delivered from public.players_with_category where id = 'eeeeeeee-2222-0000-0000-000000000001'), 0, 'untouched documents count 0');
+insert into tap select extensions.is((select payment_state from public.players_with_category where id = 'eeeeeeee-2222-0000-0000-000000000002'), 'al_corriente', 'only pagado is al_corriente');
+insert into tap select extensions.is((select docs_delivered from public.players_with_category where id = 'eeeeeeee-2222-0000-0000-000000000002'), 3, 'three fisico documents count 3');
+insert into tap select extensions.is((select payment_state from public.players_with_category where id = 'eeeeeeee-2222-0000-0000-000000000003'), 'con_adeudo', 'a pendiente is con_adeudo');
+insert into tap select extensions.is((select docs_delivered from public.players_with_category where id = 'eeeeeeee-2222-0000-0000-000000000003'), 6, 'fisico and digital both count');
+insert into tap select extensions.is((select payment_state from public.players_with_category where id = 'eeeeeeee-2222-0000-0000-000000000004'), 'con_adeudo', 'baja player with a parcial appears as con_adeudo');
+insert into tap select extensions.is((select count(*) from public.players_with_category where id = 'eeeeeeee-2222-0000-0000-000000000002')::int, 1, 'several payments and documents keep one row (S2)');
+insert into tap select extensions.is((select count(*) from public.players_with_category where id = 'eeeeeeee-2222-0000-0000-000000000003')::int, 1, 'several payments and documents keep one row (S3)');
+
+-- isolation (security_invoker → players/documents/player_payment_status RLS applies)
+select set_config('role', 'authenticated', true),
+       set_config('request.jwt.claims', '{"sub":"eeeeeeee-1111-0000-0000-000000000001","role":"authenticated"}', true);
+insert into tap select extensions.is((select count(*) from public.players_with_category)::int, 4, 'admin A sees the 4 tenant A players');
+insert into tap select extensions.is((select payment_state from public.players_with_category where id = 'eeeeeeee-2222-0000-0000-000000000003'), 'con_adeudo', 'admin A reads payment_state');
+insert into tap select extensions.is((select docs_delivered from public.players_with_category where id = 'eeeeeeee-2222-0000-0000-000000000003'), 6, 'admin A reads docs_delivered');
+insert into tap select extensions.is((select count(*) from public.players_with_category where tenant_id = 'eeeeeeee-0000-0000-0000-000000000002')::int, 0, 'admin A sees no tenant B rows');
+select set_config('request.jwt.claims', '{"sub":"eeeeeeee-1111-0000-0000-000000000002","role":"authenticated"}', true);
+insert into tap select extensions.is((select count(*) from public.players_with_category)::int, 4, 'readonly A sees the same rows as admin A');
+insert into tap select extensions.is((select payment_state || '/' || docs_delivered from public.players_with_category where id = 'eeeeeeee-2222-0000-0000-000000000003'), 'con_adeudo/6', 'readonly A reads payment_state and docs_delivered');
+select set_config('request.jwt.claims', '{"sub":"eeeeeeee-1111-0000-0000-000000000003","role":"authenticated"}', true);
+insert into tap select extensions.is((select count(*) from public.players_with_category)::int, 1, 'admin B sees only its tenant row');
+-- spec §3.3: record anon's privilege on the view before asserting what anon sees
+select extensions.diag('anon select on players_with_category: ' || has_table_privilege('anon', 'public.players_with_category', 'select')::text);
+select set_config('role', 'anon', true), set_config('request.jwt.claims', '{"role":"anon"}', true);
+insert into tap select extensions.throws_ok($$select count(*) from public.players_with_category$$, '42501', null, 'anon is denied on players_with_category');
+select set_config('role', 'postgres', true);
+
+select set_config('role', 'postgres', true), set_config('request.jwt.claims', '', true);
+delete from public.payments where id::text like 'eeeeeeee-3333-%';
+delete from public.documents where player_id::text like 'eeeeeeee-2222-%';
+delete from public.players where id::text like 'eeeeeeee-2222-%';
+delete from public.profiles where id::text like 'eeeeeeee-1111-%';
+delete from auth.users where id::text like 'eeeeeeee-1111-%';
+delete from public.tenants where id::text like 'eeeeeeee-0000-%';
+select line from tap order by substring(line from '^(?:not )?ok (\d+)')::int;
+```
+
+Expected: **before** 0016 (O3), 21 rows — `ok 1` … `ok 20` and `not ok 21 - anon is denied on players_with_category`. **After** 0016 (O6), 21 rows, all `ok`.
+
+R-0015 reuses the `eeeeeeee-` IDs of the 0016 fixtures (same tenant/user/player UUIDs; `eeeeeeee-3333-…-0001` is a season in 0016 and a payment here): run it only after the 0016 cleanup and a clean residue check, never interleaved with 0016's call 1/call 2.
 
 ---
 
@@ -925,7 +1115,7 @@ Report the Step 2 outputs and the SHA. Then the orchestrator runs the pre-PR rev
 
 Implementer (each branch, before reporting): Step 0 baseline recorded; static checks of the task(s) as specified; `pnpm exec vitest run` 39/330, `pnpm exec tsc -b`, `pnpm lint` green; `git diff --stat origin/develop` shows only the listed files; commits end with the session line.
 
-Orchestrator (branch 1): O1 baseline; O2 red = exactly the 10 listed `not ok`; O3 regression green before apply; review clean **before** O5; O5 applied as `0016_revoke_anon_privileges`; O6 22/22 `ok` + regression 6/25/21 `ok`; O7 `42501` / `ran`; O8 only `auth_leaked_password_protection`; residue all zero/null and baseline unchanged after every run; PR evidence complete.
+Orchestrator (branch 1): O1 baseline; O2 red = exactly the 10 listed `not ok`; O3 regression green before apply (R-0014/R-0015 red only on rows 17/21); review clean **before** O5; O5 applied as `0016_revoke_anon_privileges`; O6 22/22 `ok` + regression 6/25/21/17/21 `ok`; O7 `42501` / `ran`; O8 only `auth_leaked_password_protection`; residue all zero/null and baseline unchanged after every run; PR evidence complete.
 
 Orchestrator (after branch 1): phase E all rows as expected and cleanup confirmed; phase R green; only then branch 2.
 
