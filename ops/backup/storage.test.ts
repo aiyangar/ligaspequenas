@@ -1,6 +1,8 @@
 // @vitest-environment node
-import { spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { spawn, spawnSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -212,19 +214,33 @@ describe('restore', () => {
 
   test('uploads with x-upsert, the content-type and the encoded path, without authorization', async () => {
     const { calls, api } = fakeFetch({ folders: {} })
-    expect(await restoreAll(api, '/r', index, memFs(files).fs)).toBe(2)
+    expect(await restoreAll(api, '/r', index, memFs(files).fs)).toEqual({ restored: 1, skipped: 1 })
     expect(calls.map((c) => [c.method, c.url])).toEqual([
-      ['POST', `${URL_BASE}/storage/v1/object/player-files/.emptyFolderPlaceholder`],
       ['POST', `${URL_BASE}/storage/v1/object/player-files/t1/p1/acta%20nacimiento.pdf`],
     ])
-    expect(calls[1].headers).toEqual({ apikey: KEY, 'x-upsert': 'true', 'content-type': 'application/pdf' })
-    expect(calls[1].body).toEqual(bytes(3))
+    expect(calls[0].headers).toEqual({ apikey: KEY, 'x-upsert': 'true', 'content-type': 'application/pdf' })
+    expect(calls[0].body).toEqual(bytes(3))
+  })
+
+  test('zero-byte folder placeholders are skipped at any depth, non-empty ones are not', async () => {
+    const { calls, api } = fakeFetch({ folders: {} })
+    const nested: StorageObject[] = [
+      { path: 't1/.emptyFolderPlaceholder', size: 0, mimetype: 'application/octet-stream' },
+      { path: 't2/.emptyFolderPlaceholder', size: 2, mimetype: 'application/pdf' },
+      { path: 't3/empty.pdf', size: 0, mimetype: 'application/pdf' },
+    ]
+    const fs = memFs({
+      '/r/storage/player-files/t2/.emptyFolderPlaceholder': bytes(2),
+      '/r/storage/player-files/t3/empty.pdf': bytes(0),
+    }).fs
+    expect(await restoreAll(api, '/r', nested, fs)).toEqual({ restored: 2, skipped: 1 })
+    expect(calls.map((c) => c.url.split('/player-files/')[1])).toEqual(['t2/.emptyFolderPlaceholder', 't3/empty.pdf'])
   })
 
   test('an upload failure reports status and index only', async () => {
     const { api } = fakeFetch({ folders: {}, uploadStatus: 400 })
     const err = await restoreAll(api, '/r', index, memFs(files).fs).catch((e: unknown) => e)
-    expect(errorLine(err)).toBe('error: status=400 index=0')
+    expect(errorLine(err)).toBe('error: status=400 index=1')
   })
 
   test('a missing file reports the fs code only', async () => {
@@ -263,7 +279,7 @@ describe('restore', () => {
     const tampered = { ...files, '/r/storage/player-files/t1/p1/acta nacimiento.pdf': bytes(2) }
     const err = await restoreAll(api, '/r', index, memFs(tampered).fs).catch((e: unknown) => e)
     expect(errorLine(err)).toBe('error: size index=1')
-    expect(calls).toHaveLength(1)
+    expect(calls).toHaveLength(0)
   })
 
   test.each(['../etc/passwd', 't1/../../x', '/abs', 't1//x', 't1/./x', 'a\\b'])(
@@ -336,8 +352,83 @@ describe('entry points', () => {
     expect(run(restoreScript, [dir, 'http://127.0.0.1:9'], {})).toEqual({ status: 1, out: 'error: env\n' })
   })
 
+  test.each([
+    'https://eksbaugyypadtanyjcje.supabase.co',
+    'https://EKSBAUGYYPADTANYJCJE.supabase.co/',
+    'https://eksbaugyypadtanyjcje.storage.supabase.co',
+  ])('storage-restore refuses the production project %s', (url) => {
+    const res = run(restoreScript, [dir, url], { SUPABASE_RESTORE_SECRET_KEY: 'k' })
+    expect(res).toEqual({ status: 1, out: 'error: target\n' })
+  })
+
+  test('storage-restore refuses an invalid target URL without printing it', () => {
+    const res = run(restoreScript, [dir, 'not a url'], { SUPABASE_RESTORE_SECRET_KEY: 'k' })
+    expect(res).toEqual({ status: 1, out: 'error: ERR_INVALID_URL\n' })
+  })
+
   test('storage-restore with a missing index prints only the fs code', () => {
     const res = run(restoreScript, [dir, 'http://127.0.0.1:9'], { SUPABASE_RESTORE_SECRET_KEY: 'k' })
     expect(res).toEqual({ status: 1, out: 'error: ENOENT\n' })
+  })
+
+  describe('storage-restore against a local fake Storage server', () => {
+    const uploads: { url: string; headers: Record<string, unknown> }[] = []
+    const server = createServer((req, res) => {
+      req.resume()
+      req.on('end', () => {
+        uploads.push({ url: req.url ?? '', headers: req.headers })
+        res.writeHead(200, { 'content-type': 'application/json' }).end('{}')
+      })
+    })
+    let target: string
+    beforeAll(async () => {
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+      target = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+    })
+    afterAll(async () => {
+      await new Promise((resolve) => server.close(resolve))
+    })
+    beforeEach(() => {
+      uploads.length = 0
+    })
+
+    function runAsync(args: string[]): Promise<{ status: number | null; out: string }> {
+      return new Promise((resolve) => {
+        const child = spawn(process.execPath, [restoreScript, ...args], {
+          env: { PATH: process.env.PATH ?? '', SUPABASE_RESTORE_SECRET_KEY: 'sb_secret_restore_dummy' },
+        })
+        let out = ''
+        child.stdout.on('data', (d) => (out += d))
+        child.stderr.on('data', (d) => (out += d))
+        child.on('close', (status) => resolve({ status, out }))
+      })
+    }
+
+    function writeBackup(entries: StorageObject[], link?: string) {
+      const bucket = join(dir, 'storage', 'player-files')
+      mkdirSync(join(bucket, 't1', 'p1'), { recursive: true })
+      writeFileSync(join(bucket, '.emptyFolderPlaceholder'), '')
+      writeFileSync(join(bucket, 't1', 'p1', 'curp.pdf'), 'pdf')
+      if (link) symlinkSync('/etc/hosts', join(bucket, ...link.split('/')))
+      writeFileSync(join(dir, 'storage-index.json'), JSON.stringify(entries))
+    }
+
+    const placeholder = { path: '.emptyFolderPlaceholder', size: 0, mimetype: 'application/octet-stream' }
+    const curp = { path: 't1/p1/curp.pdf', size: 3, mimetype: 'application/pdf' }
+
+    test('uploads real files, skips the placeholder and prints only counts', async () => {
+      writeBackup([placeholder, curp])
+      expect(await runAsync([dir, target])).toEqual({ status: 0, out: 'restored=1 skipped=1\n' })
+      expect(uploads.map((u) => u.url)).toEqual(['/storage/v1/object/player-files/t1/p1/curp.pdf'])
+      expect(uploads[0].headers['x-upsert']).toBe('true')
+      expect(uploads[0].headers.authorization).toBeUndefined()
+    })
+
+    test('a symlink in the backup is refused before it is uploaded', async () => {
+      writeBackup([placeholder, curp, { path: 't1/p1/acta.pdf', size: 3, mimetype: 'application/pdf' }], 't1/p1/acta.pdf')
+      const res = await runAsync([dir, target])
+      expect(res).toEqual({ status: 1, out: 'error: filetype index=2\n' })
+      expect(uploads).toHaveLength(0)
+    })
   })
 })

@@ -183,20 +183,43 @@ async function assertRegularFile(fs: FsLike, root: string, path: string, index: 
   }
 }
 
+export const PRODUCTION_REF = 'eksbaugyypadtanyjcje'
+
+// A restore always goes into a new project, never over the live one.
+export function assertRestoreTarget(targetUrl: string): void {
+  if (new URL(targetUrl).hostname.startsWith(`${PRODUCTION_REF}.`)) throw new CodedError('target')
+}
+
+const PLACEHOLDER = '.emptyFolderPlaceholder'
+
+// Zero-byte Dashboard folder markers; the bucket's MIME allowlist may reject them on upload.
+export function isFolderPlaceholder(object: StorageObject): boolean {
+  return object.size === 0 && object.path.split('/').at(-1) === PLACEHOLDER
+}
+
 export async function restoreAll(
   api: StorageApi,
   backupRoot: string,
   index: StorageObject[],
   fs: FsLike,
-): Promise<number> {
+): Promise<{ restored: number; skipped: number }> {
   const root = bucketDir(join(backupRoot, 'storage'))
+  const pending: [number, StorageObject][] = []
+  // Check every path and file type before the first upload, so a bad entry never leaves a half restore.
   for (const [i, object] of index.entries()) {
     assertSafePath(object.path)
-    const target = insideRoot(root, object.path)
+    if (isFolderPlaceholder(object)) continue
+    insideRoot(root, object.path)
     await assertRegularFile(fs, root, object.path, i)
-    const data = await fs.readFile(target)
+    pending.push([i, object])
+  }
+  let restored = 0
+  const skipped = index.length - pending.length
+  for (const [i, object] of pending) {
+    const data = await fs.readFile(insideRoot(root, object.path))
     if (data.length !== object.size) throw new CodedError('size', i)
     await api.upload(object.path, data, object.mimetype, i)
+    restored++
   }
-  return index.length
+  return { restored, skipped }
 }

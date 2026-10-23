@@ -41,7 +41,7 @@ El orquestador no ve ni maneja ninguno de estos valores. Mientras `ops/backup/re
 brew install age libpq
 ```
 
-Se generan **dos** llaves X25519 (sin `-pq`: el `age` de apt en el runner no las entiende y `check-recipients` las rechaza). Las llaves privadas **nunca** tocan el disco:
+Se generan **dos** llaves X25519 (sin `-pq`: el `age` de apt en el runner no las entiende y `check-recipients` las rechaza). Las llaves privadas **nunca** tocan el disco. Antes de usar `pbcopy`/`pbpaste` con una llave privada, **apagar Handoff** (Ajustes del Sistema → General → AirDrop y Handoff), para que el Portapapeles Universal no la mande a otros dispositivos, y vaciar el portapapeles al terminar (`pbcopy < /dev/null`, como en los comandos de abajo):
 
 ```bash
 # Principal: la llave privada va al portapapeles; la pública sale en la terminal ("Public key: age1…").
@@ -106,8 +106,12 @@ gh run view <run-id> --json headBranch,event,headSha
 
 `headBranch` debe ser `develop`, `event` debe ser `schedule` o `workflow_dispatch`, y `headSha` se anota para compararlo con `manifest.json`. Si algo no coincide, ese artifact **no** se usa.
 
+Los datos descifrados van a un **disco en RAM** (la misma receta que para las llaves), nunca al disco interno. 4194304 sectores son 2 GB; se ajusta si el respaldo crece:
+
 ```bash
-dir=$(mktemp -d)
+ram=$(hdiutil attach -nomount ram://4194304 | tr -d '[:space:]')
+diskutil erasevolume APFS backupsdata "$ram"
+dir=/Volumes/backupsdata
 gh run download <run-id> -n backup-<ts> -D "$dir"
 # Copiar la llave principal del gestor de contraseñas al portapapeles. Así nunca se escribe en el disco.
 age -d -i <(pbpaste) "$dir/backup-<ts>.tar.age" | tar -xf - -C "$dir"
@@ -118,7 +122,7 @@ node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf
 
 Verde: todas las líneas en `OK`, y el `commit` que imprime la última línea es igual al `headSha` de `gh run view`. Si difiere, se descarta el artifact. Con la llave de recuperación es igual: teclear o copiar su línea `AGE-SECRET-KEY-…` al portapapeles y usar el mismo `<(pbpaste)`.
 
-`$dir` tiene datos de menores en claro: se borra con `rm -rf "$dir"` en cuanto termine la restauración o el simulacro.
+`$dir` tiene datos de menores en claro. En cuanto termine la restauración o el simulacro se desmonta el disco en RAM, y con eso desaparece todo: `hdiutil detach "$ram"`.
 
 ## Restaurar la base
 
@@ -195,7 +199,7 @@ node ops/backup/storage-restore.ts "$dir" 'https://<ref-nuevo>.supabase.co'
 unset SUPABASE_RESTORE_SECRET_KEY
 ```
 
-Imprime solo `restored=<n>`, que debe coincidir con `objects` de `manifest.json`. La llave se lee de la variable de entorno, nunca de un argumento. Cada archivo se sube con `x-upsert: true`, que reemplaza el binario de la fila que ya existe; el upsert deja `owner` en `null`, que la app no usa. Antes de subir, el script comprueba que cada ruta sea segura y que el tamaño coincida con `storage-index.json`; si algo falla imprime `error: <código> index=<n>` y sale con 1. Al terminar, borrar la secret key temporal.
+Imprime solo `restored=<n> skipped=<n>`, y `restored + skipped` debe coincidir con `objects` de `manifest.json`. `skipped` cuenta los `.emptyFolderPlaceholder` de 0 bytes, marcadores de carpeta del Dashboard que no se suben porque la lista de tipos MIME del bucket puede rechazarlos; su fila de `storage.objects` ya viene en `data.sql`. El script se niega a restaurar sobre producción (`error: target` si el host empieza con `eksbaugyypadtanyjcje.`). La llave se lee de la variable de entorno, nunca de un argumento. Cada archivo se sube con `x-upsert: true`, que reemplaza el binario de la fila que ya existe; el upsert deja `owner` en `null`, que la app no usa. Antes de la primera subida comprueba que cada ruta sea segura y que cada archivo sea un archivo normal (ni symlink ni carpeta); al subir, que el tamaño coincida con `storage-index.json`. Si algo falla imprime `error: <código> index=<n>` y sale con 1. Al terminar, borrar la secret key temporal.
 
 ## Restaurar producción
 
@@ -228,11 +232,12 @@ select count(*) as auth_users from auth.users;
 select count(*) as objetos from storage.objects where bucket_id = 'player-files';
 ```
 
-   Los objetos deben coincidir además con `objects` de `manifest.json` y con `restored=<n>`.
+   Los objetos deben coincidir además con `objects` de `manifest.json` y con `restored + skipped` de `storage-restore.ts`.
 6. Checklist A–D en verde sobre el proyecto temporal.
-7. Confirmar en healthchecks.io que el check sigue activo y recibió el último ping (riesgo R5).
-8. Anotar la fila en la tabla de abajo.
-9. Borrar el proyecto temporal y `rm -rf "$dir"`.
+7. **Solo en el primer simulacro**, confirmar y anotar: (a) que el proyecto nuevo da el bloque B del checklist en verde **solo después** de volver a aplicar 0016 (correr B antes y después del paso 2 de "Restaurar la base"); y (b) si el `data.sql` del CLI termina con la línea `-- PostgreSQL database dump complete` de pg_dump (`tail -n 5 "$dir/db/data.sql"`). Si la trae, una rama posterior puede agregar ese chequeo al workflow; hoy no se agrega porque nadie lo ha verificado.
+8. Confirmar en healthchecks.io que el check sigue activo y recibió el último ping (riesgo R5).
+9. Anotar la fila en la tabla de abajo.
+10. Borrar el proyecto temporal y desmontar el disco en RAM (`hdiutil detach "$ram"`).
 
 | Fecha | Commit | Artifact | Filas `public` (prod vs restaurado) | `auth.users` | Objetos | `sha256` | Checklist A–D | healthchecks activo | Resultado | Quién |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -258,7 +263,7 @@ select count(*) as objetos from storage.objects where bucket_id = 'player-files'
 - `ops/backup/storage-dump.ts`: lista y descarga `player-files`; imprime `objects=<n> bytes=<n>`.
 - `ops/backup/crosscheck.ts`: compara las filas de `storage.objects` en `data.sql` con los objetos descargados (tolerancia 2); imprime `db_objects=<n> storage_objects=<n>`.
 - `ops/backup/manifest.ts`: escribe `manifest.json` y `SHA256SUMS`; imprime `files=<n>`.
-- `ops/backup/storage-restore.ts`: sube los objetos al proyecto restaurado; imprime `restored=<n>`.
+- `ops/backup/storage-restore.ts`: sube los objetos al proyecto restaurado; imprime `restored=<n> skipped=<n>`; se niega a escribir en producción.
 - `ops/backup/lib/*.ts`: la lógica pura (paginación, rutas seguras, conteo del `COPY`, manifest, formato de errores sin rutas), con sus pruebas en `ops/backup/*.test.ts`.
 - `tsconfig.ops.json`: el proyecto TypeScript de `ops/backup/` (lo revisa `tsc -b`).
 
