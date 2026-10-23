@@ -16,8 +16,8 @@ import { LoadError } from '../app/LoadError'
 import { PAYMENT_STATE_COLOR, PAYMENT_STATE_LABELS } from '../payments/payments'
 import type { PaymentState } from '../payments/payments'
 import { DOCUMENT_TOTAL } from '../documents/documents'
-import { fetchPlayers, playerCategoryText } from './players'
-import type { PlayerRow, PlayerStatus } from './players'
+import { AFFILIATION_STATUS_LABELS, fetchPlayers, playerCategoryText } from './players'
+import type { AffiliationStatus, PlayerRow, PlayerStatus } from './players'
 import { exportPlayersToExcel } from './exportPlayers'
 
 interface FilterOption {
@@ -28,6 +28,14 @@ interface FilterOption {
 type DocsFilter = '' | 'completos' | 'incompletos'
 
 const PAYMENT_STATE_OPTIONS: readonly PaymentState[] = ['con_adeudo', 'sin_pagos', 'al_corriente']
+
+const AFFILIATION_OPTIONS: readonly AffiliationStatus[] = ['autoriza', 'no_autoriza', 'pendiente']
+
+const AFFILIATION_COLOR: Record<AffiliationStatus, 'success' | 'default' | 'warning'> = {
+  autoriza: 'success',
+  no_autoriza: 'default',
+  pendiente: 'warning',
+}
 
 function uniqueOptions(pairs: Array<[string | null, string | null]>): FilterOption[] {
   const byId = new Map<string, string>()
@@ -49,6 +57,7 @@ export function PlayersPage() {
   const [teamId, setTeamId] = useState('')
   const [paymentState, setPaymentState] = useState<'' | PaymentState>('')
   const [docsFilter, setDocsFilter] = useState<DocsFilter>('')
+  const [affiliation, setAffiliation] = useState<'' | AffiliationStatus>('')
   const [loadError, setLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [exporting, setExporting] = useState(false)
@@ -97,6 +106,7 @@ export function PlayersPage() {
     if (paymentState && p.payment_state !== paymentState) return false
     if (docsFilter === 'completos' && !docsComplete(p)) return false
     if (docsFilter === 'incompletos' && docsComplete(p)) return false
+    if (affiliation && p.affiliation_status !== affiliation) return false
     return true
   })
 
@@ -237,6 +247,21 @@ export function PlayersPage() {
               <option value="completos">Completos</option>
               <option value="incompletos">Incompletos</option>
             </TextField>
+            <TextField
+              select
+              label="Afiliación"
+              value={affiliation}
+              onChange={(e) => setAffiliation(e.target.value as '' | AffiliationStatus)}
+              slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+              sx={{ minWidth: 160 }}
+            >
+              <option value="">Todos</option>
+              {AFFILIATION_OPTIONS.map((a) => (
+                <option key={a} value={a}>
+                  {AFFILIATION_STATUS_LABELS[a]}
+                </option>
+              ))}
+            </TextField>
           </Stack>
 
           <List sx={{ mt: 2 }}>
@@ -257,6 +282,11 @@ export function PlayersPage() {
                       size="small"
                       label={`Docs ${p.docs_delivered}/${DOCUMENT_TOTAL}`}
                       color={docsComplete(p) ? 'success' : 'warning'}
+                    />
+                    <Chip
+                      size="small"
+                      label={`Afiliación: ${AFFILIATION_STATUS_LABELS[p.affiliation_status]}`}
+                      color={AFFILIATION_COLOR[p.affiliation_status]}
                     />
                   </Stack>
                 </Box>
