@@ -56,9 +56,11 @@ jobs:
           supabase db dump --db-url "$SUPABASE_DB_URL" -f "$db/schema.sql"
           supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy \
             -x storage.buckets_vectors -x storage.vector_indexes -f "$db/data.sql"
+          # The data dump skips supabase_migrations; a fresh project also lacks its table, so dump both.
+          supabase db dump --db-url "$SUPABASE_DB_URL" --schema supabase_migrations -f "$db/migrations-schema.sql"
           supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy \
             --schema supabase_migrations -f "$db/migrations-history.sql"
-          for f in roles schema data migrations-history; do test -s "$db/$f.sql"; done
+          for f in roles schema data migrations-schema migrations-history; do test -s "$db/$f.sql"; done
           grep -q '^COPY "public"."players"' "$db/data.sql"
 
       - name: Dump Storage
