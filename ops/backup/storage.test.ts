@@ -175,7 +175,7 @@ test('a size mismatch throws', async () => {
   expect(errorLine(err)).toBe('error: size index=0')
 })
 
-test.each(['..', '.', '', 'a/b', 'a\\b', 'a\0b'])('a hostile listed name %j throws and nothing is written', async (name) => {
+test.each(['..', '.', '', 'a/b', 'a\\b', 'a\0b', 'a\nb', 'a\rb'])('a hostile listed name %j throws and nothing is written', async (name) => {
   const { api } = fakeFetch({ folders: { '': [file('ok', 1), file(name, 1)] }, blobs: { ok: bytes(1) } })
   const { fs, written } = memFs()
   const err = await dumpAll(api, '/b/storage', fs).catch((e: unknown) => e)

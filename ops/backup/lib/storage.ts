@@ -74,8 +74,9 @@ export function createApi(supabaseUrl: string, secretKey: string, fetchImpl: typ
 }
 
 // Shared by dump (listed names) and restore (index paths), so neither can write or read outside its root.
+// Newlines are refused too: they would break the line-based SHA256SUMS.
 export function assertSafeSegment(name: unknown): asserts name is string {
-  if (typeof name !== 'string' || name === '' || name === '.' || name === '..' || /[/\\\0]/.test(name)) {
+  if (typeof name !== 'string' || name === '' || name === '.' || name === '..' || /[/\\\0\n\r]/.test(name)) {
     throw new CodedError('path')
   }
 }
