@@ -87,7 +87,7 @@ export function PlayerPhoto({ player, canEdit, consentGranted, onChanged }: Play
   const uploadLabel = player.photo_path ? 'Cambiar' : 'Subir foto'
 
   return (
-    <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 1 }}>
+    <Stack direction="row" spacing={2} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 1 }}>
       <Avatar src={src} alt={src ? `Foto de ${player.full_name}` : undefined} sx={{ width: 72, height: 72 }}>
         {initials(player.full_name)}
       </Avatar>

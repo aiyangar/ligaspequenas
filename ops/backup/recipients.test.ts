@@ -13,7 +13,7 @@ const SECRET = 'AGE-SECRET-KEY-1' + 'Q'.repeat(58)
 const HEADER = '# Destinatarios\n# Exactamente dos\n'
 
 const script = fileURLToPath(new URL('./check-recipients.ts', import.meta.url))
-const template = fileURLToPath(new URL('./recipients.txt', import.meta.url))
+const committedFile = fileURLToPath(new URL('./recipients.txt', import.meta.url))
 
 function rejects(text: string) {
   expect(() => parseRecipients(text)).toThrow(RecipientsError)
@@ -38,10 +38,14 @@ test('CRLF line endings are accepted', () => {
   expect(parseRecipients(`${KEY_A}\r\n${KEY_B}\r\n`)).toEqual([KEY_A, KEY_B])
 })
 
-test('the committed template has no recipients and is rejected', () => {
-  const text = readFileSync(template, 'utf8')
-  expect(text).not.toMatch(/^\s*age1/m)
-  rejects(text)
+test('the committed file holds exactly two distinct recipients', () => {
+  const recipients = parseRecipients(readFileSync(committedFile, 'utf8'))
+  expect(recipients).toHaveLength(2)
+  expect(new Set(recipients).size).toBe(2)
+})
+
+test('a comments-only file has no recipients and is rejected', () => {
+  rejects(HEADER)
 })
 
 test('zero, one or three recipients are rejected', () => {
@@ -99,8 +103,13 @@ describe('check-recipients entry point', () => {
     expect(res).toEqual({ status: 0, out: 'recipients=2\n' })
   })
 
-  test('fails closed on the template without printing its content', () => {
-    const res = run(readFileSync(template, 'utf8'))
+  test('accepts the committed file', () => {
+    const res = run(readFileSync(committedFile, 'utf8'))
+    expect(res).toEqual({ status: 0, out: 'recipients=2\n' })
+  })
+
+  test('fails closed on a comments-only file without printing its content', () => {
+    const res = run(HEADER)
     expect(res).toEqual({ status: 1, out: 'error: recipients\n' })
   })
 

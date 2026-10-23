@@ -48,8 +48,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Admin', tenantId: 't1' })
   mocks.fetchPlayers.mockResolvedValue([
-    player({ id: 'p1', full_name: 'Ana Ruiz', category_name: 'Infantil Mayor', category_year: 1, team_id: 'team9', team_name: 'MTY AC Rojo', payment_state: 'con_adeudo', docs_delivered: DOCUMENT_TOTAL }),
-    player({ id: 'p2', full_name: 'Beto Gómez', status: 'baja', category_id: null, category_name: null, category_year: null, edad_liga: 25, team_id: null, team_name: null, payment_state: 'sin_pagos', docs_delivered: 2 }),
+    player({ id: 'p1', full_name: 'Ana Ruiz', category_name: 'Infantil Mayor', category_year: 1, team_id: 'team9', team_name: 'MTY AC Rojo', payment_state: 'con_adeudo', docs_delivered: DOCUMENT_TOTAL, affiliation_status: 'autoriza' }),
+    player({ id: 'p2', full_name: 'Beto Gómez', status: 'baja', category_id: null, category_name: null, category_year: null, edad_liga: 25, team_id: null, team_name: null, payment_state: 'sin_pagos', docs_delivered: 2, affiliation_status: 'no_autoriza' }),
     player({ id: 'p3', full_name: 'Carla Paz', category_id: 'cat2', category_name: 'Infantil Menor', category_year: 2, payment_state: 'al_corriente', docs_delivered: DOCUMENT_TOTAL - 1 }),
   ])
   mocks.exportPlayersToExcel.mockResolvedValue(undefined)
@@ -291,12 +291,68 @@ test('Pago combines with Estatus', async () => {
   expect(screen.queryByText('Ana Ruiz')).not.toBeInTheDocument()
 })
 
+test('affiliation chip is green when authorized, grey when not and amber while pending', async () => {
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  expect(chip('Afiliación: Autoriza')).toHaveClass('MuiChip-colorSuccess')
+  expect(chip('Afiliación: No autoriza')).toHaveClass('MuiChip-colorDefault')
+  expect(chip('Afiliación: Pendiente')).toHaveClass('MuiChip-colorWarning')
+})
+
+test('Afiliación filter keeps only that status and Todos restores everyone', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  const afiliacion = screen.getByLabelText('Afiliación')
+  await user.selectOptions(afiliacion, 'autoriza')
+  await waitFor(() => expect(screen.queryByText('Beto Gómez')).not.toBeInTheDocument())
+  expect(screen.getByText('Ana Ruiz')).toBeInTheDocument()
+  expect(screen.queryByText('Carla Paz')).not.toBeInTheDocument()
+  await user.selectOptions(afiliacion, 'no_autoriza')
+  await waitFor(() => expect(screen.queryByText('Ana Ruiz')).not.toBeInTheDocument())
+  expect(screen.getByText('Beto Gómez')).toBeInTheDocument()
+  expect(screen.queryByText('Carla Paz')).not.toBeInTheDocument()
+  await user.selectOptions(afiliacion, 'pendiente')
+  await waitFor(() => expect(screen.queryByText('Beto Gómez')).not.toBeInTheDocument())
+  expect(screen.getByText('Carla Paz')).toBeInTheDocument()
+  expect(screen.queryByText('Ana Ruiz')).not.toBeInTheDocument()
+  await user.selectOptions(afiliacion, 'Todos')
+  expect(await screen.findByText('Ana Ruiz')).toBeInTheDocument()
+  expect(screen.getByText('Beto Gómez')).toBeInTheDocument()
+  expect(screen.getByText('Carla Paz')).toBeInTheDocument()
+})
+
+test('Afiliación combines with Pago using AND', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  // Carla is Al corriente but Pendiente; Ana is Autoriza but Con adeudo.
+  await user.selectOptions(screen.getByLabelText('Pago'), 'al_corriente')
+  await user.selectOptions(screen.getByLabelText('Afiliación'), 'autoriza')
+  await waitFor(() => expect(screen.queryByText('Carla Paz')).not.toBeInTheDocument())
+  expect(screen.queryByText('Ana Ruiz')).not.toBeInTheDocument()
+  expect(screen.queryByText('Beto Gómez')).not.toBeInTheDocument()
+})
+
+test('Excel export receives only the players the Afiliación filter leaves visible', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  await user.selectOptions(screen.getByLabelText('Afiliación'), 'no_autoriza')
+  await waitFor(() => expect(screen.queryByText('Ana Ruiz')).not.toBeInTheDocument())
+  await user.click(screen.getByRole('button', { name: 'Exportar a Excel' }))
+  await waitFor(() => expect(mocks.exportPlayersToExcel).toHaveBeenCalledTimes(1))
+  expect(mocks.exportPlayersToExcel.mock.calls[0][0].map((p: PlayerRow) => p.id)).toEqual(['p2'])
+})
+
 test('readonly sees the same chips and filters', async () => {
   mocks.useTenant.mockReturnValue({ status: 'ready', role: 'readonly', fullName: 'Lector', tenantId: 't1' })
   renderPage()
   await screen.findByText('Ana Ruiz')
   expect(screen.getByLabelText('Pago')).toBeInTheDocument()
   expect(screen.getByLabelText('Documentos')).toBeInTheDocument()
+  expect(screen.getByLabelText('Afiliación')).toBeInTheDocument()
+  expect(chip('Afiliación: Autoriza')).toHaveClass('MuiChip-colorSuccess')
   expect(chip('Con adeudo')).toHaveClass('MuiChip-colorWarning')
   expect(chip(`Docs ${DOCUMENT_TOTAL}/${DOCUMENT_TOTAL}`)).toHaveClass('MuiChip-colorSuccess')
 })
