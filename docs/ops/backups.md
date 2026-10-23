@@ -96,17 +96,27 @@ Desde una rama nueva, agregar a `ops/backup/recipients.txt` las **dos** líneas 
 
 ## Descargar y descifrar
 
+Solo se restaura desde una corrida **confiable**: la nocturna (`schedule`) o una manual (`workflow_dispatch`) sobre `develop`. Una corrida de un PR puede subir artifacts sin pasar por el Environment `backups`, así que su contenido no prueba nada.
+
+```bash
+gh run list --workflow backup.yml --branch develop --event schedule --status success --limit 5
+# Para corridas manuales: --event workflow_dispatch
+gh run view <run-id> --json headBranch,event,headSha
+```
+
+`headBranch` debe ser `develop`, `event` debe ser `schedule` o `workflow_dispatch`, y `headSha` se anota para compararlo con `manifest.json`. Si algo no coincide, ese artifact **no** se usa.
+
 ```bash
 dir=$(mktemp -d)
-gh run list --workflow backup.yml --status success --limit 5
 gh run download <run-id> -n backup-<ts> -D "$dir"
 # Copiar la llave principal del gestor de contraseñas al portapapeles. Así nunca se escribe en el disco.
 age -d -i <(pbpaste) "$dir/backup-<ts>.tar.age" | tar -xf - -C "$dir"
 pbcopy < /dev/null
 (cd "$dir" && shasum -a 256 -c SHA256SUMS)
+node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).commit)' "$dir/manifest.json"
 ```
 
-Verde: todas las líneas en `OK`. Con la llave de recuperación es igual: teclear o copiar su línea `AGE-SECRET-KEY-…` al portapapeles y usar el mismo `<(pbpaste)`.
+Verde: todas las líneas en `OK`, y el `commit` que imprime la última línea es igual al `headSha` de `gh run view`. Si difiere, se descarta el artifact. Con la llave de recuperación es igual: teclear o copiar su línea `AGE-SECRET-KEY-…` al portapapeles y usar el mismo `<(pbpaste)`.
 
 `$dir` tiene datos de menores en claro: se borra con `rm -rf "$dir"` en cuanto termine la restauración o el simulacro.
 
@@ -202,7 +212,7 @@ Ante corrupción o borrado, **nunca** se restaura encima del proyecto vivo. Siem
 
 Lo corre el owner en su Mac, asistido por el orquestador, contra un proyecto Supabase **temporal**. Uno antes de la primera carga de datos reales, luego **cada trimestre** y después de cualquier cambio a `backup.yml` o a `ops/backup/`.
 
-1. Elegir la última corrida verde y anotar su commit y el nombre del artifact.
+1. Elegir la última corrida verde con `gh run list --workflow backup.yml --branch develop --event schedule --status success --limit 5` (o `--event workflow_dispatch`), confirmar con `gh run view <run-id> --json headBranch,event,headSha` que es `develop` y `schedule`/`workflow_dispatch`, y anotar su `headSha` y el nombre del artifact. Después de descifrar, el `commit` de `manifest.json` debe ser igual a ese `headSha`; si no, se descarta.
 2. Crear el proyecto temporal (contraseña alfanumérica).
 3. Descargar y descifrar con la llave **principal**; `shasum -a 256 -c SHA256SUMS` en verde. Descifrar también con la de **recuperación** (en el primer simulacro siempre; después, al menos una vez al año).
 4. Restaurar la base (pasos 1–5) y Storage.
