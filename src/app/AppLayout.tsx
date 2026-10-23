@@ -40,8 +40,11 @@ export function AppLayout() {
   return (
     <Box sx={{ minHeight: '100vh' }}>
       <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>{fullName}</Typography>
+        {/* wraps on phones so the nav buttons never push the page wider than the viewport */}
+        <Toolbar sx={{ flexWrap: 'wrap', py: { xs: 1, sm: 0 } }}>
+          <Typography variant="h6" noWrap sx={{ flexGrow: 1, flexBasis: { xs: '100%', sm: 0 }, minWidth: 0 }}>
+            {fullName}
+          </Typography>
           <Button color="inherit" component={NavLink} to="/">Jugadores</Button>
           <Button color="inherit" component={NavLink} to="/equipos">Equipos</Button>
           <Button color="inherit" component={NavLink} to="/quien-debe">Quién debe</Button>
