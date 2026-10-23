@@ -5,7 +5,7 @@ import { CodedError, runMain } from './lib/safe-error.ts'
 
 runMain(async () => {
   const root = process.argv[2]
-  if (!root) throw new CodedError('usage')
+  if (!root) throw new CodedError('args')
   const { manifest, sha256sums } = await buildManifest(root, {
     createdAt: new Date().toISOString(),
     commit: process.env.GITHUB_SHA || null,

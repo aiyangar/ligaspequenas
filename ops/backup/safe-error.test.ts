@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { CodedError, HttpError, errorLine } from './lib/safe-error.ts'
+import { CodedError, HttpError, INTERNAL_CODES, errorLine } from './lib/safe-error.ts'
 
 test('an fs error prints only its code, never the path', () => {
   const err = Object.assign(new Error("ENOENT: no such file, open '/tmp/x/t1/p1/curp'"), { code: 'ENOENT' })
@@ -48,4 +48,23 @@ test('a CodedError prints its code and index', () => {
 
 test('a code that is not a plain identifier is ignored', () => {
   expect(errorLine({ code: 'open /tmp/t1/p1/curp' })).toBe('error: unknown')
+})
+
+test('a code that looks like a secret key is never printed', () => {
+  expect(errorLine({ code: 'sb_secret_abcdefghijklmnop' })).toBe('error: unknown')
+  expect(errorLine({ code: 'AGE-SECRET-KEY-1QQQ' })).toBe('error: unknown')
+  expect(errorLine({ code: 'Enoent' })).toBe('error: unknown')
+  expect(errorLine({ code: 'usage' })).toBe('error: unknown')
+})
+
+test.each(['ENOENT', 'EACCES', 'ECONNREFUSED', 'ERR_INVALID_URL', 'UND_ERR_SOCKET', 'UND_ERR_CONNECT_TIMEOUT'])(
+  'the system code %s passes through',
+  (code) => {
+    expect(errorLine({ code })).toBe(`error: ${code}`)
+  },
+)
+
+test.each([...INTERNAL_CODES])('the internal code %s passes through', (code) => {
+  expect(errorLine(new CodedError(code))).toBe(`error: ${code}`)
+  expect(errorLine({ code })).toBe(`error: ${code}`)
 })

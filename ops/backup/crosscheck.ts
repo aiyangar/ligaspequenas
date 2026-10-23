@@ -6,7 +6,7 @@ import { BUCKET, indexFile, parseIndex } from './lib/storage.ts'
 
 runMain(async () => {
   const root = process.argv[2]
-  if (!root) throw new CodedError('usage')
+  if (!root) throw new CodedError('args')
   const db = countCopyRows(await readFile(join(root, 'db', 'data.sql'), 'utf8'), '"storage"."objects"', 'bucket_id', BUCKET)
   const storageObjects = parseIndex(await readFile(indexFile(root), 'utf8')).length
   if (db.found) console.log(`db_objects=${db.count} storage_objects=${storageObjects}`)

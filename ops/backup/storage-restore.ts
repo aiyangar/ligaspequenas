@@ -5,7 +5,7 @@ import { nodeFs } from './lib/node-fs.ts'
 
 runMain(async () => {
   const [backupRoot, targetUrl] = process.argv.slice(2)
-  if (!backupRoot || !targetUrl) throw new CodedError('usage')
+  if (!backupRoot || !targetUrl) throw new CodedError('args')
   // The key comes from env only, so it never lands in shell history or the process list.
   const key = process.env.SUPABASE_RESTORE_SECRET_KEY
   if (!key) throw new CodedError('env')

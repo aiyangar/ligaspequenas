@@ -24,11 +24,26 @@ export function errorLine(err: unknown): string {
   return line
 }
 
+export const INTERNAL_CODES = [
+  'args',
+  'crosscheck',
+  'env',
+  'filetype',
+  'index',
+  'listing',
+  'path',
+  'recipients',
+  'size',
+  'target',
+] as const
+
+export type InternalCode = (typeof INTERNAL_CODES)[number]
+
 export class CodedError extends Error {
-  code: string
+  code: InternalCode
   index: number | undefined
 
-  constructor(code: string, index?: number) {
+  constructor(code: InternalCode, index?: number) {
     super(code)
     this.name = 'CodedError'
     this.code = code
@@ -51,9 +66,12 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object'
 }
 
-// Codes like ENOENT, UND_ERR_SOCKET or size; anything else could carry arbitrary text.
+// Only Node/undici code shapes or our own codes; anything else could carry arbitrary text, even a key.
+const SYSTEM_CODE = /^(E[A-Z0-9]+|ERR_[A-Z0-9_]+|UND_ERR_[A-Z0-9_]+)$/
+
 function codeOf(value: unknown): string | undefined {
   if (!isObject(value)) return undefined
   const code = value.code
-  return typeof code === 'string' && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(code) ? code : undefined
+  if (typeof code !== 'string') return undefined
+  return SYSTEM_CODE.test(code) || (INTERNAL_CODES as readonly string[]).includes(code) ? code : undefined
 }

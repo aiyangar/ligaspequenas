@@ -1,5 +1,5 @@
 export class RecipientsError extends Error {
-  code = 'recipients'
+  code = 'recipients' as const
 
   constructor() {
     super('recipients')

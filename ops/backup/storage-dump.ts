@@ -4,7 +4,7 @@ import { nodeFs } from './lib/node-fs.ts'
 
 runMain(async () => {
   const outDir = process.argv[2]
-  if (outDir === undefined || outDir === '') throw new CodedError('usage')
+  if (outDir === undefined || outDir === '') throw new CodedError('args')
   const url = process.env.SUPABASE_URL
   const key = process.env.SUPABASE_BACKUP_SECRET_KEY
   if (!url || !key) throw new CodedError('env')
