@@ -24,20 +24,36 @@ export function errorLine(err: unknown): string {
   return line
 }
 
+export class CodedError extends Error {
+  code: string
+  index: number | undefined
+
+  constructor(code: string, index?: number) {
+    super(code)
+    this.name = 'CodedError'
+    this.code = code
+    this.index = index
+  }
+}
+
+function fail(err: unknown): never {
+  console.error(errorLine(err))
+  process.exit(1)
+}
+
 export function runMain(main: () => Promise<void>): void {
-  main().catch((err: unknown) => {
-    console.error(errorLine(err))
-    process.exit(1)
-  })
+  process.on('uncaughtException', fail)
+  process.on('unhandledRejection', fail)
+  main().catch(fail)
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object'
 }
 
-// Codes like ENOENT or UND_ERR_SOCKET; anything else could carry arbitrary text.
+// Codes like ENOENT, UND_ERR_SOCKET or size; anything else could carry arbitrary text.
 function codeOf(value: unknown): string | undefined {
   if (!isObject(value)) return undefined
   const code = value.code
-  return typeof code === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(code) ? code : undefined
+  return typeof code === 'string' && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(code) ? code : undefined
 }

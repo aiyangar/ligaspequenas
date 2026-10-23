@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { HttpError, errorLine } from './lib/safe-error.ts'
+import { CodedError, HttpError, errorLine } from './lib/safe-error.ts'
 
 test('an fs error prints only its code, never the path', () => {
   const err = Object.assign(new Error("ENOENT: no such file, open '/tmp/x/t1/p1/curp'"), { code: 'ENOENT' })
@@ -39,6 +39,11 @@ test('a non-string code is ignored', () => {
 test('a fetch failure prints the code of its cause', () => {
   const err = new TypeError('fetch failed', { cause: Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:9'), { code: 'ECONNREFUSED' }) })
   expect(errorLine(err)).toBe('error: ECONNREFUSED')
+})
+
+test('a CodedError prints its code and index', () => {
+  expect(errorLine(new CodedError('size', 3))).toBe('error: size index=3')
+  expect(errorLine(new CodedError('env'))).toBe('error: env')
 })
 
 test('a code that is not a plain identifier is ignored', () => {
