@@ -83,7 +83,8 @@ jobs:
         run: |
           ts=$(date -u +%Y-%m-%dT%H%MZ)
           mkdir -p "$RUNNER_TEMP/out"
-          tar -C "$RUNNER_TEMP/backup" -cf - . | age -R ops/backup/recipients.txt -o "$RUNNER_TEMP/out/backup-$ts.tar.age"
+          # tar errors name minors' files; pipefail still catches failures.
+          tar -C "$RUNNER_TEMP/backup" -cf - . 2>/dev/null | age -R ops/backup/recipients.txt -o "$RUNNER_TEMP/out/backup-$ts.tar.age"
           test "$(head -c 21 "$RUNNER_TEMP/out/backup-$ts.tar.age")" = 'age-encryption.org/v1'
           rm -rf "$RUNNER_TEMP/backup"
           echo "ts=$ts" >> "$GITHUB_OUTPUT"
