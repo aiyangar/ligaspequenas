@@ -65,10 +65,21 @@ function fakeFetch(opts: {
   return { calls, api: createApi(URL_BASE + '/', KEY, impl) }
 }
 
-function memFs(files: Record<string, Uint8Array> = {}) {
+function memFs(files: Record<string, Uint8Array> = {}, symlinks: string[] = []) {
   const written = new Map<string, Uint8Array | string>()
   const dirs: string[] = []
+  const kind = (file: boolean, dir: boolean, link: boolean) => ({
+    isFile: () => file,
+    isDirectory: () => dir,
+    isSymbolicLink: () => link,
+  })
   const fs: FsLike = {
+    async lstat(path) {
+      if (symlinks.includes(path)) return kind(false, false, true)
+      if (path in files) return kind(true, false, false)
+      if (Object.keys(files).some((f) => f.startsWith(path + '/'))) return kind(false, true, false)
+      throw Object.assign(new Error(`ENOENT: no such file, lstat '${path}'`), { code: 'ENOENT' })
+    },
     async mkdir(path) {
       dirs.push(path)
     },
@@ -220,6 +231,31 @@ describe('restore', () => {
     const { api } = fakeFetch({ folders: {} })
     const err = await restoreAll(api, '/r', index, memFs({}).fs).catch((e: unknown) => e)
     expect(errorLine(err)).toBe('error: ENOENT')
+  })
+
+  test('a symlinked file is refused before any upload', async () => {
+    const { calls, api } = fakeFetch({ folders: {} })
+    const fs = memFs(files, ['/r/storage/player-files/t1/p1/acta nacimiento.pdf']).fs
+    const err = await restoreAll(api, '/r', index.slice(1), fs).catch((e: unknown) => e)
+    expect(errorLine(err)).toBe('error: filetype index=0')
+    expect(calls).toHaveLength(0)
+  })
+
+  test('a symlinked parent directory is refused', async () => {
+    const { calls, api } = fakeFetch({ folders: {} })
+    const fs = memFs(files, ['/r/storage/player-files/t1']).fs
+    const err = await restoreAll(api, '/r', index.slice(1), fs).catch((e: unknown) => e)
+    expect(errorLine(err)).toBe('error: filetype index=0')
+    expect(calls).toHaveLength(0)
+  })
+
+  test('a directory where a file is expected is refused', async () => {
+    const { calls, api } = fakeFetch({ folders: {} })
+    const err = await restoreAll(api, '/r', [{ path: 't1', size: 0, mimetype: 'a/b' }], memFs(files).fs).catch(
+      (e: unknown) => e,
+    )
+    expect(errorLine(err)).toBe('error: filetype index=0')
+    expect(calls).toHaveLength(0)
   })
 
   test('a file whose size differs from the index is not uploaded', async () => {

@@ -23,7 +23,14 @@ export interface StorageApi {
   upload(path: string, bytes: Uint8Array, mimetype: string, index: number): Promise<void>
 }
 
+export interface FileKind {
+  isFile(): boolean
+  isDirectory(): boolean
+  isSymbolicLink(): boolean
+}
+
 export interface FsLike {
+  lstat(path: string): Promise<FileKind>
   mkdir(path: string): Promise<void>
   writeFile(path: string, data: Uint8Array | string): Promise<void>
   readFile(path: string): Promise<Uint8Array>
@@ -166,6 +173,16 @@ export function parseIndex(text: string): StorageObject[] {
   })
 }
 
+// Like the manifest walk: every parent must be a real directory and the leaf a regular file, never a symlink.
+async function assertRegularFile(fs: FsLike, root: string, path: string, index: number): Promise<void> {
+  const segments = path.split('/')
+  for (let depth = 1; depth <= segments.length; depth++) {
+    const kind = await fs.lstat(join(root, ...segments.slice(0, depth)))
+    const leaf = depth === segments.length
+    if (kind.isSymbolicLink() || (leaf ? !kind.isFile() : !kind.isDirectory())) throw new CodedError('filetype', index)
+  }
+}
+
 export async function restoreAll(
   api: StorageApi,
   backupRoot: string,
@@ -175,7 +192,9 @@ export async function restoreAll(
   const root = bucketDir(join(backupRoot, 'storage'))
   for (const [i, object] of index.entries()) {
     assertSafePath(object.path)
-    const data = await fs.readFile(insideRoot(root, object.path))
+    const target = insideRoot(root, object.path)
+    await assertRegularFile(fs, root, object.path, i)
+    const data = await fs.readFile(target)
     if (data.length !== object.size) throw new CodedError('size', i)
     await api.upload(object.path, data, object.mimetype, i)
   }
