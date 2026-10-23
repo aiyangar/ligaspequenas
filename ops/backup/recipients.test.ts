@@ -20,7 +20,18 @@ function rejects(text: string) {
 }
 
 test('two distinct recipients with comments and blank lines are accepted', () => {
-  expect(parseRecipients(`${HEADER}\n${KEY_A}\n\n  ${KEY_B}  \n# trailing\n`)).toEqual([KEY_A, KEY_B])
+  expect(parseRecipients(`${HEADER}\n${KEY_A}\n\n${KEY_B}\n# trailing\n`)).toEqual([KEY_A, KEY_B])
+})
+
+test('indented or trailing-space recipients are rejected, as age -R does', () => {
+  rejects(`${KEY_A}\n  ${KEY_B}\n`)
+  rejects(`${KEY_A}\n${KEY_B}  \n`)
+  rejects(`${KEY_A}\n\t${KEY_B}\n`)
+})
+
+test('an indented comment or a whitespace-only line is not ignored', () => {
+  rejects(`  # comment\n${KEY_A}\n${KEY_B}\n`)
+  rejects(`${KEY_A}\n   \n${KEY_B}\n`)
 })
 
 test('CRLF line endings are accepted', () => {

@@ -13,9 +13,10 @@ const RECIPIENT = /^age1[02-9ac-hj-np-z]{58}$/
 export const REQUIRED_RECIPIENTS = 2
 
 export function parseRecipients(text: string): string[] {
+  // Same rules as `age -R`: no trimming, comments only at column 0, only a trailing CR is tolerated.
   const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
+    .split('\n')
+    .map((line) => line.replace(/\r$/, ''))
     .filter((line) => line !== '' && !line.startsWith('#'))
   if (lines.length !== REQUIRED_RECIPIENTS) throw new RecipientsError()
   if (!lines.every((line) => RECIPIENT.test(line))) throw new RecipientsError()

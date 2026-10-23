@@ -44,7 +44,10 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq age
 
       - name: Check recipients
-        run: node ops/backup/check-recipients.ts ops/backup/recipients.txt
+        run: |
+          node ops/backup/check-recipients.ts ops/backup/recipients.txt
+          # age's own parser has the last word before any data is dumped.
+          age -R ops/backup/recipients.txt -o /dev/null </dev/null >/dev/null 2>&1 || { echo 'error: recipients'; exit 1; }
 
       - name: Dump database
         env:
