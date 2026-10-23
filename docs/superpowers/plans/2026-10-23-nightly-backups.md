@@ -170,3 +170,55 @@ order by 1;
 - Plaintext left anywhere other than `$RUNNER_TEMP/backup` (for example the repo checkout or `/tmp`).
 - Path traversal from listed names on dump and from `storage-index.json` on restore. Apply the same validation to both.
 - Secrets in workflow-level or job-level `env`, unpinned actions, or extra triggers.
+
+---
+
+# Cycle 2: review fixes (review of 2026-10-23, verdict FAIL)
+
+The orchestrator checked every item below against the code before writing this section. Same branch, same global constraints, same gates. Baseline for deltas: **44 files, 402 tests**. One commit per task, ending with ` (#87)`.
+
+## Task 7 (Important I1): the restored project must not hand privileges back to `anon`
+
+pg_dump writes object ACLs relative to Postgres's built-in defaults, and a per-schema `ALTER DEFAULT PRIVILEGES` can only add privileges. A fresh Supabase project grants ALL to `anon` by default on new objects in `public`, so a restored project ends up with checklist B red.
+- [ ] `docs/ops/backups.md` restore step 1: delete the sentence claiming the dump keeps 0016's revokes ("El dump de schema conserva … no se agrega ningún revoke previo").
+- [ ] Restore step 2: re-apply **`0016_revoke_anon_privileges.sql` after `0012`**. It is all revokes, so running it twice is safe. Generalise the rule to: "toda migración que toque `auth`/`storage` **o que revoque privilegios** se agrega a esta lista". Step 3 (checklist B plus the `authenticated` diff) stays as the proof.
+- [ ] Restore step 1: add `-c 'SET session_replication_role = replica'` immediately before `-f data.sql`, as Supabase's docs do (review M6), and stop claiming that `data.sql` already opens with it.
+- [ ] Spec `docs/superpowers/specs/2026-10-22-nightly-backups-design.md` §6 step 1: same correction (remove the "conserva … 0016 incluido" claim; add the `-c`). §6 step 2: add 0016 and the generalised rule.
+
+## Task 8 (Important I2): restore only from a trusted run
+
+- [ ] Runbook "Descargar y descifrar" and "Simulacro" step 1: replace the run listing with `gh run list --workflow backup.yml --branch develop --event schedule --status success --limit 5`. Allow `--event workflow_dispatch` for manual runs. Add a check: `gh run view <run-id> --json headBranch,event,headSha` must show `develop`, an event of `schedule` or `workflow_dispatch`, and a `headSha` equal to the `commit` field in `manifest.json` after decrypting. If anything differs, don't use that artifact. Explain in one line why: PR runs can upload artifacts without passing through the `backups` Environment.
+
+## Task 9 (Minor M1): restore refuses symlinks and non-regular files
+
+- [ ] Add `lstat` to the `FsLike` used by `restoreAll`. Before reading each file, require `isFile()` and `!isSymbolicLink()`, otherwise throw `CodedError('filetype', i)`. This mirrors the manifest check.
+- [ ] Test: an entry that is a symlink (in the in-memory fs, an entry flagged as a symlink) gives `error: filetype index=<i>` and makes no upload call. If the tests use a real temp dir, use a real `symlinkSync`.
+
+## Task 10 (Minor M2): recipients check matches what `age -R` accepts
+
+- [ ] `parseRecipients`: stop trimming. Only strip a trailing `\r`. Ignore lines that are exactly empty or that start with `#` at column 0. Any other line must match `RECIPIENT` exactly, so leading or trailing spaces fail.
+- [ ] Update `recipients.test.ts:23` so the indented and trailing-space forms are **rejected**.
+- [ ] Workflow "Check recipients" step: after the node check, also run `age -R ops/backup/recipients.txt -o /dev/null </dev/null >/dev/null 2>&1 || { echo 'error: recipients'; exit 1; }`. Move the `age` install step **before** this step if needed. This makes age's own parser the final check before any data is dumped.
+
+## Task 11 (Minor M3): `errorLine` prints only known code shapes
+
+- [ ] `codeOf`: accept a code only if it matches `^(E[A-Z0-9]+|ERR_[A-Z0-9_]+|UND_ERR_[A-Z0-9_]+)$`, or if it is one of the internal `CodedError` codes (`env`, `size`, `path`, `filetype`, `crosscheck`, `recipients`, `args`; export the list from `safe-error.ts`, where `CodedError` lives). Anything else gives `error: unknown`.
+- [ ] Tests: `{ code: 'sb_secret_abcdefghijklmnop' }` → `error: unknown`. `ENOENT`, `ERR_INVALID_URL`, `UND_ERR_SOCKET` and each internal code pass through unchanged.
+
+## Task 12 (Minor M4): `tar` must not print paths
+
+- [ ] Encrypt step: change the pipeline to `tar -C "$RUNNER_TEMP/backup" -cf - . 2>/dev/null | age -R …`. pipefail still fails the step if tar exits non-zero. Add one line before it: `# tar errors name minors' files; pipefail still catches failures.`
+- [ ] Re-run `actionlint`.
+
+## Task 13 (Minors M5, M7): restore guards and Mac hygiene
+
+- [ ] `storage-restore.ts`: refuse a target URL whose host starts with the production ref `eksbaugyypadtanyjcje.` (the ref is already public in `docs/security/pre-real-data-checklist.md`). Exit with `error: target`. Test it.
+- [ ] `restoreAll`: skip entries whose last segment is `.emptyFolderPlaceholder` and whose size is 0. These are Dashboard folder markers, and the bucket's MIME allowlist may reject them as `application/octet-stream`. The entry point prints `restored=<n> skipped=<n>`. Test it, and update the runbook's expected output.
+- [ ] Runbook: decrypted data goes to a **RAM disk** (the same recipe the runbook already uses for keys) instead of `mktemp -d` on the internal disk, and gets detached when done. Add a line to the key-generation steps: turn off Handoff/Universal Clipboard before using `pbcopy`/`pbpaste` with a private key, and clear the clipboard afterwards (the runbook already runs `pbcopy < /dev/null`).
+- [ ] Runbook "Simulacro": add a checklist item asking to confirm in the first drill (a) that a fresh project gets checklist B green only after re-applying 0016, and (b) whether the CLI's `data.sql` ends with pg_dump's `-- PostgreSQL database dump complete` line. If it does, a later branch can add a CI check for it. This plan does **not** add one, because nobody has verified the line exists.
+
+## Cycle 2 verification
+
+Report the same checklist items 1–6 as before, with deltas versus 44/402, plus:
+7. the Task 10 workflow excerpt and `actionlint` output;
+8. a synthetic run of `storage-restore.ts` against a fake server, showing a symlink refused, the placeholder skipped and the production URL refused, with the printed lines.
