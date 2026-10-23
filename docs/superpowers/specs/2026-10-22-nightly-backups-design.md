@@ -1,7 +1,7 @@
 # Respaldos nocturnos cifrados en el plan Free (#87) — Diseño
 
 **Fecha:** 2026-10-22
-**Estado:** Borrador revisado (decisiones del owner y revisión adversarial del 2026-10-22 aplicadas; pendiente la decisión del owner sobre el aviso de cron caído, §2)
+**Estado:** Borrador revisado (decisiones del owner y revisión adversarial del 2026-10-22 aplicadas)
 **Issue:** [#87](https://github.com/aiyangar/ligaspequenas/issues/87) — decidida en #6 (`2026-10-16-pre-real-data-checklist-design.md` §2, §7)
 
 ## 1. Contexto y objetivo
@@ -33,7 +33,7 @@ Fuera de alcance: PITR, réplicas, respaldar las Edge Functions (su código ya e
 | Secrets en un Environment | Los dos secrets viven en el Environment **`backups`** de GitHub, con regla de rama = `develop` (la rama default, que es donde corre `schedule`). Así ningún workflow de otra rama puede leerlos aunque alguien lo agregue. |
 | Horario | `cron: '17 9 * * *'` (09:17 UTC = 03:17 en Monterrey). Se evita el minuto 0, porque las corridas en la hora exacta se atrasan y se pierden más seguido. |
 | Aviso de fallo | GitHub manda un correo cuando falla un workflow programado, y lo recibe quien editó el cron por última vez (el owner). |
-| Aviso de cron caído | **Pendiente: decisión del owner.** GitHub **desactiva** los `schedule` de un repo público después de 60 días sin actividad en el repo. Un cron desactivado **no falla**, así que no llega correo de fallo, y a los 30 días ya expiraron todos los artifacts: no queda ningún respaldo. El chequeo de 48 h del checklist (punto F) solo se ve cuando alguien abre el checklist. Recomendado: un *dead-man's switch* externo (por ejemplo healthchecks.io, plan gratuito). El job hace un ping al final de cada corrida verde, y si pasan 48 h sin ping el servicio manda un correo. La URL del ping va como secret del Environment. Alternativa sin cuenta nueva: quedarse solo con el chequeo manual de 48 h y aceptar el riesgo (§7, R5). No se agrega un "keepalive" que haga commits automáticos. |
+| Aviso de cron caído | **healthchecks.io (plan gratuito)**, decidido por el owner el 2026-10-22. GitHub **desactiva** los `schedule` de un repo público después de 60 días sin actividad en el repo. Un cron desactivado **no falla**, así que no llega correo de fallo, y a los 30 días ya expiraron todos los artifacts: no queda ningún respaldo. El chequeo de 48 h del checklist (punto F) solo se ve cuando alguien abre el checklist. Por eso se usa un *dead-man's switch*: el job hace un ping al final de cada corrida verde, y si pasan 48 h sin ping el servicio manda un correo. La URL del ping va en el secret `HEALTHCHECK_PING_URL` del Environment (la URL basta para hacer pings falsos, así que no se publica). El ping se manda con `curl -fsS -m 10 --retry 3`; si falla, el step no tumba el job, porque el respaldo ya se subió. Descartado: quedarse solo con el chequeo manual de 48 h. No se agrega un "keepalive" que haga commits automáticos. |
 | Simulacro de restauración | Lo corre el **owner en su Mac**, asistido por el orquestador, contra un **proyecto Supabase temporal** (Free permite dos proyectos activos), que se borra al terminar. En el Mac solo hacen falta `age` y `psql` (`brew install age libpq`) y Node, que ya existe para el proyecto. **No necesita Docker**, porque restaurar es `psql`, no `supabase db dump`. Descartado: restaurar en CI, porque la llave privada tendría que estar en CI. Frecuencia: uno antes de la primera carga de datos reales y luego **cada trimestre**, además de después de cualquier cambio a este workflow. |
 | Entrega | Rama `update/backups-spec` (este spec). Luego `feature/nightly-backups` (workflow, script con tests, `recipients.txt` y runbook) y después `update/backups-first-drill` (primera corrida verde y primer simulacro registrados en el runbook, y punto F del checklist actualizado). Una tarea, una rama. |
 
@@ -51,7 +51,7 @@ Un solo job en `ubuntu-latest`, `environment: backups` y `timeout-minutes: 30`:
 8. **Manifest**: `node ops/backup/manifest.mjs "$RUNNER_TEMP/backup"` (genera `manifest.json` y `SHA256SUMS`).
 9. **Cifrar**: `tar -C "$RUNNER_TEMP/backup" -cf - . | age -R ops/backup/recipients.txt -o "$RUNNER_TEMP/out/backup-<ts>.tar.age"` (con `pipefail`, §2). Después se verifica que la salida empiece con `age-encryption.org/v1`.
 10. `actions/upload-artifact` del `.tar.age`, con `retention-days: 30`.
-11. Ping al *dead-man's switch*, si el owner lo aprueba (§2).
+11. Ping a healthchecks.io (env: `HEALTHCHECK_PING_URL`), con `continue-on-error: true` (§2).
 12. `if: always()`: `rm -rf "$RUNNER_TEMP/backup"`.
 
 `SUPABASE_URL` no es secreto: es la misma URL pública del frontend y va como variable del Environment.
@@ -68,7 +68,8 @@ Un solo job en `ubuntu-latest`, `environment: backups` y `timeout-minutes: 30`:
 
 1. `brew install age libpq`. Con `age-keygen -o principal.txt` y `age-keygen -o recuperacion.txt` se generan las dos llaves. Las **dos líneas públicas** (`# public key: age1…`) se pegan en `ops/backup/recipients.txt` (el PR de la rama `feature/nightly-backups` las incluye). La llave **principal** se guarda en el gestor de contraseñas del owner. La de **recuperación** se imprime o se copia a una USB y se guarda en otro lugar físico. Después se borran los dos archivos del disco.
 2. En el Dashboard de Supabase: crear la secret key `backups` y copiar el connection string del **Session pooler**, con la contraseña de la base.
-3. En GitHub: crear el Environment `backups` con regla de rama `develop`, los secrets `SUPABASE_DB_URL` y `SUPABASE_BACKUP_SECRET_KEY` y la variable `SUPABASE_URL`.
+3. En healthchecks.io: crear un check con periodo de 1 día y gracia de 1 día (aviso a las 48 h), con aviso por correo al owner.
+4. En GitHub: crear el Environment `backups` con regla de rama `develop`, los secrets `SUPABASE_DB_URL`, `SUPABASE_BACKUP_SECRET_KEY` y `HEALTHCHECK_PING_URL` y la variable `SUPABASE_URL`.
 
 El orquestador no ve ni maneja ninguno de estos valores. Los pasos quedan escritos en el runbook.
 
@@ -96,7 +97,7 @@ Contenido del documento:
 - **R2. Metadatos públicos.** Cualquiera ve que existe un respaldo diario, su tamaño cifrado y los conteos `objects`/`bytes`. No revela datos de menores.
 - **R3. Cifrado con `age`.** Si se rompiera X25519/ChaCha20-Poly1305, los artifacts de los últimos 30 días quedarían expuestos. Esto se acepta y la retención corta lo acota.
 - **R4. Pérdida de las dos llaves privadas** → los respaldos son irrecuperables. Por eso hay dos llaves en dos lugares físicos distintos.
-- **R5. Cron desactivado por inactividad** (§2). Con el *dead-man's switch* llega un correo a las 48 h. Sin él, solo se detecta con el chequeo manual de 48 h, y si nadie lo corre en 30 días, ya no queda ningún respaldo.
+- **R5. Cron desactivado por inactividad** (§2). healthchecks.io avisa por correo a las 48 h sin ping; el chequeo de 48 h del checklist queda como segunda red. Si healthchecks.io deja de operar, el aviso se pierde en silencio: el runbook pide confirmar cada trimestre, en el simulacro, que el check siga activo.
 - **R6. Inconsistencia entre la base y Storage.** El dump y la descarga no son atómicos entre sí: un archivo subido entre los dos pasos puede aparecer en Storage sin su fila en `documents`, o al revés. A las 03:00 y con un solo admin activo es improbable, y el efecto es un archivo de más o de menos en ese respaldo, no una corrupción.
 
 ## 8. Pruebas y criterio de cierre de #87
