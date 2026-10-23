@@ -14,7 +14,7 @@ Dentro del tar cifrado:
 |---|---|
 | `db/roles.sql` | Roles propios del cluster (`supabase db dump --role-only`). |
 | `db/schema.sql` | Schema de la app (`public`, `private`, …), con grants, `ALTER DEFAULT PRIVILEGES` y policies de `public`. **No** incluye los schemas `auth` ni `storage`. |
-| `db/data.sql` | Datos de todos los schemas, incluidos `auth` y `storage` (`--data-only --use-copy`, sin `storage.buckets_vectors` ni `storage.vector_indexes`). Abre con `SET session_replication_role = replica`. |
+| `db/data.sql` | Datos de todos los schemas, incluidos `auth` y `storage` (`--data-only --use-copy`, sin `storage.buckets_vectors` ni `storage.vector_indexes`). |
 | `db/migrations-schema.sql` | La tabla `supabase_migrations.schema_migrations` (`CREATE … IF NOT EXISTS`), que un proyecto nuevo todavía no tiene. |
 | `db/migrations-history.sql` | Las filas de esa tabla: qué migraciones ya están aplicadas. |
 | `storage/player-files/<ruta>` | Cada objeto del bucket `player-files`, incluido `.emptyFolderPlaceholder`. |
@@ -124,19 +124,24 @@ read -rs NEW_DB_URL && export NEW_DB_URL   # Session pooler del proyecto nuevo
 ```bash
 cd "$dir/db"
 psql "$NEW_DB_URL" --single-transaction -v ON_ERROR_STOP=1 \
-  -f roles.sql -f schema.sql -f migrations-schema.sql -f data.sql -f migrations-history.sql
+  -f roles.sql -f schema.sql -f migrations-schema.sql \
+  -c 'SET session_replication_role = replica' -f data.sql -f migrations-history.sql
 cd -
 ```
 
-   `data.sql` ya abre con `SET session_replication_role = replica`. El dump de schema conserva los `ALTER DEFAULT PRIVILEGES FOR ROLE "postgres"` y los `GRANT`/`REVOKE` de producción, 0016 incluido: **no** se agrega ningún revoke previo.
+   El `-c` desactiva triggers y llaves foráneas mientras se cargan los datos, como indica la guía de Supabase.
 
-2. Volver a aplicar las migraciones que tocan los schemas `auth` o `storage`, que el dump de schema no incluye. Hoy es solo `0012` (fila del bucket, que es idempotente, y las policies de `storage.objects`):
+2. Volver a aplicar, en este orden, las migraciones que el dump no reproduce:
 
 ```bash
 psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0012_player_files_storage.sql
+psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0016_revoke_anon_privileges.sql
 ```
 
-   **Regla:** cualquier migración futura que toque `auth` o `storage` se agrega a esta lista. Si una migración posterior redefine una función de 0012, aplicar de 0012 solo las policies.
+   - `0012`: la fila del bucket (idempotente) y las policies de `storage.objects`, porque el dump de schema no incluye `storage`.
+   - `0016`: pg_dump escribe los permisos relativos a los defaults de Postgres, y un proyecto nuevo de Supabase da ALL a `anon` sobre lo que se crea en `public`. Sin 0016, el proyecto restaurado le devuelve privilegios a `anon` (checklist B en rojo). Son solo revokes, así que correrla dos veces es seguro.
+
+   **Regla:** toda migración que toque `auth`/`storage` **o que revoque privilegios** se agrega a esta lista. Si una migración posterior redefine una función de 0012, aplicar de 0012 solo las policies.
 
 3. Verificar privilegios. El bloque B del checklist (`docs/security/pre-real-data-checklist.md`) debe dar verde sobre el proyecto nuevo, **y** `authenticated` debe tener los mismos grants en los dos proyectos. Se corre esta query en producción (por MCP o `psql`) y en el restaurado, y se comparan:
 
@@ -186,7 +191,7 @@ Imprime solo `restored=<n>`, que debe coincidir con `objects` de `manifest.json`
 
 Ante corrupción o borrado, **nunca** se restaura encima del proyecto vivo. Siempre:
 
-1. Proyecto nuevo, y las secciones anteriores completas (base, 0012, privilegios, checklist A–D, Storage).
+1. Proyecto nuevo, y las secciones anteriores completas (base, 0012 y 0016, privilegios, checklist A–D, Storage).
 2. Reconfigurar a mano lo que no va en el respaldo: Auth (Site URL, redirect URLs, plantillas de correo), SMTP y los secrets de la Edge Function.
 3. Desplegar la Edge Function: `supabase functions deploy invite-user --project-ref <ref-nuevo>`.
 4. En Vercel, cambiar `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` al proyecto nuevo y redesplegar. Las sesiones viejas dejan de valer: los usuarios vuelven a entrar con su enlace.
