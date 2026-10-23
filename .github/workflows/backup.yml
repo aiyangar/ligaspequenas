@@ -1,0 +1,109 @@
+name: Nightly backup
+
+# Spec: docs/superpowers/specs/2026-10-22-nightly-backups-design.md. Runbook: docs/ops/backups.md.
+on:
+  schedule:
+    - cron: '17 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+defaults:
+  run:
+    # Explicit bash runs every step with -eo pipefail, so a dying tar cannot yield a green, truncated archive.
+    shell: bash
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    environment: backups
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.107.0
+
+      - name: Install age
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq age
+
+      - name: Check recipients
+        run: |
+          node ops/backup/check-recipients.ts ops/backup/recipients.txt
+          # age's own parser has the last word before any data is dumped.
+          age -R ops/backup/recipients.txt -o /dev/null </dev/null >/dev/null 2>&1 || { echo 'error: recipients'; exit 1; }
+
+      - name: Dump database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          db="$RUNNER_TEMP/backup/db"
+          mkdir -p "$db"
+          supabase db dump --db-url "$SUPABASE_DB_URL" --role-only -f "$db/roles.sql"
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f "$db/schema.sql"
+          supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy \
+            -x storage.buckets_vectors -x storage.vector_indexes -f "$db/data.sql"
+          # The data dump skips supabase_migrations; a fresh project also lacks its table, so dump both.
+          supabase db dump --db-url "$SUPABASE_DB_URL" --schema supabase_migrations -f "$db/migrations-schema.sql"
+          supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy \
+            --schema supabase_migrations -f "$db/migrations-history.sql"
+          for f in roles schema data migrations-schema migrations-history; do test -s "$db/$f.sql"; done
+          grep -q '^COPY "public"."players"' "$db/data.sql"
+
+      - name: Dump Storage
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_BACKUP_SECRET_KEY: ${{ secrets.SUPABASE_BACKUP_SECRET_KEY }}
+        run: node ops/backup/storage-dump.ts "$RUNNER_TEMP/backup/storage"
+
+      - name: Cross-check database and Storage
+        run: node ops/backup/crosscheck.ts "$RUNNER_TEMP/backup"
+
+      - name: Write manifest
+        run: node ops/backup/manifest.ts "$RUNNER_TEMP/backup"
+
+      - name: Encrypt
+        id: encrypt
+        run: |
+          ts=$(date -u +%Y-%m-%dT%H%MZ)
+          mkdir -p "$RUNNER_TEMP/out"
+          # tar errors name minors' files; pipefail still catches failures.
+          tar -C "$RUNNER_TEMP/backup" -cf - . 2>/dev/null | age -R ops/backup/recipients.txt -o "$RUNNER_TEMP/out/backup-$ts.tar.age"
+          test "$(head -c 21 "$RUNNER_TEMP/out/backup-$ts.tar.age")" = 'age-encryption.org/v1'
+          rm -rf "$RUNNER_TEMP/backup"
+          echo "ts=$ts" >> "$GITHUB_OUTPUT"
+
+      - name: Upload encrypted artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backup-${{ steps.encrypt.outputs.ts }}
+          path: ${{ runner.temp }}/out/*.tar.age
+          retention-days: 30
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Ping healthchecks.io
+        continue-on-error: true
+        env:
+          HEALTHCHECK_PING_URL: ${{ secrets.HEALTHCHECK_PING_URL }}
+        run: curl -fsS -m 10 --retry 3 -o /dev/null "$HEALTHCHECK_PING_URL"
+
+      - name: Clean up
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/backup" "$RUNNER_TEMP/out"

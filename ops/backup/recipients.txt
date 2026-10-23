@@ -1,0 +1,3 @@
+# Destinatarios age de los respaldos (#87). Una llave pública por línea.
+# Exactamente dos: la principal del owner y la de recuperación offline.
+# Mientras este archivo no tenga dos líneas age1…, el respaldo falla a propósito.

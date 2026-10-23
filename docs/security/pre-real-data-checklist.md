@@ -132,6 +132,8 @@ El pgTAP de 0012/0013 sigue verde por MCP y el E2E en navegador (escenarios E1�
 
 2026-10-16 — Free + backups automáticos cifrados (#87). Motivo: liga en arranque, ≤ ~40 jugadores esta temporada; Free alcanza (spec §7). Verde con esta línea. El estado de #87 se anota como dato informativo; no bloquea.
 
+Runbook: `docs/ops/backups.md`.
+
 ## G. (informativo) Advisors de seguridad
 
 `get_advisors(security)`: solo se acepta `auth_leaked_password_protection` (la app es passwordless). Cualquier otro lint es rojo.
