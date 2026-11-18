@@ -11,24 +11,29 @@ const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   calls: [] as Array<[string, unknown[]]>,
   result: { data: null as unknown, error: null as { message: string } | null },
+  pages: [] as Array<{ data: unknown; error: { message: string } | null }>,
 }))
 vi.mock('../lib/supabase', () => ({ supabase: { from: mocks.from } }))
 
 function query() {
   const q: Record<string, unknown> = {}
-  for (const m of ['select', 'insert', 'update', 'delete', 'eq', 'in', 'order']) {
+  for (const m of ['select', 'insert', 'update', 'delete', 'eq', 'in', 'order', 'range']) {
     q[m] = (...args: unknown[]) => {
       mocks.calls.push([m, args])
       return q
     }
   }
   q.then = (onOk: (v: unknown) => unknown, onErr: (e: unknown) => unknown) =>
-    Promise.resolve(mocks.result).then(onOk, onErr)
+    Promise.resolve(mocks.pages.shift() ?? mocks.result).then(onOk, onErr)
   return q
 }
 
 function respond(data: unknown, error: { message: string } | null = null) {
   mocks.result = { data, error }
+}
+
+function respondPages(...pages: unknown[][]) {
+  mocks.pages = pages.map((data) => ({ data, error: null }))
 }
 
 function called(method: string) {
@@ -51,6 +56,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.calls.length = 0
   respond([])
+  mocks.pages = []
   mocks.from.mockImplementation(() => query())
 })
 
@@ -220,11 +226,19 @@ test('PAYMENT_STATE_COLOR maps each state to its chip color', () => {
   })
 })
 
-test('fetchPaymentStatuses reads the view', async () => {
-  respond([state('p1', 'sin_pagos')])
+test('fetchPaymentStatuses reads the view by player_id, block by block', async () => {
+  respondPages([state('p1', 'sin_pagos')], [])
   expect(await fetchPaymentStatuses()).toEqual([state('p1', 'sin_pagos')])
   expect(mocks.from).toHaveBeenCalledWith('player_payment_status')
-  expect(called('select')).toEqual([['player_id, tenant_id, payment_state']])
+  expect(called('select')).toEqual([['player_id, tenant_id, payment_state'], ['player_id, tenant_id, payment_state']])
+  expect(called('order')).toEqual([['player_id', { ascending: true }], ['player_id', { ascending: true }]])
+  expect(called('range')).toEqual([[0, 999], [1, 1000]])
+})
+
+test('fetchPaymentStatuses keeps the first row per player_id across blocks', async () => {
+  respondPages([state('p1', 'sin_pagos')], [state('p1', 'al_corriente'), state('p2', 'sin_pagos')], [])
+  expect(await fetchPaymentStatuses()).toEqual([state('p1', 'sin_pagos'), state('p2', 'sin_pagos')])
+  expect(called('range')).toEqual([[0, 999], [1, 1000], [3, 1002]])
 })
 
 test('fetchPaymentStatuses throws on error', async () => {
@@ -232,13 +246,24 @@ test('fetchPaymentStatuses throws on error', async () => {
   await expect(fetchPaymentStatuses()).rejects.toThrow('boom')
 })
 
-test('fetchOutstandingPayments reads pendiente and parcial rows by date', async () => {
-  respond([row({ status: 'parcial', amount: '200.00' as unknown as number })])
+test('fetchOutstandingPayments reads pendiente and parcial rows by date with an id tiebreak, block by block', async () => {
+  respondPages([row({ status: 'parcial', amount: '200.00' as unknown as number })], [])
   const rows = await fetchOutstandingPayments()
   expect(mocks.from).toHaveBeenCalledWith('payments')
-  expect(called('in')).toEqual([['status', ['pendiente', 'parcial']]])
-  expect(called('order')).toEqual([['payment_date', { ascending: true }]])
+  expect(called('in')).toEqual([['status', ['pendiente', 'parcial']], ['status', ['pendiente', 'parcial']]])
+  expect(called('order')).toEqual([
+    ['payment_date', { ascending: true }], ['id', { ascending: true }],
+    ['payment_date', { ascending: true }], ['id', { ascending: true }],
+  ])
+  expect(called('range')).toEqual([[0, 999], [1, 1000]])
+  expect(rows).toHaveLength(1)
   expect(rows[0].amount).toBe(200)
+})
+
+test('fetchOutstandingPayments keeps the first copy of a payment repeated across blocks', async () => {
+  respondPages([row({ id: 'pay1', status: 'pendiente' })], [row({ id: 'pay1', amount: 999 }), row({ id: 'pay2', status: 'parcial' })], [])
+  const rows = await fetchOutstandingPayments()
+  expect(rows.map((r) => [r.id, r.amount])).toEqual([['pay1', 500], ['pay2', 500]])
 })
 
 test('fetchOutstandingPayments throws on error', async () => {
