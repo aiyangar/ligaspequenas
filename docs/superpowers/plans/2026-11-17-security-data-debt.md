@@ -260,11 +260,11 @@ Después: PR a `develop` con las salidas de O2, O4, O5 y O6 y la línea `0017 ap
 
 ### Implementer
 
-- [ ] **Step 0: Preparar y medir el baseline**
+- [x] **Step 0: Preparar y medir el baseline**
 
 `git -C $WT branch --show-current` → `fix/lock-player-file-write`; `git -C $WT log --oneline origin/develop..HEAD` → vacío. En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`; anota `B_files` y `B_tests`.
 
-- [ ] **Step 1: Escribir el test**
+- [x] **Step 1: Escribir el test**
 
 Crea `supabase/tests/0018_lock_player_on_file_write.test.sql` con exactamente este contenido. Las 10 aserciones de ruta y las 3 de subida son copia literal de `0012_player_files_storage.test.sql` (regresión, spec §4.2):
 
@@ -354,7 +354,7 @@ select * from extensions.finish();
 rollback;
 ```
 
-- [ ] **Step 2: Escribir la migración**
+- [x] **Step 2: Escribir la migración**
 
 Crea `supabase/migrations/0018_lock_player_on_file_write.sql`. Es el `create or replace function private.player_file_path_allowed(p_name text)` de `0012_player_files_storage.sql` (líneas 20–54) **con el mismo cuerpo**, salvo estos cambios (spec §4.2):
 
@@ -374,13 +374,13 @@ Crea `supabase/migrations/0018_lock_player_on_file_write.sql`. Es el `create or 
 
 El chequeo de consentimiento (`return private.player_consent_granted(v_player);`) queda como sentencia aparte **después** del `select … for share`, como ya está en 0012.
 
-- [ ] **Step 3: Verificación estática y frontend**
+- [x] **Step 3: Verificación estática y frontend**
 
 - `grep -c '^select extensions.is(' supabase/tests/0018_lock_player_on_file_write.test.sql` → `19`.
 - `grep -n 'for share' supabase/migrations/0018_lock_player_on_file_write.sql` → 1 línea (`  for share;`); `grep -n 'volatile' …` → 1 línea; `grep -c 'stable' …` → `0`.
 - En `$WT`: `pnpm exec vitest run` → `B_files` / `B_tests`, todo verde; `pnpm exec tsc -b` → exit 0; `pnpm lint` → exit 0.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-17-security-data-debt.md supabase/migrations/0018_lock_player_on_file_write.sql supabase/tests/0018_lock_player_on_file_write.test.sql
