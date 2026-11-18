@@ -464,11 +464,11 @@ Después: PR a `develop` con O2, O4, O5, O6, O7 y la línea `0018 applied to rem
   - `export async function fetchAllRows<T>(page: (from: number, to: number) => PromiseLike<PageResult<T>>, key: (row: T) => string): Promise<T[]>`
 - El dedupe vive en el helper (decisión de este plan): cada lectura le pasa su clave. Las firmas y tipos de retorno de `fetchPlayers`, `fetchPaymentStatuses` y `fetchOutstandingPayments` no cambian; `DebtorsPage`, `PlayersPage`, el export a Excel y `routes.test.tsx` no se tocan.
 
-- [ ] **Step 0: Preparar y medir el baseline**
+- [x] **Step 0: Preparar y medir el baseline**
 
 `git -C $WT branch --show-current` → `fix/paginate-tenant-reads`; `git -C $WT log --oneline origin/develop..HEAD` → vacío. En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`; anota `B_files` y `B_tests`.
 
-- [ ] **Step 1: Escribir los tests del helper**
+- [x] **Step 1: Escribir los tests del helper**
 
 Crea `src/lib/fetchAllRows.test.ts`:
 
@@ -549,21 +549,21 @@ test('the first occurrence of a repeated key wins', async () => {
 })
 ```
 
-- [ ] **Step 2: Verificar que fallan**
+- [x] **Step 2: Verificar que fallan**
 
 Run: `pnpm exec vitest run src/lib/fetchAllRows.test.ts`
 Expected: FAIL, no se puede resolver `./fetchAllRows`.
 
-- [ ] **Step 3: Implementar `fetchAllRows` en `src/lib/fetchAllRows.ts`**
+- [x] **Step 3: Implementar `fetchAllRows` en `src/lib/fetchAllRows.ts`**
 
 Exporta `PAGE_SIZE`, `PageResult<T>` y `fetchAllRows<T>` con las firmas del bloque Interfaces. Algoritmo (spec §4.3): lleva un `offset` (filas **recibidas**, con duplicados), un `Set` de claves vistas y el arreglo de salida; en cada vuelta pide `page(offset, offset + PAGE_SIZE - 1)`; si viene `error`, `throw new Error(error.message)`; si `data` es `null` o vacío, devuelve la salida; si no, suma `data.length` al `offset` y agrega a la salida solo las filas cuya `key(row)` no estaba en el `Set`. Nunca corta por "bloque incompleto". Una línea de comentario sobre el corte, por ejemplo `// stop only on an empty block: a short one may just mean max-rows < PAGE_SIZE`.
 
-- [ ] **Step 4: Verificar que pasan**
+- [x] **Step 4: Verificar que pasan**
 
 Run: `pnpm exec vitest run src/lib/fetchAllRows.test.ts`
 Expected: 9 tests PASS.
 
-- [ ] **Step 5: Actualizar los tests de `fetchPlayers` (rojo)**
+- [x] **Step 5: Actualizar los tests de `fetchPlayers` (rojo)**
 
 En `src/players/players.test.ts`:
 
@@ -609,14 +609,14 @@ test('fetchPlayers keeps the first copy of a player repeated across blocks', asy
 Run: `pnpm exec vitest run src/players/players.test.ts`
 Expected: FAIL en `…id tiebreak, block by block`, `…repeated across blocks` y `fetchPlayers throws when Supabase returns an error`; el resto pasa.
 
-- [ ] **Step 6: Implementar `fetchPlayers` con el helper**
+- [x] **Step 6: Implementar `fetchPlayers` con el helper**
 
 En `src/players/players.ts`, importa `fetchAllRows` de `'../lib/fetchAllRows'` y haz que `fetchPlayers(): Promise<PlayerRow[]>` devuelva `fetchAllRows<PlayerRow>((from, to) => supabase.from('players_with_category').select('*').order('full_name', { ascending: true }).order('id', { ascending: true }).range(from, to), (row) => row.id)`. La query se arma dentro de la función de página (un builder de `supabase-js` no se reutiliza entre peticiones).
 
 Run: `pnpm exec vitest run src/players/players.test.ts`
 Expected: todo PASS.
 
-- [ ] **Step 7: Actualizar los tests de pagos (rojo)**
+- [x] **Step 7: Actualizar los tests de pagos (rojo)**
 
 En `src/payments/payments.test.ts`:
 
@@ -681,7 +681,7 @@ Los tests `… throws on error` no cambian (con la cola vacía, `respond(null, {
 Run: `pnpm exec vitest run src/payments/payments.test.ts`
 Expected: FAIL en los cuatro tests nuevos/reemplazados; el resto pasa. Los cuatro fallan de verdad con el código actual: los dos `…block by block` porque no hay llamadas a `range`; los dos de dedupe porque el código actual devuelve solo el primer bloque (`[p1]` en vez de `[p1, p2]`; `[pay1]` en vez de `[pay1, pay2]`).
 
-- [ ] **Step 8: Implementar las dos lecturas de pagos con el helper**
+- [x] **Step 8: Implementar las dos lecturas de pagos con el helper**
 
 En `src/payments/payments.ts`, importa `fetchAllRows` de `'../lib/fetchAllRows'`:
 - `fetchPaymentStatuses(): Promise<PaymentStatusRow[]>` → `fetchAllRows<PaymentStatusRow>` sobre `from('player_payment_status').select('player_id, tenant_id, payment_state').order('player_id', { ascending: true }).range(from, to)`, clave `(row) => row.player_id` (`player_id` es único en la vista: `group by p.id`).
@@ -692,11 +692,11 @@ El comentario existente `// Con adeudo follows the open rows, not the view: the 
 Run: `pnpm exec vitest run src/payments/payments.test.ts`
 Expected: todo PASS.
 
-- [ ] **Step 9: Suite completa, tipos y lint**
+- [x] **Step 9: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files + 1` archivos, `B_tests + 12` tests (9 del helper + 1 de jugadores + 2 de pagos), todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-17-security-data-debt.md src/lib/fetchAllRows.ts src/lib/fetchAllRows.test.ts src/players/players.ts src/players/players.test.ts src/payments/payments.ts src/payments/payments.test.ts

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { categoryLabel } from '../lib/category'
+import { fetchAllRows } from '../lib/fetchAllRows'
 import { PLAYER_FILES_BUCKET, documentErrorMessage, playerFilePath, removeFile } from '../documents/documents'
 import type { PaymentState } from '../payments/payments'
 
@@ -47,12 +48,16 @@ export interface PlayerRow {
 }
 
 export async function fetchPlayers(): Promise<PlayerRow[]> {
-  const { data, error } = await supabase
-    .from('players_with_category')
-    .select('*')
-    .order('full_name', { ascending: true })
-  if (error) throw new Error(error.message)
-  return (data as PlayerRow[] | null) ?? []
+  return fetchAllRows<PlayerRow>(
+    (from, to) =>
+      supabase
+        .from('players_with_category')
+        .select('*')
+        .order('full_name', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    (row) => row.id,
+  )
 }
 
 export async function fetchPlayer(id: string): Promise<PlayerRow | null> {

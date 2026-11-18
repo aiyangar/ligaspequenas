@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { fetchAllRows } from '../lib/fetchAllRows'
 import type { PlayerRow } from '../players/players'
 
 export type PaymentConcept = 'inscripcion' | 'mensualidad' | 'uniforme' | 'otro'
@@ -220,21 +221,30 @@ export interface DebtGroups {
 }
 
 export async function fetchPaymentStatuses(): Promise<PaymentStatusRow[]> {
-  const { data, error } = await supabase
-    .from('player_payment_status')
-    .select('player_id, tenant_id, payment_state')
-  if (error) throw new Error(error.message)
-  return (data as PaymentStatusRow[] | null) ?? []
+  return fetchAllRows<PaymentStatusRow>(
+    (from, to) =>
+      supabase
+        .from('player_payment_status')
+        .select('player_id, tenant_id, payment_state')
+        .order('player_id', { ascending: true })
+        .range(from, to),
+    (row) => row.player_id,
+  )
 }
 
 export async function fetchOutstandingPayments(): Promise<PaymentRow[]> {
-  const { data, error } = await supabase
-    .from('payments')
-    .select(PAYMENT_COLUMNS)
-    .in('status', ['pendiente', 'parcial'])
-    .order('payment_date', { ascending: true })
-  if (error) throw new Error(error.message)
-  return ((data as PaymentRow[] | null) ?? []).map(normalizeRow)
+  const rows = await fetchAllRows<PaymentRow>(
+    (from, to) =>
+      supabase
+        .from('payments')
+        .select(PAYMENT_COLUMNS)
+        .in('status', ['pendiente', 'parcial'])
+        .order('payment_date', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to),
+    (row) => row.id,
+  )
+  return rows.map(normalizeRow)
 }
 
 // Con adeudo follows the open rows, not the view: the two reads are not atomic

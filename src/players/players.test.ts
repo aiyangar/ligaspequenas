@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   select: vi.fn(),
   order: vi.fn(),
+  range: vi.fn(),
   eq: vi.fn(),
   maybeSingle: vi.fn(),
   insert: vi.fn(),
@@ -37,8 +38,9 @@ function row(over: Partial<PlayerRow> = {}): PlayerRow {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  // read chain: from().select().order()  and  from().select().eq().maybeSingle()
-  mocks.order.mockResolvedValue({ data: [row()], error: null })
+  // read chain: from().select().order().order().range()  and  from().select().eq().maybeSingle()
+  mocks.order.mockReturnValue({ order: mocks.order, range: mocks.range })
+  mocks.range.mockImplementation(async (from: number) => ({ data: from === 0 ? [row()] : [], error: null }))
   mocks.maybeSingle.mockResolvedValue({ data: row(), error: null })
   mocks.eq.mockReturnValue({ maybeSingle: mocks.maybeSingle }) // read path only
   // write chains: from().insert().select('id').single()  and  from().update().eq()
@@ -65,17 +67,31 @@ beforeEach(() => {
   mocks.storageFrom.mockReturnValue({ upload: mocks.upload, remove: mocks.remove, list: mocks.list })
 })
 
-test('fetchPlayers reads the category view ordered by name', async () => {
+test('fetchPlayers reads the category view by name with an id tiebreak, block by block', async () => {
   const rows = await fetchPlayers()
   expect(mocks.from).toHaveBeenCalledWith('players_with_category')
   expect(mocks.select).toHaveBeenCalledWith('*')
-  expect(mocks.order).toHaveBeenCalledWith('full_name', { ascending: true })
+  expect(mocks.order.mock.calls).toEqual([
+    ['full_name', { ascending: true }], ['id', { ascending: true }],
+    ['full_name', { ascending: true }], ['id', { ascending: true }],
+  ])
+  expect(mocks.range.mock.calls).toEqual([[0, 999], [1, 1000]])
   expect(rows).toHaveLength(1)
   expect(rows[0].category_name).toBe('Infantil Mayor')
 })
 
+test('fetchPlayers keeps the first copy of a player repeated across blocks', async () => {
+  mocks.range.mockImplementation(async (from: number) => ({
+    data: from === 0 ? [row()] : from === 1 ? [row({ full_name: 'Ana Ruiz (copia)' })] : [],
+    error: null,
+  }))
+  const rows = await fetchPlayers()
+  expect(rows.map((r) => r.full_name)).toEqual(['Ana Ruiz'])
+  expect(mocks.range.mock.calls).toEqual([[0, 999], [1, 1000], [2, 1001]])
+})
+
 test('fetchPlayers returns [] when the view yields null data', async () => {
-  mocks.order.mockResolvedValue({ data: null, error: null })
+  mocks.range.mockResolvedValue({ data: null, error: null })
   expect(await fetchPlayers()).toEqual([])
 })
 
@@ -172,7 +188,7 @@ test('emptyPlayer defaults status/affiliation and a today enrollment_date', () =
 })
 
 test('fetchPlayers throws when Supabase returns an error', async () => {
-  mocks.order.mockResolvedValue({ data: null, error: { message: 'boom' } })
+  mocks.range.mockResolvedValue({ data: null, error: { message: 'boom' } })
   await expect(fetchPlayers()).rejects.toThrow('boom')
 })
 
