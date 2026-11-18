@@ -70,11 +70,11 @@ select (select count(*) from public.tenants) as tenants, (select count(*) from p
 
 ### Implementer
 
-- [ ] **Step 0: Preparar y medir el baseline**
+- [x] **Step 0: Preparar y medir el baseline**
 
 `git -C $WT branch --show-current` → `fix/forbid-player-delete`; `git -C $WT log --oneline origin/develop..HEAD` → vacío. Luego, en `$WT`, `pnpm install --frozen-lockfile` y `pnpm exec vitest run`; anota `B_files` y `B_tests` (todo verde).
 
-- [ ] **Step 1: Escribir el test**
+- [x] **Step 1: Escribir el test**
 
 Crea `supabase/tests/0017_forbid_player_delete.test.sql` con exactamente este contenido:
 
@@ -167,7 +167,7 @@ select * from extensions.finish();
 rollback;
 ```
 
-- [ ] **Step 2: Ajustar A2 en el test de 0016**
+- [x] **Step 2: Ajustar A2 en el test de 0016**
 
 En `supabase/tests/0016_revoke_anon_privileges.test.sql`, la aserción A2 excluye `players` de forma explícita y lo dice en su descripción. Queda así (el resto del archivo no cambia; `plan(22)` sigue igual):
 
@@ -180,7 +180,7 @@ union all select extensions.is(
   0, 'A2 authenticated keeps SELECT/INSERT/UPDATE/DELETE on every public table except players (0017)')
 ```
 
-- [ ] **Step 3: Escribir la migración**
+- [x] **Step 3: Escribir la migración**
 
 Crea `supabase/migrations/0017_forbid_player_delete.sql` con exactamente:
 
@@ -189,13 +189,13 @@ drop policy players_delete on public.players;
 revoke delete, truncate on public.players from authenticated;
 ```
 
-- [ ] **Step 4: Verificación estática y frontend**
+- [x] **Step 4: Verificación estática y frontend**
 
 - `grep -c '^select extensions.is(' supabase/tests/0017_forbid_player_delete.test.sql` → `10` (igual a `plan(10)`).
 - `grep -n "relname <> 'players'" supabase/tests/0016_revoke_anon_privileges.test.sql` → 1 línea.
 - En `$WT`: `pnpm exec vitest run` → `B_files` / `B_tests`, todo verde; `pnpm exec tsc -b` → exit 0; `pnpm lint` → exit 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-17-security-data-debt.md supabase/migrations/0017_forbid_player_delete.sql supabase/tests/0017_forbid_player_delete.test.sql supabase/tests/0016_revoke_anon_privileges.test.sql
