@@ -208,7 +208,7 @@ git -C $WT commit -m "fix: forbid deleting players through the API (#44)" -m "De
 
 ### Orquestador [MCP]
 
-- [ ] **Step O1: Baseline**
+- [x] **Step O1: Baseline**
 
 `list_migrations` → la última entrada es `0016_revoke_anon_privileges` o `0018_lock_player_on_file_write` (nunca `0017`). Corre la baseline query y esta **residue query** (esperado: todo `0`; si no, limpiar antes de seguir):
 
@@ -220,24 +220,24 @@ select (select count(*) from public.tenants where id::text like 'ffffffff-%') as
        (select count(*) from public.documents where tenant_id::text like 'ffffffff-%') as documents;
 ```
 
-- [ ] **Step O2: Rojo (0017 sin aplicar)**
+- [x] **Step O2: Rojo (0017 sin aplicar)**
 
 Forma MCP del archivo del worktree (reglas del harness), una llamada a `execute_sql`, con `set local lock_timeout = '3s';` como **primera** sentencia (el `TRUNCATE` de la fila 8 toma `ACCESS EXCLUSIVE` sobre `players` en la base viva; así no se queda esperando detrás de tráfico real). Si se agota el tiempo, la fila 8 falla visiblemente con `55P03` y se repite la corrida.
 Expected: 10 filas; `not ok 1`, `not ok 2`, `not ok 3`, `not ok 4`, `ok 5`, `ok 6`, `not ok 7`, `not ok 8`, `not ok 9`, `not ok 10`. (Hoy el admin sí borra al jugador fixture dentro de la transacción, así que 9 y 10 también fallan; el `TRUNCATE` de la fila 8 falla con `0A000` por las FK y, aunque no fallara, `as_role_undo` lo revierte.) Luego residue query → todo `0`; baseline query → igual a O1. Si el patrón es otro, detenerse y diagnosticar con `superpowers:systematic-debugging`.
 
-- [ ] **Step O3: Revisión pre-PR**
+- [x] **Step O3: Revisión pre-PR**
 
 Revisión de código de la rama. **Si no sale limpia, no se aplica nada**: el implementer corrige en la rama y se repite O2.
 
-- [ ] **Step O4: Aplicar**
+- [x] **Step O4: Aplicar**
 
 `apply_migration` con `name: "0017_forbid_player_delete"` y el contenido del archivo. `list_migrations` → aparece `0017_forbid_player_delete`. `get_advisors` `type: "security"` → solo `auth_leaked_password_protection`.
 
-- [ ] **Step O5: Verde**
+- [x] **Step O5: Verde**
 
 Misma llamada que O2, también con `set local lock_timeout = '3s';` al inicio (un `55P03` en la fila 8 es timeout: repetir). Expected: 10 filas, `ok 1` … `ok 10`. Residue → todo `0`; baseline → igual a O1.
 
-- [ ] **Step O6: Regresiones**
+- [x] **Step O6: Regresiones**
 
 1. **A1–A4 de 0016** (catálogo, sin fixtures): una llamada con dos sentencias, `select extensions.plan(4);` y el bloque de A1 a A4 copiado tal cual del archivo editado (desde el `select extensions.is(` de A1 hasta el cierre `)` de A4), terminado en `;`. Expected: `ok 1` … `ok 4`.
 2. **R-0002**, exactamente como está en `docs/superpowers/plans/2026-10-16-pre-real-data-checklist.md` l.434–499 (una llamada). Expected: 6 filas `ok 1` … `ok 6`. Luego la residue query de ese plan (l.305–320) → todo `0`/`null`, y la baseline query → igual a O1.
