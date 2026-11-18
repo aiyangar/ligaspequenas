@@ -47,10 +47,10 @@ select extensions.is(
   0, 'A1 anon has no privilege on any public relation')
 union all select extensions.is(
   (select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace
-   where n.nspname = 'public' and c.relkind in ('r', 'p')
+   where n.nspname = 'public' and c.relkind in ('r', 'p') and c.relname <> 'players'
      and not (has_table_privilege('authenticated', c.oid, 'SELECT') and has_table_privilege('authenticated', c.oid, 'INSERT')
               and has_table_privilege('authenticated', c.oid, 'UPDATE') and has_table_privilege('authenticated', c.oid, 'DELETE'))),
-  0, 'A2 authenticated keeps SELECT/INSERT/UPDATE/DELETE on every public table')
+  0, 'A2 authenticated keeps SELECT/INSERT/UPDATE/DELETE on every public table except players (0017)')
 union all select extensions.is(
   (select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace
    where n.nspname = 'public' and c.relkind = 'v' and not has_table_privilege('authenticated', c.oid, 'SELECT')),

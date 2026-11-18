@@ -70,11 +70,11 @@ select (select count(*) from public.tenants) as tenants, (select count(*) from p
 
 ### Implementer
 
-- [ ] **Step 0: Preparar y medir el baseline**
+- [x] **Step 0: Preparar y medir el baseline**
 
 `git -C $WT branch --show-current` → `fix/forbid-player-delete`; `git -C $WT log --oneline origin/develop..HEAD` → vacío. Luego, en `$WT`, `pnpm install --frozen-lockfile` y `pnpm exec vitest run`; anota `B_files` y `B_tests` (todo verde).
 
-- [ ] **Step 1: Escribir el test**
+- [x] **Step 1: Escribir el test**
 
 Crea `supabase/tests/0017_forbid_player_delete.test.sql` con exactamente este contenido:
 
@@ -167,7 +167,7 @@ select * from extensions.finish();
 rollback;
 ```
 
-- [ ] **Step 2: Ajustar A2 en el test de 0016**
+- [x] **Step 2: Ajustar A2 en el test de 0016**
 
 En `supabase/tests/0016_revoke_anon_privileges.test.sql`, la aserción A2 excluye `players` de forma explícita y lo dice en su descripción. Queda así (el resto del archivo no cambia; `plan(22)` sigue igual):
 
@@ -180,7 +180,7 @@ union all select extensions.is(
   0, 'A2 authenticated keeps SELECT/INSERT/UPDATE/DELETE on every public table except players (0017)')
 ```
 
-- [ ] **Step 3: Escribir la migración**
+- [x] **Step 3: Escribir la migración**
 
 Crea `supabase/migrations/0017_forbid_player_delete.sql` con exactamente:
 
@@ -189,13 +189,13 @@ drop policy players_delete on public.players;
 revoke delete, truncate on public.players from authenticated;
 ```
 
-- [ ] **Step 4: Verificación estática y frontend**
+- [x] **Step 4: Verificación estática y frontend**
 
 - `grep -c '^select extensions.is(' supabase/tests/0017_forbid_player_delete.test.sql` → `10` (igual a `plan(10)`).
 - `grep -n "relname <> 'players'" supabase/tests/0016_revoke_anon_privileges.test.sql` → 1 línea.
 - En `$WT`: `pnpm exec vitest run` → `B_files` / `B_tests`, todo verde; `pnpm exec tsc -b` → exit 0; `pnpm lint` → exit 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-17-security-data-debt.md supabase/migrations/0017_forbid_player_delete.sql supabase/tests/0017_forbid_player_delete.test.sql supabase/tests/0016_revoke_anon_privileges.test.sql
@@ -208,7 +208,7 @@ git -C $WT commit -m "fix: forbid deleting players through the API (#44)" -m "De
 
 ### Orquestador [MCP]
 
-- [ ] **Step O1: Baseline**
+- [x] **Step O1: Baseline**
 
 `list_migrations` → la última entrada es `0016_revoke_anon_privileges` o `0018_lock_player_on_file_write` (nunca `0017`). Corre la baseline query y esta **residue query** (esperado: todo `0`; si no, limpiar antes de seguir):
 
@@ -220,24 +220,24 @@ select (select count(*) from public.tenants where id::text like 'ffffffff-%') as
        (select count(*) from public.documents where tenant_id::text like 'ffffffff-%') as documents;
 ```
 
-- [ ] **Step O2: Rojo (0017 sin aplicar)**
+- [x] **Step O2: Rojo (0017 sin aplicar)**
 
 Forma MCP del archivo del worktree (reglas del harness), una llamada a `execute_sql`, con `set local lock_timeout = '3s';` como **primera** sentencia (el `TRUNCATE` de la fila 8 toma `ACCESS EXCLUSIVE` sobre `players` en la base viva; así no se queda esperando detrás de tráfico real). Si se agota el tiempo, la fila 8 falla visiblemente con `55P03` y se repite la corrida.
 Expected: 10 filas; `not ok 1`, `not ok 2`, `not ok 3`, `not ok 4`, `ok 5`, `ok 6`, `not ok 7`, `not ok 8`, `not ok 9`, `not ok 10`. (Hoy el admin sí borra al jugador fixture dentro de la transacción, así que 9 y 10 también fallan; el `TRUNCATE` de la fila 8 falla con `0A000` por las FK y, aunque no fallara, `as_role_undo` lo revierte.) Luego residue query → todo `0`; baseline query → igual a O1. Si el patrón es otro, detenerse y diagnosticar con `superpowers:systematic-debugging`.
 
-- [ ] **Step O3: Revisión pre-PR**
+- [x] **Step O3: Revisión pre-PR**
 
 Revisión de código de la rama. **Si no sale limpia, no se aplica nada**: el implementer corrige en la rama y se repite O2.
 
-- [ ] **Step O4: Aplicar**
+- [x] **Step O4: Aplicar**
 
 `apply_migration` con `name: "0017_forbid_player_delete"` y el contenido del archivo. `list_migrations` → aparece `0017_forbid_player_delete`. `get_advisors` `type: "security"` → solo `auth_leaked_password_protection`.
 
-- [ ] **Step O5: Verde**
+- [x] **Step O5: Verde**
 
 Misma llamada que O2, también con `set local lock_timeout = '3s';` al inicio (un `55P03` en la fila 8 es timeout: repetir). Expected: 10 filas, `ok 1` … `ok 10`. Residue → todo `0`; baseline → igual a O1.
 
-- [ ] **Step O6: Regresiones**
+- [x] **Step O6: Regresiones**
 
 1. **A1–A4 de 0016** (catálogo, sin fixtures): una llamada con dos sentencias, `select extensions.plan(4);` y el bloque de A1 a A4 copiado tal cual del archivo editado (desde el `select extensions.is(` de A1 hasta el cierre `)` de A4), terminado en `;`. Expected: `ok 1` … `ok 4`.
 2. **R-0002**, exactamente como está en `docs/superpowers/plans/2026-10-16-pre-real-data-checklist.md` l.434–499 (una llamada). Expected: 6 filas `ok 1` … `ok 6`. Luego la residue query de ese plan (l.305–320) → todo `0`/`null`, y la baseline query → igual a O1.
