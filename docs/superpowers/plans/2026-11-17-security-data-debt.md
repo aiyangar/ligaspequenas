@@ -393,7 +393,7 @@ git -C $WT commit -m "fix: lock the player while checking a file write against c
 
 ### Orquestador [MCP]
 
-- [ ] **Step O1: Baseline**
+- [x] **Step O1: Baseline**
 
 `list_migrations` → la última entrada es `0016_revoke_anon_privileges` o `0017_forbid_player_delete` (nunca `0018`). Baseline query y **residue query** (esperado: todo `0`):
 
@@ -406,27 +406,27 @@ select (select count(*) from public.tenants where id::text like 'cccccccc-%') as
        (select count(*) from storage.objects where bucket_id = 'player-files' and name like 'cccccccc-%') as objects;
 ```
 
-- [ ] **Step O2: Rojo (0018 sin aplicar)**
+- [x] **Step O2: Rojo (0018 sin aplicar)**
 
 Forma MCP del archivo, una llamada. Expected: 19 filas; `not ok 1` (hoy es `s`) y `not ok 4` (no hay `for share`), todas las demás `ok`. Residue → todo `0`; baseline → igual a O1 (sigue habiendo exactamente 1 objeto real en `player-files`). Si el patrón es otro, detenerse y diagnosticar.
 
-- [ ] **Step O3: Revisión pre-PR**
+- [x] **Step O3: Revisión pre-PR**
 
 Revisión de código de la rama. **Si no sale limpia, no se aplica nada**: el implementer corrige y se repite O2.
 
-- [ ] **Step O4: Aplicar**
+- [x] **Step O4: Aplicar**
 
 `apply_migration` con `name: "0018_lock_player_on_file_write"`. `list_migrations` → aparece. `get_advisors` `type: "security"` → solo `auth_leaked_password_protection`.
 
-- [ ] **Step O5: Verde**
+- [x] **Step O5: Verde**
 
 Misma llamada que O2. Expected: 19 filas, `ok 1` … `ok 19`. Residue → todo `0`; baseline → igual a O1.
 
-- [ ] **Step O6: Regresiones R-0012 y R-0013**
+- [x] **Step O6: Regresiones R-0012 y R-0013**
 
 Tal como están en `docs/superpowers/plans/2026-10-16-pre-real-data-checklist.md`: reglas l.421–432, bloque compartido de fixtures/limpieza l.501–532, **R-0012** l.534–577 (Expected: 25 filas, todas `ok`) y **R-0013** l.579–581 (Expected: 21 filas, todas `ok`). Una llamada cada una, en serie (comparten los UUID `cccccccc-` con el test de 0018). Después de cada una: residue query de O1 → todo `0`; baseline → igual a O1.
 
-- [ ] **Step O7: E2E de #46 contra la API real de Storage (Playwright)**
+- [x] **Step O7: E2E de #46 contra la API real de Storage (Playwright)**
 
 Entorno como en el Step E0 del plan del 2026-10-16 (l.778–782): worktree detached en `origin/develop` con `.env`, `pnpm dev --port 5173 --strictPort`, Chromium persistente por CDP con el admin ya logueado; nunca `browser.close()`. Archivos de prueba en el scratchpad: un PDF mínimo y un JPG pequeño.
 
