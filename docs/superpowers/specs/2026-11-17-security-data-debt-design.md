@@ -81,7 +81,7 @@ Por qué resuelve los dos órdenes:
 
 **Riesgos aceptados del método de prueba:**
 - **No se prueba la concurrencia en pgTAP:** MCP corre una sola sesión y no hay `dblink`. La garantía de orden se documenta arriba y queda como riesgo aceptado del método de prueba, no del diseño.
-- **Supuesto sobre Storage:** la garantía vale solo si el `INSERT`/upsert final del objeto que hace la API de Storage corre con el rol del usuario (o sea, con RLS evaluada) **en la misma transacción** que confirma el objeto. Si Storage evaluara las policies en una transacción y escribiera el objeto en otra, el candado se soltaría antes de la escritura. No se puede verificar sin el código de storage-api; el E2E de §6 (subida con `upsert: true`, subida de CURP y revocación rechazada con `consent_in_use` mientras existe un archivo) lo respalda en parte.
+- **Supuesto sobre Storage:** la garantía vale solo si el `INSERT`/upsert final del objeto que hace la API de Storage corre con el rol del usuario (o sea, con RLS evaluada) **en la misma transacción** que confirma el objeto. Si Storage evaluara las policies en una transacción y escribiera el objeto en otra, el candado se soltaría antes de la escritura. No se puede verificar sin el código de storage-api; el E2E de §6 (subida con `upsert: true`, subida de CURP y revocación rechazada con `consent_in_use` mientras existe un archivo) no lo verifica; solo descarta regresiones del flujo real.
 
 ### 4.3 #73 — Lecturas por bloques en el frontend
 

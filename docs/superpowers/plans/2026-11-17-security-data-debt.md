@@ -53,7 +53,7 @@ select (select count(*) from public.tenants) as tenants, (select count(*) from p
 - **Un bloque intermedio que falla** (red, JWT expirado entre bloques): la lectura tiene que lanzar, nunca devolver una lista parcial que haga ver a un deudor como "Al corriente" — fijado en Task 3, test `an error in a later block throws…`.
 - **Una fila repetida entre bloques** (alguien inserta un jugador antes de la fila 1000 mientras se lee): tiene que aparecer una sola vez, y el offset tiene que seguir avanzando por las filas recibidas — fijado en Task 3 con los tests de dedupe del helper y los de cada lectura (clave `id` / `player_id`). La fila **saltada** es riesgo aceptado (spec §5).
 - **Dar de baja sigue funcionando** una vez que el borrado está prohibido: un admin puede poner `status = 'baja'` — fijado en Task 1, aserción 10 de `0017_forbid_player_delete.test.sql`.
-- **La migración 0018 no cambia el resultado de ninguna ruta** (consentimiento, otro tenant, jugador inexistente, ruta malformada, uuid inválido que no debe lanzar `22P02`) ni el flujo real de Storage con `upsert: true`: fijado en Task 2 con los 10 casos de ruta y las 3 subidas de 0012 copiados al test de 0018, R-0012/R-0013 y el E2E de Storage.
+- **La migración 0018 no cambia el resultado de ninguna ruta** (consentimiento, otro tenant, jugador inexistente, ruta malformada, uuid inválido que no debe lanzar `22P02`) ni el flujo real de Storage con `upsert: true`: fijado en Task 2 con los 10 casos de ruta y las 3 subidas de 0012 copiados al test de 0018, R-0012/R-0013 y el E2E de Storage (que descarta regresiones del flujo real, pero no verifica el supuesto de Storage de spec §4.2).
 
 ---
 
@@ -198,7 +198,7 @@ revoke delete, truncate on public.players from authenticated;
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C $WT add supabase/migrations/0017_forbid_player_delete.sql supabase/tests/0017_forbid_player_delete.test.sql supabase/tests/0016_revoke_anon_privileges.test.sql
+git -C $WT add docs/superpowers/plans/2026-11-17-security-data-debt.md supabase/migrations/0017_forbid_player_delete.sql supabase/tests/0017_forbid_player_delete.test.sql supabase/tests/0016_revoke_anon_privileges.test.sql
 git -C $WT commit -m "fix: forbid deleting players through the API (#44)" -m "Deleting a player orphaned its photo and documents in player-files; baja is the only way to remove a player, so authenticated loses the DELETE policy and the DELETE and TRUNCATE privileges. 0016's A2 now excludes players explicitly." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
 ```
 
@@ -222,7 +222,7 @@ select (select count(*) from public.tenants where id::text like 'ffffffff-%') as
 
 - [ ] **Step O2: Rojo (0017 sin aplicar)**
 
-Forma MCP del archivo del worktree (reglas del harness), una llamada a `execute_sql`.
+Forma MCP del archivo del worktree (reglas del harness), una llamada a `execute_sql`, con `set local lock_timeout = '3s';` como **primera** sentencia (el `TRUNCATE` de la fila 8 toma `ACCESS EXCLUSIVE` sobre `players` en la base viva; así no se queda esperando detrás de tráfico real). Si se agota el tiempo, la fila 8 falla visiblemente con `55P03` y se repite la corrida.
 Expected: 10 filas; `not ok 1`, `not ok 2`, `not ok 3`, `not ok 4`, `ok 5`, `ok 6`, `not ok 7`, `not ok 8`, `not ok 9`, `not ok 10`. (Hoy el admin sí borra al jugador fixture dentro de la transacción, así que 9 y 10 también fallan; el `TRUNCATE` de la fila 8 falla con `0A000` por las FK y, aunque no fallara, `as_role_undo` lo revierte.) Luego residue query → todo `0`; baseline query → igual a O1. Si el patrón es otro, detenerse y diagnosticar con `superpowers:systematic-debugging`.
 
 - [ ] **Step O3: Revisión pre-PR**
@@ -235,7 +235,7 @@ Revisión de código de la rama. **Si no sale limpia, no se aplica nada**: el im
 
 - [ ] **Step O5: Verde**
 
-Misma llamada que O2. Expected: 10 filas, `ok 1` … `ok 10`. Residue → todo `0`; baseline → igual a O1.
+Misma llamada que O2, también con `set local lock_timeout = '3s';` al inicio (un `55P03` en la fila 8 es timeout: repetir). Expected: 10 filas, `ok 1` … `ok 10`. Residue → todo `0`; baseline → igual a O1.
 
 - [ ] **Step O6: Regresiones**
 
@@ -383,7 +383,7 @@ El chequeo de consentimiento (`return private.player_consent_granted(v_player);`
 - [ ] **Step 4: Commit**
 
 ```bash
-git -C $WT add supabase/migrations/0018_lock_player_on_file_write.sql supabase/tests/0018_lock_player_on_file_write.test.sql
+git -C $WT add docs/superpowers/plans/2026-11-17-security-data-debt.md supabase/migrations/0018_lock_player_on_file_write.sql supabase/tests/0018_lock_player_on_file_write.test.sql
 git -C $WT commit -m "fix: lock the player while checking a file write against consent (#46)" -m "An upload and a consent revocation for the same player could both pass their checks; the path helper now takes FOR SHARE on the player, which conflicts with the revocation's FOR NO KEY UPDATE, so the two run in order." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
 ```
 
@@ -436,9 +436,9 @@ Entorno como en el Step E0 del plan del 2026-10-16 (l.778–782): worktree detac
 4. **Revocación con archivo:** PATCH directo a la fila `privacy_notice` (`/rest/v1/documents?id=eq.<doc>`, cuerpo `{"status":"pendiente"}`, con el token de la sesión admin dentro de `page.evaluate`, como el probe de l.796–813 de ese plan) → 4xx con `consent_in_use`.
 5. **Solo el objeto bloquea:** CURP → `Físico` (confirma `Eliminar archivo`) y `Quitar` la foto (confirma `Quitar foto`). Por la API de Storage con la sesión admin (`POST /storage/v1/object/player-files/<tenant>/<player>/birth_certificate` con `x-upsert: true` y el PDF) → `200`; la fila `birth_certificate` sigue `pendiente`, `photo_path` es `null`. Repite el PATCH del punto 4 → 4xx con `consent_in_use` (lo único que lo bloquea es el objeto en `storage.objects`).
 6. **Después de revocar:** borra ese objeto por la API de Storage (`supabase.storage.from('player-files').remove([...])` en `page.evaluate`), repite el PATCH → `200` y la fila queda `pendiente`. Repite la subida del punto 5 → 4xx con `new row violates row-level security policy`.
-7. **Limpieza:** objetos solo por la API de Storage (nunca por SQL). `select count(*) from storage.objects where name like '<tenant>/<player>/%'` → `0`. Luego, como `postgres` por MCP (0017 no le quita nada a `postgres`), `delete from public.players where id = '<player>';` → `select count(*) from public.players where full_name = 'E2E Lock 0018'` → `0`. Baseline → igual a O1.
+7. **Limpieza (siempre, también si falló cualquier punto anterior, y antes de diagnosticar):** objetos solo por la API de Storage con la sesión admin (nunca por SQL); se puede aunque el consentimiento esté revocado, porque `player_files_delete` no lo revisa. `select count(*) from storage.objects where name like '<tenant>/<player>/%'` → `0`. Luego, como `postgres` por MCP (0017 no le quita nada a `postgres`), `delete from public.players where id = '<player>' and full_name = 'E2E Lock 0018';` → `select count(*) from public.players where full_name = 'E2E Lock 0018'` → `0`. Baseline → igual a O1.
 
-Cualquier fallo en 2–6 es bloqueante: detenerse, no mergear y diagnosticar con `superpowers:systematic-debugging` (si lo causa 0018, ver el inverso abajo).
+Cualquier fallo en 2–6 es bloqueante: correr la limpieza del punto 7, no mergear y diagnosticar con `superpowers:systematic-debugging` (si lo causa 0018, ver el inverso abajo).
 
 Después: PR a `develop` con O2, O4, O5, O6, O7 y la línea `0018 applied to remote eksbaugyypadtanyjcje on <fecha> before merge`, más la nota de que la concurrencia no se probó (spec §4.2, riesgos aceptados); merge.
 
@@ -650,8 +650,9 @@ test('fetchPaymentStatuses reads the view by player_id, block by block', async (
 })
 
 test('fetchPaymentStatuses keeps the first row per player_id across blocks', async () => {
-  respondPages([state('p1', 'sin_pagos')], [state('p1', 'al_corriente')], [])
-  expect(await fetchPaymentStatuses()).toEqual([state('p1', 'sin_pagos')])
+  respondPages([state('p1', 'sin_pagos')], [state('p1', 'al_corriente'), state('p2', 'sin_pagos')], [])
+  expect(await fetchPaymentStatuses()).toEqual([state('p1', 'sin_pagos'), state('p2', 'sin_pagos')])
+  expect(called('range')).toEqual([[0, 999], [1, 1000], [3, 1002]])
 })
 
 test('fetchOutstandingPayments reads pendiente and parcial rows by date with an id tiebreak, block by block', async () => {
@@ -678,7 +679,7 @@ test('fetchOutstandingPayments keeps the first copy of a payment repeated across
 Los tests `… throws on error` no cambian (con la cola vacía, `respond(null, { message: 'boom' })` hace fallar el primer bloque).
 
 Run: `pnpm exec vitest run src/payments/payments.test.ts`
-Expected: FAIL en los cuatro tests nuevos/reemplazados (no hay `range` ni dedupe); el resto pasa.
+Expected: FAIL en los cuatro tests nuevos/reemplazados; el resto pasa. Los cuatro fallan de verdad con el código actual: los dos `…block by block` porque no hay llamadas a `range`; los dos de dedupe porque el código actual devuelve solo el primer bloque (`[p1]` en vez de `[p1, p2]`; `[pay1]` en vez de `[pay1, pay2]`).
 
 - [ ] **Step 8: Implementar las dos lecturas de pagos con el helper**
 
@@ -698,7 +699,7 @@ Run (en `$WT`): `pnpm exec vitest run` → `B_files + 1` archivos, `B_tests + 12
 - [ ] **Step 10: Commit**
 
 ```bash
-git -C $WT add src/lib/fetchAllRows.ts src/lib/fetchAllRows.test.ts src/players/players.ts src/players/players.test.ts src/payments/payments.ts src/payments/payments.test.ts
+git -C $WT add docs/superpowers/plans/2026-11-17-security-data-debt.md src/lib/fetchAllRows.ts src/lib/fetchAllRows.test.ts src/players/players.ts src/players/players.test.ts src/payments/payments.ts src/payments/payments.test.ts
 git -C $WT commit -m "fix: read tenant-wide lists in blocks past the PostgREST row cap (#73)" -m "fetchPlayers, fetchPaymentStatuses and fetchOutstandingPayments were silently truncated at max-rows, which could show a debtor as Al corriente. They now page with range() until an empty block, ordered by a unique tiebreaker, and drop rows repeated across blocks by key." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
 ```
 
@@ -706,7 +707,7 @@ git -C $WT commit -m "fix: read tenant-wide lists in blocks past the PostgREST r
 
 **Reporte al orquestador:** SHA, `B_files`/`B_tests` y conteos finales, salidas de los pasos rojo (5, 7) y verde (4, 6, 8, 9).
 
-**Verificación en navegador (orquestador, después del commit y la revisión, spec §6).** Con los datos de hoy (1 jugador, 0 pagos), dev server y la sesión admin de Playwright, mirando las peticiones a `/rest/v1/` (supabase-js manda `.range(from, to)` como `offset=from&limit=to-from+1`). `main.tsx` usa `StrictMode`, así que en dev cada carga puede aparecer duplicada completa; cuenta por carga:
+**Verificación en navegador (orquestador, después del commit y la revisión, spec §6; si Task 2 está en curso, después de su O7 y su limpieza, porque los conteos suponen 1 jugador).** Con los datos de hoy (1 jugador, 0 pagos), dev server y la sesión admin de Playwright, mirando las peticiones a `/rest/v1/` (supabase-js manda `.range(from, to)` como `offset=from&limit=to-from+1`). `main.tsx` usa `StrictMode`, así que en dev cada carga puede aparecer duplicada completa; cuenta por carga:
 - **Jugadores (`/`):** 2 GET a `players_with_category`: `offset=0&limit=1000` → 1 fila; `offset=1&limit=1000` → `[]`. La lista muestra al jugador.
 - **Quién debe (`/quien-debe`):** 5 GET: `players_with_category` `offset=0` (1 fila) y `offset=1` (`[]`); `player_payment_status` `offset=0` (1 fila) y `offset=1` (`[]`); `payments` con `status=in.(pendiente,parcial)` solo `offset=0` (`[]`). La página carga sin error y muestra al jugador en su grupo como antes.
 
