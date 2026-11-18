@@ -260,11 +260,11 @@ Después: PR a `develop` con las salidas de O2, O4, O5 y O6 y la línea `0017 ap
 
 ### Implementer
 
-- [ ] **Step 0: Preparar y medir el baseline**
+- [x] **Step 0: Preparar y medir el baseline**
 
 `git -C $WT branch --show-current` → `fix/lock-player-file-write`; `git -C $WT log --oneline origin/develop..HEAD` → vacío. En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`; anota `B_files` y `B_tests`.
 
-- [ ] **Step 1: Escribir el test**
+- [x] **Step 1: Escribir el test**
 
 Crea `supabase/tests/0018_lock_player_on_file_write.test.sql` con exactamente este contenido. Las 10 aserciones de ruta y las 3 de subida son copia literal de `0012_player_files_storage.test.sql` (regresión, spec §4.2):
 
@@ -354,7 +354,7 @@ select * from extensions.finish();
 rollback;
 ```
 
-- [ ] **Step 2: Escribir la migración**
+- [x] **Step 2: Escribir la migración**
 
 Crea `supabase/migrations/0018_lock_player_on_file_write.sql`. Es el `create or replace function private.player_file_path_allowed(p_name text)` de `0012_player_files_storage.sql` (líneas 20–54) **con el mismo cuerpo**, salvo estos cambios (spec §4.2):
 
@@ -374,13 +374,13 @@ Crea `supabase/migrations/0018_lock_player_on_file_write.sql`. Es el `create or 
 
 El chequeo de consentimiento (`return private.player_consent_granted(v_player);`) queda como sentencia aparte **después** del `select … for share`, como ya está en 0012.
 
-- [ ] **Step 3: Verificación estática y frontend**
+- [x] **Step 3: Verificación estática y frontend**
 
 - `grep -c '^select extensions.is(' supabase/tests/0018_lock_player_on_file_write.test.sql` → `19`.
 - `grep -n 'for share' supabase/migrations/0018_lock_player_on_file_write.sql` → 1 línea (`  for share;`); `grep -n 'volatile' …` → 1 línea; `grep -c 'stable' …` → `0`.
 - En `$WT`: `pnpm exec vitest run` → `B_files` / `B_tests`, todo verde; `pnpm exec tsc -b` → exit 0; `pnpm lint` → exit 0.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-17-security-data-debt.md supabase/migrations/0018_lock_player_on_file_write.sql supabase/tests/0018_lock_player_on_file_write.test.sql
@@ -393,7 +393,7 @@ git -C $WT commit -m "fix: lock the player while checking a file write against c
 
 ### Orquestador [MCP]
 
-- [ ] **Step O1: Baseline**
+- [x] **Step O1: Baseline**
 
 `list_migrations` → la última entrada es `0016_revoke_anon_privileges` o `0017_forbid_player_delete` (nunca `0018`). Baseline query y **residue query** (esperado: todo `0`):
 
@@ -406,27 +406,27 @@ select (select count(*) from public.tenants where id::text like 'cccccccc-%') as
        (select count(*) from storage.objects where bucket_id = 'player-files' and name like 'cccccccc-%') as objects;
 ```
 
-- [ ] **Step O2: Rojo (0018 sin aplicar)**
+- [x] **Step O2: Rojo (0018 sin aplicar)**
 
 Forma MCP del archivo, una llamada. Expected: 19 filas; `not ok 1` (hoy es `s`) y `not ok 4` (no hay `for share`), todas las demás `ok`. Residue → todo `0`; baseline → igual a O1 (sigue habiendo exactamente 1 objeto real en `player-files`). Si el patrón es otro, detenerse y diagnosticar.
 
-- [ ] **Step O3: Revisión pre-PR**
+- [x] **Step O3: Revisión pre-PR**
 
 Revisión de código de la rama. **Si no sale limpia, no se aplica nada**: el implementer corrige y se repite O2.
 
-- [ ] **Step O4: Aplicar**
+- [x] **Step O4: Aplicar**
 
 `apply_migration` con `name: "0018_lock_player_on_file_write"`. `list_migrations` → aparece. `get_advisors` `type: "security"` → solo `auth_leaked_password_protection`.
 
-- [ ] **Step O5: Verde**
+- [x] **Step O5: Verde**
 
 Misma llamada que O2. Expected: 19 filas, `ok 1` … `ok 19`. Residue → todo `0`; baseline → igual a O1.
 
-- [ ] **Step O6: Regresiones R-0012 y R-0013**
+- [x] **Step O6: Regresiones R-0012 y R-0013**
 
 Tal como están en `docs/superpowers/plans/2026-10-16-pre-real-data-checklist.md`: reglas l.421–432, bloque compartido de fixtures/limpieza l.501–532, **R-0012** l.534–577 (Expected: 25 filas, todas `ok`) y **R-0013** l.579–581 (Expected: 21 filas, todas `ok`). Una llamada cada una, en serie (comparten los UUID `cccccccc-` con el test de 0018). Después de cada una: residue query de O1 → todo `0`; baseline → igual a O1.
 
-- [ ] **Step O7: E2E de #46 contra la API real de Storage (Playwright)**
+- [x] **Step O7: E2E de #46 contra la API real de Storage (Playwright)**
 
 Entorno como en el Step E0 del plan del 2026-10-16 (l.778–782): worktree detached en `origin/develop` con `.env`, `pnpm dev --port 5173 --strictPort`, Chromium persistente por CDP con el admin ya logueado; nunca `browser.close()`. Archivos de prueba en el scratchpad: un PDF mínimo y un JPG pequeño.
 
