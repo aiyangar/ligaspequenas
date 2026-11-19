@@ -46,7 +46,8 @@ function renderPage(entry: string | { pathname: string; state: unknown } = '/equ
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  // mockReset also drops unconsumed *Once responses, which clearAllMocks would leak into the next test
+  for (const fn of Object.values(mocks)) fn.mockReset()
   mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Admin', tenantId: 't1' })
   mocks.fetchTeam.mockResolvedValue({
     id: 'team9', tenant_id: 't1', season_id: 's1', category_id: 'cat1', name: 'MTY AC Rojo',
@@ -216,4 +217,18 @@ test('without a flash no toast is shown', async () => {
   renderPage()
   await screen.findByText('Ana Roster')
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
+// Order-dependent on purpose: the first test leaves *Once responses queued for the second (#166)
+describe('mock isolation between tests', () => {
+  test('a test that queues *Once responses and never consumes them', () => {
+    for (const fn of Object.values(mocks)) fn.mockImplementationOnce(() => { throw new Error('leaked *Once') })
+    expect(mocks.fetchTeam).not.toHaveBeenCalled()
+  })
+
+  test('the next test gets the beforeEach defaults, not the leaked responses', async () => {
+    renderPage()
+    expect(await screen.findByRole('heading', { name: /MTY AC Rojo/ })).toBeInTheDocument()
+    expect(screen.getByText('Ana Roster')).toBeInTheDocument()
+  })
 })
