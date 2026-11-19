@@ -143,7 +143,7 @@ test('removing the photo drops the signed image before the parent reloads the pl
   await user.click(screen.getByRole('button', { name: 'Quitar' }))
   await user.click(await screen.findByRole('button', { name: 'Quitar foto' }))
   await waitFor(() => expect(onChanged).toHaveBeenCalledWith('Foto actualizada'))
-  expect(screen.queryByRole('img', { name: 'Foto de Ana Ruiz' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('img', { name: 'Foto de Ana Ruiz', hidden: true })).not.toBeInTheDocument()
   expect(screen.getByText('AR')).toBeInTheDocument()
   await act(async () => finishReload())
 })
