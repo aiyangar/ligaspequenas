@@ -37,9 +37,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/player-save-zero-rows-and-stale-refresh`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 566, todo verde).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/player-save-zero-rows-and-stale-refresh`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 566, todo verde).
 
 ---
 
@@ -53,7 +53,7 @@
 - Consumes: `NO_PERMISSION_MESSAGE` (`'No tienes permiso para esta acción.'`), ya importado en `players.ts` desde `../documents/documents`.
 - Produces: sin cambio de firma: `updatePlayer(id: string, values: PlayerFormValues): Promise<UpdatePlayerResult>`.
 
-- [ ] **Step 1.1: Ajustar el mock y escribir los tests (rojo)**
+- [x] **Step 1.1: Ajustar el mock y escribir los tests (rojo)**
 
 En `src/players/players.test.ts`:
 
@@ -94,7 +94,7 @@ Usa `mockResolvedValue` (no `*Once`): `vi.clearAllMocks` no vacía las respuesta
 Run: `pnpm exec vitest run src/players/players.test.ts`
 Expected (verificado por el planner): FAIL en 3 tests — `updatePlayer updates by id and returns ok` (`expected "vi.fn()" to be called with arguments: [ 'id' ]`), `updatePlayer reports zero updated rows…` (`expected { ok: true } to deeply equal { ok: false, …(1) }`) y `updatePlayer returns the PostgREST error message` (`expected { ok: true } to deeply equal { ok: false, error: 'curp_format' }`: con el mock nuevo el error viaja solo en `select`). 27 pasan, incluidos todos los de la foto.
 
-- [ ] **Step 1.2: Implementar**
+- [x] **Step 1.2: Implementar**
 
 En `updatePlayer`, reemplaza:
 
@@ -119,7 +119,7 @@ Comprobación: `grep -c "\.select('id')" src/players/players.ts` → `3` (insert
 Run: `pnpm exec vitest run src/players/players.test.ts` → 30 tests PASS.
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint src/players` → exit 0.
 
-- [ ] **Step 1.3: Commit**
+- [x] **Step 1.3: Commit**
 
 `git -C $WT status -s` → solo `players.ts`, `players.test.ts` y este plan.
 
