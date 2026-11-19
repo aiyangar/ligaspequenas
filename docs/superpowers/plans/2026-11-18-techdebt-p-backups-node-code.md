@@ -151,7 +151,7 @@ git -C $WT commit -m "fix: print only known Node and undici codes in backup erro
 **Files:**
 - Modify: `ops/backup/safe-error.test.ts` (import l.2; `test.each` nuevo al final)
 
-- [ ] **Step 2.1: Escribir el test**
+- [x] **Step 2.1: Escribir el test**
 
 1. En el import de `./lib/safe-error.ts`, agrega `NODE_ERROR_CODES` (orden: `CodedError, HttpError, INTERNAL_CODES, NODE_ERROR_CODES, errorLine`).
 2. Al final del archivo:
@@ -165,7 +165,7 @@ test.each([...NODE_ERROR_CODES])('the known Node code %s has the Node shape and 
 
 Run: `pnpm exec vitest run ops/backup/safe-error.test.ts` → 39 tests PASS.
 
-- [ ] **Step 2.2: Mutaciones (rojo demostrado)**
+- [x] **Step 2.2: Mutaciones (rojo demostrado)**
 
 a. En `NODE_ERROR_CODES`, agrega temporalmente `'ERR_lower'` al final. Run → FAIL solo en `the known Node code ERR_lower has the Node shape and passes through` (`toMatch`).
 
@@ -173,13 +173,13 @@ b. Restaura con `git -C $WT checkout -- ops/backup/lib/safe-error.ts` (Task 1 ya
 
 c. En `codeOf`, cambia temporalmente `const nodeCode = NODE_CODE_SHAPE.test(code) && NODE_ERROR_CODES.includes(code)` por `const nodeCode = NODE_CODE_SHAPE.test(code)`. Run → FAIL solo en `a Node-shaped code outside the known list is never printed`. Restaura con `git -C $WT checkout -- ops/backup/lib/safe-error.ts`; `git -C $WT diff --stat -- ops/backup/lib/safe-error.ts` → vacío. Vuelve a correr → 39 PASS.
 
-- [ ] **Step 2.3: `ops/backup`, suite completa, tipos y lint**
+- [x] **Step 2.3: `ops/backup`, suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run ops/backup` → 5 archivos, 120 tests PASS (incluye los tests de `storage-dump.ts`/`storage-restore.ts`/`manifest.ts` que corren los scripts reales con `spawnSync` y comparan la línea de error). `pnpm exec vitest run` → `B_files` archivos, `B_tests + 7` tests, todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
 Run: `node ops/backup/crosscheck.ts` (sin argumentos) → stderr `error: args` y exit 1 (el script sigue arrancando con type stripping).
 
-- [ ] **Step 2.4: Commit**
+- [x] **Step 2.4: Commit**
 
 `git -C $WT status -s` → solo `safe-error.test.ts` y este plan.
 
