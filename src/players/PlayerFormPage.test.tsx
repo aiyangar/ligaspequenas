@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   fetchPlayerDocuments: vi.fn(),
   setDocumentStatus: vi.fn(),
   uploadPlayerPhoto: vi.fn(),
+  getSignedFileUrl: vi.fn(),
   fetchPlayerPayments: vi.fn(),
   createPayment: vi.fn(),
 }))
@@ -43,7 +44,11 @@ vi.mock('../teams/teams', async (importActual) => {
 
 vi.mock('../documents/documents', async (importActual) => {
   const actual = await importActual<typeof import('../documents/documents')>()
-  return { ...actual, fetchPlayerDocuments: mocks.fetchPlayerDocuments, setDocumentStatus: mocks.setDocumentStatus }
+  return {
+    ...actual,
+    fetchPlayerDocuments: mocks.fetchPlayerDocuments, setDocumentStatus: mocks.setDocumentStatus,
+    getSignedFileUrl: mocks.getSignedFileUrl,
+  }
 })
 vi.mock('../payments/payments', async (importActual) => {
   const actual = await importActual<typeof import('../payments/payments')>()
@@ -112,6 +117,7 @@ beforeEach(() => {
   mocks.fetchPlayerDocuments.mockResolvedValue(seededDocs())
   mocks.setDocumentStatus.mockResolvedValue({ ok: true })
   mocks.uploadPlayerPhoto.mockResolvedValue({ ok: true })
+  mocks.getSignedFileUrl.mockResolvedValue('https://signed/photo')
   mocks.fetchPlayerPayments.mockResolvedValue([])
   mocks.createPayment.mockResolvedValue({ ok: true })
 })
@@ -335,17 +341,25 @@ test('a document change reloads the documents and shows a toast', async () => {
   await waitFor(() => expect(mocks.fetchPlayerDocuments).toHaveBeenCalledTimes(2))
 })
 
-test('a photo upload refetches the player and shows a toast', async () => {
+test('a photo upload refetches the player, keeps typed edits and locks Pendiente on the consents', async () => {
   mocks.fetchPlayerDocuments.mockResolvedValue(
     seededDocs().map((d) => (d.doc_type === 'image_consent' || d.doc_type === 'privacy_notice' ? { ...d, status: 'fisico' as const } : d)),
   )
+  mocks.fetchPlayer.mockResolvedValueOnce(ana).mockResolvedValueOnce({ ...ana, photo_path: 'tenant-1/p1/photo', updated_at: 'u2' })
   const user = userEvent.setup()
   renderAt('/jugadores/p1')
   const input = await screen.findByLabelText('Subir foto', { selector: 'input' })
   await waitFor(() => expect(input).toBeEnabled())
+  const name = screen.getByLabelText(/Nombre completo/)
+  await user.clear(name)
+  await user.type(name, 'Ana María Ruiz')
   await user.upload(input, new File(['x'], 'a.jpg', { type: 'image/jpeg' }))
   expect(await screen.findByText('Foto actualizada')).toBeInTheDocument()
-  await waitFor(() => expect(mocks.fetchPlayer).toHaveBeenCalledTimes(2))
+  expect(await screen.findByRole('button', { name: 'Quitar' })).toBeInTheDocument()
+  expect(screen.getByLabelText(/Nombre completo/)).toHaveValue('Ana María Ruiz')
+  const consent = within(screen.getByRole('listitem', { name: 'Consentimiento de imagen' })).getByRole('combobox')
+  expect(within(consent).getByRole('option', { name: 'Pendiente' })).toBeDisabled()
+  expect(mocks.fetchPlayer).toHaveBeenCalledTimes(2)
 })
 
 test('edit mode shows the payments section', async () => {
@@ -442,4 +456,31 @@ test('a toast that replaces another gets its own full display time', async () =>
   expect(await screen.findByText('Documento actualizado')).toBeInTheDocument()
   act(() => vi.advanceTimersByTime(2000))
   expect(screen.getByText('Documento actualizado')).toBeInTheDocument()
+})
+
+test("an in-flight team change from one player never lands on the next player's page", async () => {
+  const assign = deferred<{ ok: boolean }>()
+  mocks.assignPlayer.mockReturnValueOnce(assign.promise)
+  let assigned = false
+  mocks.fetchPlayer.mockImplementation((id: string) =>
+    Promise.resolve(
+      id === 'p2'
+        ? { ...ana, id: 'p2', full_name: 'Beto Gómez' }
+        : assigned ? { ...ana, team_id: 'team9', team_name: 'MTY AC Rojo' } : ana,
+    ),
+  )
+  const user = userEvent.setup()
+  const router = renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  await user.selectOptions(await screen.findByLabelText('Equipo'), 'team9')
+  await waitFor(() => expect(mocks.assignPlayer).toHaveBeenCalledTimes(1))
+  await act(() => router.navigate('/jugadores/p2'))
+  expect(await screen.findByDisplayValue('Beto Gómez')).toBeInTheDocument()
+  assigned = true
+  await act(async () => assign.resolve({ ok: true }))
+  await waitFor(() => expect(mocks.fetchPlayer).toHaveBeenCalledTimes(3))
+  await act(async () => {})
+  expect(await screen.findByLabelText('Equipo')).toHaveValue('')
+  expect(screen.getByDisplayValue('Beto Gómez')).toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 })

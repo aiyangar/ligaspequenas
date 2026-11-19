@@ -552,7 +552,7 @@ Borra la línea `        key={toastKey}` del Snackbar. Run `pnpm exec vitest run
 **Files:**
 - Modify: `src/players/PlayerFormPage.test.tsx`
 
-- [ ] **Step 1: Mockear `getSignedFileUrl` en la página**
+- [x] **Step 1: Mockear `getSignedFileUrl` en la página**
 
 En `mocks` agrega `getSignedFileUrl: vi.fn(),` (después de `uploadPlayerPhoto`). El mock de `'../documents/documents'` pasa a devolver:
 
@@ -566,7 +566,7 @@ En `mocks` agrega `getSignedFileUrl: vi.fn(),` (después de `uploadPlayerPhoto`)
 
 En `beforeEach` agrega `mocks.getSignedFileUrl.mockResolvedValue('https://signed/photo')`. (Sin esto, una fila con `photo_path` llamaría al cliente real de Supabase.)
 
-- [ ] **Step 2: Reemplazar el test de cableado de la foto (#57.3)**
+- [x] **Step 2: Reemplazar el test de cableado de la foto (#57.3)**
 
 Reemplaza el test `a photo upload refetches the player and shows a toast` completo por:
 
@@ -593,7 +593,7 @@ test('a photo upload refetches the player, keeps typed edits and locks Pendiente
 })
 ```
 
-- [ ] **Step 3: Agregar el test de cambio de equipo en vuelo (#35)**
+- [x] **Step 3: Agregar el test de cambio de equipo en vuelo (#35)**
 
 ```ts
 test("an in-flight team change from one player never lands on the next player's page", async () => {
@@ -626,11 +626,11 @@ test("an in-flight team change from one player never lands on the next player's 
 
 (`deferred` ya existe en el archivo. La tercera llamada a `fetchPlayer` es el refresco de Ana que hace la instancia vieja tras el `assign`; con el remount por `key` cae en una instancia desmontada.)
 
-- [ ] **Step 4: Verificar que pasan**
+- [x] **Step 4: Verificar que pasan**
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx` → todo PASS (cobertura, sin rojo).
 
-- [ ] **Step 5: Mutaciones** (aplicar → FAIL → `git -C $WT checkout -- src/players/PlayerFormPage.tsx`)
+- [x] **Step 5: Mutaciones** (aplicar → FAIL → `git -C $WT checkout -- src/players/PlayerFormPage.tsx`)
 
 1. En `PlayerFormPage`, `return <PlayerFormContent key={id ?? 'new'} id={id} />` → `return <PlayerFormContent id={id} />`. Run `pnpm exec vitest run src/players/PlayerFormPage.test.tsx -t "in-flight team change"` → FAIL (Equipo muestra `team9` en la ficha de Beto).
 2. En `handlePhotoChanged`, `if (refreshed) setRow(refreshed)` → `if (refreshed) { setRow(refreshed); setValues(rowToValues(refreshed)) }`. Run `… -t "keeps typed edits"` → FAIL (se pierde lo tecleado).
