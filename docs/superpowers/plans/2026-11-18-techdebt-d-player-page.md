@@ -227,7 +227,7 @@ git -C $WT commit -m "fix: drop the signed photo URL as soon as the photo is rem
 **Interfaces:**
 - Produces: `PlayerPhotoProps.onReload?: () => Promise<void> | void`, llamada (y esperada) tras un `res.ok === false`, sin toast.
 
-- [ ] **Step 1: Test del componente (rojo)**
+- [x] **Step 1: Test del componente (rojo)**
 
 ```ts
 test('a failed photo change asks the page to reload, with no success toast', async () => {
@@ -244,7 +244,7 @@ test('a failed photo change asks the page to reload, with no success toast', asy
 
 Run: `pnpm exec vitest run src/players/PlayerPhoto.test.tsx -t "asks the page to reload"` → FAIL (`onReload` no se llama).
 
-- [ ] **Step 2: Implementar en `PlayerPhoto.tsx`**
+- [x] **Step 2: Implementar en `PlayerPhoto.tsx`**
 
 Agrega `onReload?: () => Promise<void> | void` a `PlayerPhotoProps` (después de `onChanged`) y desestructúralo. En `run` reemplaza:
 
@@ -267,7 +267,7 @@ por:
 
 Run: `pnpm exec vitest run src/players/PlayerPhoto.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Test de la página (rojo)**
+- [x] **Step 3: Test de la página (rojo)**
 
 En `PlayerFormPage.test.tsx`, al final:
 
@@ -293,13 +293,13 @@ test('a failed photo upload reloads the documents so a stale consent is correcte
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx -t "stale consent"` → FAIL (`fetchPlayerDocuments` se llama una sola vez).
 
-- [ ] **Step 4: Conectar en la página**
+- [x] **Step 4: Conectar en la página**
 
 En `PlayerFormPage.tsx`, en `<PlayerPhoto … />` agrega `onReload={refreshDocuments}`.
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx` → todo PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerPhoto.tsx src/players/PlayerPhoto.test.tsx src/players/PlayerFormPage.tsx src/players/PlayerFormPage.test.tsx

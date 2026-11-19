@@ -246,6 +246,7 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
             canEdit={canEdit}
             consentGranted={documents !== null && consentGranted(documents)}
             onChanged={handlePhotoChanged}
+            onReload={refreshDocuments}
           />
         )}
         <PlayerForm values={values} onChange={setValues} disabled={!canEdit} categoryText={categoryText} />

@@ -369,3 +369,19 @@ test('registering a payment never submits the player form', async () => {
   expect(await screen.findByText('Pago registrado')).toBeInTheDocument()
   expect(mocks.updatePlayer).not.toHaveBeenCalled()
 })
+
+test('a failed photo upload reloads the documents so a stale consent is corrected', async () => {
+  mocks.fetchPlayerDocuments.mockResolvedValueOnce(
+    seededDocs().map((d) => (d.doc_type === 'image_consent' || d.doc_type === 'privacy_notice' ? { ...d, status: 'fisico' as const } : d)),
+  )
+  mocks.uploadPlayerPhoto.mockResolvedValueOnce({ ok: false, error: 'No tienes permiso para esta acción.' })
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  const input = await screen.findByLabelText('Subir foto', { selector: 'input' })
+  await waitFor(() => expect(input).toBeEnabled())
+  await user.upload(input, new File(['x'], 'a.jpg', { type: 'image/jpeg' }))
+  expect(await screen.findByText('No tienes permiso para esta acción.')).toBeInTheDocument()
+  await waitFor(() => expect(mocks.fetchPlayerDocuments).toHaveBeenCalledTimes(2))
+  await waitFor(() => expect(screen.getByLabelText('Subir foto', { selector: 'input' })).toBeDisabled())
+  expect(screen.getByText('Requiere consentimiento de imagen y aviso de privacidad')).toBeInTheDocument()
+})

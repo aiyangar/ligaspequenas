@@ -147,3 +147,14 @@ test('removing the photo drops the signed image before the parent reloads the pl
   expect(screen.getByText('AR')).toBeInTheDocument()
   await act(async () => finishReload())
 })
+
+test('a failed photo change asks the page to reload, with no success toast', async () => {
+  mocks.uploadPlayerPhoto.mockResolvedValueOnce({ ok: false, error: 'No tienes permiso para esta acción.' })
+  const onReload = vi.fn()
+  const user = userEvent.setup()
+  const { onChanged } = renderPhoto({ onReload })
+  await user.upload(screen.getByLabelText('Subir foto', { selector: 'input' }), new File(['x'], 'a.jpg', { type: 'image/jpeg' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('No tienes permiso para esta acción.')
+  expect(onReload).toHaveBeenCalledTimes(1)
+  expect(onChanged).not.toHaveBeenCalled()
+})

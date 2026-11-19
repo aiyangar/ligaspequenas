@@ -20,6 +20,7 @@ export interface PlayerPhotoProps {
   canEdit: boolean
   consentGranted: boolean
   onChanged: (flash: string) => Promise<void> | void
+  onReload?: () => Promise<void> | void
 }
 
 function initials(name: string): string {
@@ -31,7 +32,7 @@ function initials(name: string): string {
     .join('')
 }
 
-export function PlayerPhoto({ player, canEdit, consentGranted, onChanged }: PlayerPhotoProps) {
+export function PlayerPhoto({ player, canEdit, consentGranted, onChanged, onReload }: PlayerPhotoProps) {
   const [url, setUrl] = useState<{ key: string; src: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -65,8 +66,13 @@ export function PlayerPhoto({ player, canEdit, consentGranted, onChanged }: Play
     setError(null)
     try {
       const res = await action()
-      if (res.ok) await onChanged('Foto actualizada')
-      else setError(res.error ?? 'No se pudo actualizar la foto.')
+      if (res.ok) {
+        await onChanged('Foto actualizada')
+      } else {
+        setError(res.error ?? 'No se pudo actualizar la foto.')
+        // the consent shown may be stale, so let the page reload it
+        await onReload?.()
+      }
     } finally {
       inFlight.current = false
       setBusy(false)
