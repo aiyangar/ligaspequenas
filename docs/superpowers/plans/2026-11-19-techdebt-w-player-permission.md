@@ -34,9 +34,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/player-permission-message`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 49 y 584, todo verde).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/player-permission-message`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 49 y 584, todo verde).
 
 ---
 
@@ -51,7 +51,7 @@
 - Consumes: `NO_PERMISSION_MESSAGE` (`'No tienes permiso para esta acción.'`), ya importado en `players.ts` desde `../documents/documents`.
 - Produces: `export function isPermissionError(message: string): boolean` en `src/documents/documents.ts`. Sin cambios de firma en `createPlayer`, `updatePlayer` ni `documentErrorMessage`.
 
-- [ ] **Step 1.1: Escribir los tests (rojo)**
+- [x] **Step 1.1: Escribir los tests (rojo)**
 
 En `src/players/players.test.ts`:
 
@@ -86,7 +86,7 @@ test('updatePlayer translates a PostgREST permission error', async () => {
 Run: `pnpm exec vitest run src/players/players.test.ts`
 Expected (verificado por el planner): FAIL en 2 — `createPlayer surfaces an RLS/DB error as ok:false` y `updatePlayer translates a PostgREST permission error`, ambos con `AssertionError: expected { ok: false, …(1) } to deeply equal { ok: false, …(1) }`; `Tests  2 failed | 30 passed (32)`. El test nuevo de `createPlayer` pasa ya en rojo: es el pin de que nada más se traduce.
 
-- [ ] **Step 1.2: Implementar**
+- [x] **Step 1.2: Implementar**
 
 1. En `src/documents/documents.ts`, justo antes de `documentErrorMessage`, agrega `export function isPermissionError(message: string): boolean` que devuelve `/row-level security|permission denied|unauthorized|\b403\b/i.test(message)`. En `documentErrorMessage`, la condición `if (/row-level security|permission denied|unauthorized|\b403\b/i.test(message)) {` pasa a `if (isPermissionError(message)) {`; el cuerpo de la rama (consentimiento vs `NO_PERMISSION_MESSAGE`) no cambia.
 2. En `src/players/players.ts`, agrega `isPermissionError` al import de `../documents/documents` (orden alfabético: después de `documentErrorMessage`). Justo antes de `createPlayer`, agrega la función **no exportada** `playerErrorMessage(message: string): string` → `isPermissionError(message) ? NO_PERMISSION_MESSAGE : message`. En `createPlayer` y en `updatePlayer`, `if (error) return { ok: false, error: error.message }` pasa a `if (error) return { ok: false, error: playerErrorMessage(error.message) }`. Nada más cambia (la rama de cero filas, `fetchPlayer` y las fotos quedan igual).
@@ -95,12 +95,12 @@ Comprobación: `grep -rn 'permission denied|' $WT/src | grep -v '\.test\.'` → 
 
 Run: `pnpm exec vitest run src/players src/documents src/payments` → todo PASS (planner: 14 archivos, 281 tests).
 
-- [ ] **Step 1.3: Suite completa, tipos y lint**
+- [x] **Step 1.3: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `B_tests + 2` tests, todo verde (planner: 49 y 586). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 `git -C $WT diff --stat` → 3 archivos (planner: `documents.ts` 5+/1-, `players.ts` 7+/3-, `players.test.ts` 19+/1-).
 
-- [ ] **Step 1.4: Commit**
+- [x] **Step 1.4: Commit**
 
 `git -C $WT status -s` → solo los 3 archivos de la lista y este plan.
 
