@@ -332,7 +332,7 @@ git -C $WT commit -m "test: make the documents in-flight guard and Ver tests fai
 - Modify: `src/documents/PlayerDocumentsSection.test.tsx`
 - Modify: `src/documents/PlayerDocumentsSection.tsx`
 
-- [ ] **Step 1: Test (rojo)**
+- [x] **Step 1: Test (rojo)**
 
 Al final del archivo de tests agrega:
 
@@ -358,13 +358,13 @@ test('while one row saves, every row is disabled, then all come back', async () 
 Run: `pnpm exec vitest run src/documents/PlayerDocumentsSection.test.tsx -t "every row is disabled"`
 Expected: FAIL — la subida de "Acta de nacimiento" sigue habilitada.
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 En `PlayerDocumentsSection.tsx`, antes de `const granted = consentGranted(documents)` agrega `const anyBusy = busyId !== null`. En la fila: el `TextField` de Estatus pasa de `disabled={busy}` a `disabled={anyBusy}`; el `Button component="label"` y su `<input>` pasan de `disabled={busy || uploadLocked}` a `disabled={anyBusy || uploadLocked}`. El spinner sigue con `busy` (solo en la fila que guarda). `Ver` no cambia (no escribe nada).
 
 Run: `pnpm exec vitest run src/documents/PlayerDocumentsSection.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-c-documents.md src/documents/PlayerDocumentsSection.tsx src/documents/PlayerDocumentsSection.test.tsx

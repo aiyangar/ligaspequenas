@@ -226,3 +226,20 @@ test('Ver with a blocked popup shows a hint and does not sign', async () => {
   expect(mocks.getSignedFileUrl).not.toHaveBeenCalled()
   open.mockRestore()
 })
+
+test('while one row saves, every row is disabled, then all come back', async () => {
+  let resolve!: (v: { ok: boolean }) => void
+  mocks.uploadDocument.mockReturnValueOnce(new Promise((r) => { resolve = r }))
+  renderSection({ documents: docs(granted) })
+  fireEvent.change(within(row('CURP')).getByLabelText('Subir archivo'), {
+    target: { files: [new File(['x'], 'a.pdf', { type: 'application/pdf' })] },
+  })
+  const other = row('Acta de nacimiento')
+  expect(within(other).getByLabelText('Subir archivo')).toBeDisabled()
+  expect(within(other).getByRole('combobox')).toBeDisabled()
+  expect(within(other).queryByLabelText('Guardando')).not.toBeInTheDocument()
+  expect(within(row('CURP')).getByLabelText('Guardando')).toBeInTheDocument()
+  await act(async () => resolve({ ok: true }))
+  expect(within(other).getByLabelText('Subir archivo')).toBeEnabled()
+  expect(within(other).getByRole('combobox')).toBeEnabled()
+})
