@@ -64,3 +64,15 @@ export function parseInviteBody(raw: unknown): InviteBody | null {
   const text = (key: keyof InviteBody) => (typeof record[key] === 'string' ? record[key] : undefined)
   return { email: text('email'), fullName: text('fullName'), role: text('role'), redirectTo: text('redirectTo') }
 }
+
+export type UpstreamFailure = 'invite_failed' | 'profile_insert_failed'
+
+// GoTrue and PostgREST text stays in the function logs; the client only needs the stable code
+export function failureBody(
+  error: UpstreamFailure,
+  message: string | undefined,
+  extra: { rollback?: 'failed' } = {},
+): { error: UpstreamFailure; rollback?: 'failed' } {
+  console.error(`invite-user ${error}`, { message })
+  return { error, ...extra }
+}

@@ -35,9 +35,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/invite-user-no-detail`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile`, `pnpm exec vitest run` (anota `B_files`, `B_tests`; esperado 48 y 566) y `pnpm exec vitest run supabase/functions` (3 archivos, 22 tests).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/invite-user-no-detail`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile`, `pnpm exec vitest run` (anota `B_files`, `B_tests`; esperado 48 y 566) y `pnpm exec vitest run supabase/functions` (3 archivos, 22 tests).
 
 ---
 
@@ -51,7 +51,7 @@
 **Interfaces:**
 - Produces: en `http.ts`, `export type UpstreamFailure = 'invite_failed' | 'profile_insert_failed'` y `export function failureBody(error: UpstreamFailure, message: string | undefined, extra: { rollback?: 'failed' } = {}): { error: UpstreamFailure; rollback?: 'failed' }`.
 
-- [ ] **Step 1.1: Escribir los tests (rojo)**
+- [x] **Step 1.1: Escribir los tests (rojo)**
 
 En `supabase/functions/invite-user/http.test.ts`, agrega `failureBody,` al import de `./http.ts` justo después de `corsHeaders,`, y al final del archivo (el `afterEach` existente ya hace `vi.restoreAllMocks()`):
 
@@ -86,13 +86,13 @@ test('failureBody logs a missing upstream message as undefined', () => {
 Run: `pnpm exec vitest run supabase/functions/invite-user`
 Expected (verificado por el planner): FAIL en los 3 tests nuevos con `TypeError: failureBody is not a function`; 22 pasan.
 
-- [ ] **Step 1.2: Implementar `failureBody`**
+- [x] **Step 1.2: Implementar `failureBody`**
 
 Al final de `supabase/functions/invite-user/http.ts` agrega el tipo `UpstreamFailure` y la función `failureBody` con las firmas del bloque Interfaces. Cuerpo: ``console.error(`invite-user ${error}`, { message })`` y `return { error, ...extra }`. Un comentario de una línea encima de la función: `// GoTrue and PostgREST text stays in the function logs; the client only needs the stable code`.
 
 Run: `pnpm exec vitest run supabase/functions/invite-user` → 3 archivos, 25 tests PASS.
 
-- [ ] **Step 1.3: Usarlo en `index.ts` y comprobar**
+- [x] **Step 1.3: Usarlo en `index.ts` y comprobar**
 
 1. En el import de `./http.ts`, agrega `  failureBody,` justo después de `  corsHeaders,`.
 2. Reemplaza los tres `return`:
@@ -107,7 +107,7 @@ Comprobaciones:
 - `git -C $WT diff --stat -- supabase/functions/invite-user/index.ts` → `1 file changed, 4 insertions(+), 3 deletions(-)`.
 - `grep -rn "detail\|rollback" $WT/src/users` → sin salida (la UI solo lee `error`: `src/users/inviteUser.ts` toma `body.error` y `UsersPage.tsx` lo pasa a `inviteErrorText`).
 
-- [ ] **Step 1.4: Typecheck de `index.ts` fuera del repo**
+- [x] **Step 1.4: Typecheck de `index.ts` fuera del repo**
 
 `tsc -b` excluye `index.ts`. Compílalo una vez contra los tipos reales de `@supabase/supabase-js` con `Deno` simulado, en un directorio temporal **fuera** del repo (no se commitea nada):
 
@@ -145,11 +145,11 @@ EOF
 Run (en `$WT`): `pnpm exec tsc -p "$TC/tsconfig.json"`
 Expected: exit 0 sin salida (el planner corrió exactamente esto con este cambio). Después: `rm -rf "$TC"`.
 
-- [ ] **Step 1.5: Suite completa, tipos y lint**
+- [x] **Step 1.5: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `B_tests + 3` tests, todo verde (planner: 48 y 569). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0 (ESLint sí lintea `index.ts`).
 
-- [ ] **Step 1.6: Commit**
+- [x] **Step 1.6: Commit**
 
 `git -C $WT status -s` → solo `http.ts`, `http.test.ts`, `index.ts` y este plan.
 

@@ -3,6 +3,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { checkAdmin, type CallerProfile } from './authorize.ts'
 import {
   corsHeaders,
+  failureBody,
   isOriginAllowed,
   jsonResponse,
   parseAllowedOrigins,
@@ -75,7 +76,7 @@ Deno.serve((req: Request) => {
         inviteError?.status === 422 ||
         /already.*registered/i.test(inviteError?.message ?? '')
       if (duplicate) return json({ error: 'email_exists' }, 409)
-      return json({ error: 'invite_failed', detail: inviteError?.message }, 400)
+      return json(failureBody('invite_failed', inviteError?.message), 400)
     }
 
     const { error: insertError } = await serviceClient.from('profiles').insert({
@@ -91,9 +92,9 @@ Deno.serve((req: Request) => {
         invited.user.id,
       )
       if (!rolledBack) {
-        return json({ error: 'profile_insert_failed', detail: insertError.message, rollback: 'failed' }, 500)
+        return json(failureBody('profile_insert_failed', insertError.message, { rollback: 'failed' }), 500)
       }
-      return json({ error: 'profile_insert_failed', detail: insertError.message }, 500)
+      return json(failureBody('profile_insert_failed', insertError.message), 500)
     }
 
     return json({ userId: invited.user.id }, 200)

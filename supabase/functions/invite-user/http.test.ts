@@ -1,6 +1,7 @@
 import { afterEach, vi } from 'vitest'
 import {
   corsHeaders,
+  failureBody,
   isOriginAllowed,
   jsonResponse,
   parseAllowedOrigins,
@@ -131,4 +132,30 @@ test('parseInviteBody drops fields that are not strings', () => {
   const empty = { email: undefined, fullName: undefined, role: undefined, redirectTo: undefined }
   expect(parseInviteBody({ email: 5, fullName: null, role: ['admin'], redirectTo: {} })).toStrictEqual(empty)
   expect(parseInviteBody({})).toStrictEqual(empty)
+})
+
+test('failureBody answers invite_failed with the code only and logs the upstream message', () => {
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  const body = failureBody('invite_failed', 'Database error saving new user')
+  expect(body).toStrictEqual({ error: 'invite_failed' })
+  expect(JSON.stringify(body)).not.toContain('Database error')
+  expect(errorSpy).toHaveBeenCalledWith('invite-user invite_failed', { message: 'Database error saving new user' })
+})
+
+test('failureBody answers profile_insert_failed with the code and the rollback flag only', () => {
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  const message = 'duplicate key value violates unique constraint "profiles_pkey"'
+  expect(failureBody('profile_insert_failed', message)).toStrictEqual({ error: 'profile_insert_failed' })
+  expect(failureBody('profile_insert_failed', message, { rollback: 'failed' })).toStrictEqual({
+    error: 'profile_insert_failed',
+    rollback: 'failed',
+  })
+  expect(errorSpy).toHaveBeenCalledTimes(2)
+  expect(errorSpy).toHaveBeenCalledWith('invite-user profile_insert_failed', { message })
+})
+
+test('failureBody logs a missing upstream message as undefined', () => {
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  expect(failureBody('invite_failed', undefined)).toStrictEqual({ error: 'invite_failed' })
+  expect(errorSpy).toHaveBeenCalledWith('invite-user invite_failed', { message: undefined })
 })
