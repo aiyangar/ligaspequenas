@@ -162,7 +162,17 @@ test('createPlayer inserts with tenant_id and empty strings coerced to null', as
 test('createPlayer surfaces an RLS/DB error as ok:false', async () => {
   mocks.single.mockResolvedValue({ data: null, error: { message: 'permission denied' } })
   const result = await createPlayer({ ...emptyPlayer(), full_name: 'X', birth_date: '2015-01-01', tutor_name: 'T', tutor_whatsapp: '0' }, 'tenant-1')
-  expect(result).toEqual({ ok: false, error: 'permission denied' })
+  expect(result).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
+})
+
+test('createPlayer returns any other database error as it is', async () => {
+  const values = { ...emptyPlayer(), full_name: 'X', birth_date: '2015-01-01', tutor_name: 'T', tutor_whatsapp: '0' }
+  mocks.single.mockResolvedValueOnce({ data: null, error: { message: 'null value in column "full_name" of relation "players" violates not-null constraint' } })
+  expect(await createPlayer(values, 'tenant-1')).toEqual({ ok: false, error: 'null value in column "full_name" of relation "players" violates not-null constraint' })
+  mocks.single.mockResolvedValueOnce({ data: null, error: { message: 'consent_required: x' } })
+  expect(await createPlayer(values, 'tenant-1')).toEqual({ ok: false, error: 'consent_required: x' })
+  mocks.single.mockResolvedValueOnce({ data: null, error: { message: 'player 9f403a2c not found' } })
+  expect(await createPlayer(values, 'tenant-1')).toEqual({ ok: false, error: 'player 9f403a2c not found' })
 })
 
 test('updatePlayer updates by id and returns ok', async () => {
@@ -184,6 +194,14 @@ test('updatePlayer returns the PostgREST error message', async () => {
   mocks.updateSelect.mockResolvedValue({ data: null, error: { message: 'curp_format' } })
   const result = await updatePlayer('p1', { ...emptyPlayer(), full_name: 'Ana', birth_date: '2015-01-01', tutor_name: 'T', tutor_whatsapp: '0' })
   expect(result).toEqual({ ok: false, error: 'curp_format' })
+})
+
+test('updatePlayer translates a PostgREST permission error', async () => {
+  const values = { ...emptyPlayer(), full_name: 'Ana', birth_date: '2015-01-01', tutor_name: 'T', tutor_whatsapp: '0' }
+  mocks.updateSelect.mockResolvedValueOnce({ data: null, error: { message: 'new row violates row-level security policy for table "players"' } })
+  expect(await updatePlayer('p1', values)).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
+  mocks.updateSelect.mockResolvedValueOnce({ data: null, error: { message: 'Permission denied for table players' } })
+  expect(await updatePlayer('p1', values)).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
 })
 
 test('rowToValues maps nulls to empty strings', () => {

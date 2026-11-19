@@ -78,6 +78,10 @@ export function playerFilePath(tenantId: string, playerId: string, name: Documen
   return `${tenantId}/${playerId}/${name}`
 }
 
+export function isPermissionError(message: string): boolean {
+  return /row-level security|permission denied|unauthorized|\b403\b/i.test(message)
+}
+
 export function documentErrorMessage(message: string, opts: { consentGranted?: boolean } = {}): string {
   if (message.startsWith('consent_required')) return CONSENT_REQUIRED_MESSAGE
   if (message.startsWith('consent_in_use')) {
@@ -86,7 +90,7 @@ export function documentErrorMessage(message: string, opts: { consentGranted?: b
   if (/^(invalid_file_path|file_path_mismatch|document_identity_immutable)/.test(message)) {
     return 'Ruta de archivo inválida.'
   }
-  if (/row-level security|permission denied|unauthorized|\b403\b/i.test(message)) {
+  if (isPermissionError(message)) {
     return opts.consentGranted === false ? CONSENT_REQUIRED_MESSAGE : NO_PERMISSION_MESSAGE
   }
   return message

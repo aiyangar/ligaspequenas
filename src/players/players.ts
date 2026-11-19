@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { categoryLabel } from '../lib/category'
 import { fetchAllRows } from '../lib/fetchAllRows'
-import { NO_PERMISSION_MESSAGE, PLAYER_FILES_BUCKET, documentErrorMessage, playerFilePath, removeFile } from '../documents/documents'
+import { NO_PERMISSION_MESSAGE, PLAYER_FILES_BUCKET, documentErrorMessage, isPermissionError, playerFilePath, removeFile } from '../documents/documents'
 import type { PaymentState } from '../payments/payments'
 
 export type PlayerStatus = 'activo' | 'baja'
@@ -156,6 +156,10 @@ function toRecord(v: PlayerFormValues) {
   }
 }
 
+function playerErrorMessage(message: string): string {
+  return isPermissionError(message) ? NO_PERMISSION_MESSAGE : message
+}
+
 export async function createPlayer(
   values: PlayerFormValues,
   tenantId: string,
@@ -165,7 +169,7 @@ export async function createPlayer(
     .insert({ ...toRecord(values), tenant_id: tenantId })
     .select('id')
     .single()
-  if (error) return { ok: false, error: error.message }
+  if (error) return { ok: false, error: playerErrorMessage(error.message) }
   return { ok: true, id: (data as { id: string }).id }
 }
 
@@ -174,7 +178,7 @@ export async function updatePlayer(
   values: PlayerFormValues,
 ): Promise<UpdatePlayerResult> {
   const { data, error } = await supabase.from('players').update(toRecord(values)).eq('id', id).select('id')
-  if (error) return { ok: false, error: error.message }
+  if (error) return { ok: false, error: playerErrorMessage(error.message) }
   // RLS filters the row instead of raising, so a forbidden save looks like a success on zero rows
   if (!data || data.length === 0) return { ok: false, error: NO_PERMISSION_MESSAGE }
   return { ok: true }
