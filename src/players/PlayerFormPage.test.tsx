@@ -101,6 +101,8 @@ function follows(first: Element, second: Element): boolean {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // clearAllMocks keeps unconsumed *Once responses, which would leak into the next test
+  mocks.fetchPlayer.mockReset()
   mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Admin', tenantId: 'tenant-1' })
   mocks.createPlayer.mockResolvedValue({ ok: true, id: 'newid' })
   mocks.updatePlayer.mockResolvedValue({ ok: true })
@@ -289,7 +291,46 @@ test('saving an edit keeps the same page instance and shows the toast', async ()
   await screen.findByDisplayValue('Ana Ruiz')
   await user.click(screen.getByRole('button', { name: 'Guardar' }))
   expect(await screen.findByText('Cambios guardados')).toBeInTheDocument()
-  expect(mocks.fetchPlayer).toHaveBeenCalledTimes(1)
+  await waitFor(() => expect(mocks.fetchPlayer).toHaveBeenCalledTimes(2))
+  expect(screen.queryByText('Cargando…')).not.toBeInTheDocument()
+  expect(screen.getByDisplayValue('Ana Ruiz')).toBeInTheDocument()
+})
+
+test('saving an edit refetches the player so the category and the team selector follow the saved row', async () => {
+  const refreshed = deferred<PlayerRow>()
+  mocks.fetchPlayer.mockResolvedValueOnce(ana).mockReturnValueOnce(refreshed.promise)
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  await waitFor(() => expect(screen.getByLabelText('Equipo')).toBeEnabled())
+  const form = within(screen.getByRole('button', { name: 'Guardar' }).closest('form')!)
+  await user.selectOptions(form.getByRole('combobox', { name: 'Estatus' }), 'baja')
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  expect(await screen.findByText('Cambios guardados')).toBeInTheDocument()
+  const name = screen.getByLabelText(/Nombre completo/)
+  await user.clear(name)
+  await user.type(name, 'Ana María Ruiz')
+  await act(async () => {
+    refreshed.resolve({ ...ana, status: 'baja', category_id: 'cat2', category_name: 'Infantil Menor', category_year: 2 })
+  })
+  expect(await screen.findByText(/Infantil Menor \(2do\)/)).toBeInTheDocument()
+  expect(screen.getByLabelText('Equipo')).toBeDisabled()
+  expect(screen.getByText('Jugador de baja: no asignable.')).toBeInTheDocument()
+  expect(screen.getByLabelText(/Nombre completo/)).toHaveValue('Ana María Ruiz')
+  expect(form.getByRole('combobox', { name: 'Estatus' })).toHaveValue('baja')
+  expect(mocks.fetchPlayer).toHaveBeenNthCalledWith(2, 'p1')
+})
+
+test('a failed refresh after saving an edit keeps the toast and shows an error-severity message', async () => {
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  mocks.fetchPlayer.mockRejectedValueOnce(new Error('boom'))
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  expect(await screen.findByText('Cambios guardados')).toBeInTheDocument()
+  const msg = await screen.findByText('Error: no se pudo actualizar la vista. Recarga la página.')
+  expect(msg.closest('.MuiAlert-root')).toHaveClass('MuiAlert-colorError')
+  expect(screen.getByDisplayValue('Ana Ruiz')).toBeInTheDocument()
 })
 
 test('edit mode loads and shows the documents section', async () => {

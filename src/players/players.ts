@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { categoryLabel } from '../lib/category'
 import { fetchAllRows } from '../lib/fetchAllRows'
-import { PLAYER_FILES_BUCKET, documentErrorMessage, playerFilePath, removeFile } from '../documents/documents'
+import { NO_PERMISSION_MESSAGE, PLAYER_FILES_BUCKET, documentErrorMessage, playerFilePath, removeFile } from '../documents/documents'
 import type { PaymentState } from '../payments/payments'
 
 export type PlayerStatus = 'activo' | 'baja'
@@ -187,6 +187,18 @@ export function validatePhotoFile(file: File): string | null {
   return null
 }
 
+async function setPhotoPath(
+  id: string,
+  photoPath: string | null,
+  opts: { consentGranted?: boolean } = {},
+): Promise<string | null> {
+  const { data, error } = await supabase.from('players').update({ photo_path: photoPath }).eq('id', id).select('id')
+  if (error) return documentErrorMessage(error.message, opts)
+  // RLS filters the row instead of raising, so a forbidden update looks like a success on zero rows
+  if (!data || data.length === 0) return NO_PERMISSION_MESSAGE
+  return null
+}
+
 export async function uploadPlayerPhoto(
   player: Pick<PlayerRow, 'id' | 'tenant_id' | 'photo_path'>,
   file: File,
@@ -199,10 +211,10 @@ export async function uploadPlayerPhoto(
     .from(PLAYER_FILES_BUCKET)
     .upload(path, file, { upsert: true, contentType: file.type })
   if (uploaded.error) return { ok: false, error: documentErrorMessage(uploaded.error.message, { consentGranted }) }
-  const { error } = await supabase.from('players').update({ photo_path: path }).eq('id', player.id)
+  const error = await setPhotoPath(player.id, path, { consentGranted })
   if (error) {
     if (player.photo_path === null) await removeFile(path)
-    return { ok: false, error: documentErrorMessage(error.message, { consentGranted }) }
+    return { ok: false, error }
   }
   return { ok: true }
 }
@@ -214,7 +226,7 @@ export async function removePlayerPhoto(
     const removed = await removeFile(player.photo_path)
     if (!removed.ok) return removed
   }
-  const { error } = await supabase.from('players').update({ photo_path: null }).eq('id', player.id)
-  if (error) return { ok: false, error: documentErrorMessage(error.message) }
+  const error = await setPhotoPath(player.id, null)
+  if (error) return { ok: false, error }
   return { ok: true }
 }

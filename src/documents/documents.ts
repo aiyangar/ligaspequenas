@@ -58,7 +58,7 @@ export const STATUS_LABELS: Record<DocumentStatus, string> = {
 export const CONSENT_REQUIRED_MESSAGE =
   'Primero registra el consentimiento de imagen y el aviso de privacidad.'
 
-const NO_PERMISSION_MESSAGE = 'No tienes permiso para esta acción.'
+export const NO_PERMISSION_MESSAGE = 'No tienes permiso para esta acción.'
 
 const CONSENT_TYPES: readonly DocumentType[] = ['image_consent', 'privacy_notice']
 

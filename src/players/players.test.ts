@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   single: vi.fn(),
   update: vi.fn(),
   updateEq: vi.fn(),
+  updateSelect: vi.fn(),
   storageFrom: vi.fn(),
   upload: vi.fn(),
   remove: vi.fn(),
@@ -43,12 +44,13 @@ beforeEach(() => {
   mocks.range.mockImplementation(async (from: number) => ({ data: from === 0 ? [row()] : [], error: null }))
   mocks.maybeSingle.mockResolvedValue({ data: row(), error: null })
   mocks.eq.mockReturnValue({ maybeSingle: mocks.maybeSingle }) // read path only
-  // write chains: from().insert().select('id').single()  and  from().update().eq()
+  // write chains: from().insert().select('id').single(), from().update().eq() and from().update().eq().select('id')
   mocks.single.mockResolvedValue({ data: { id: 'newid' }, error: null })
   mocks.insert.mockReturnValue({ select: mocks.select })
-  mocks.updateEq.mockImplementation(async () => {
+  mocks.updateSelect.mockResolvedValue({ data: [{ id: 'p1' }], error: null })
+  mocks.updateEq.mockImplementation(() => {
     mocks.calls.push('update')
-    return { error: null }
+    return Object.assign(Promise.resolve({ error: null }), { select: mocks.updateSelect })
   })
   mocks.update.mockReturnValue({ eq: mocks.updateEq })
   // select serves reads (order/eq) and the insert().select('id').single() write
@@ -218,6 +220,7 @@ test('uploadPlayerPhoto upserts to tenant/player/photo, then sets photo_path', a
   expect(mocks.upload).toHaveBeenCalledWith('t1/p1/photo', f, { upsert: true, contentType: 'image/jpeg' })
   expect(mocks.from).toHaveBeenCalledWith('players')
   expect(mocks.update).toHaveBeenCalledWith({ photo_path: 't1/p1/photo' })
+  expect(mocks.updateSelect).toHaveBeenCalledWith('id')
   expect(mocks.calls).toEqual(['upload', 'update'])
 })
 
@@ -228,14 +231,14 @@ test('uploadPlayerPhoto validates before calling Supabase', async () => {
 })
 
 test('uploadPlayerPhoto rolls back a new photo when the update fails', async () => {
-  mocks.updateEq.mockResolvedValueOnce({ error: { message: 'consent_required: x' } })
+  mocks.updateSelect.mockResolvedValueOnce({ data: null, error: { message: 'consent_required: x' } })
   const res = await uploadPlayerPhoto({ id: 'p1', tenant_id: 't1', photo_path: null }, photo('image/jpeg', 1), true)
   expect(res).toEqual({ ok: false, error: 'Primero registra el consentimiento de imagen y el aviso de privacidad.' })
   expect(mocks.remove).toHaveBeenCalledWith(['t1/p1/photo'])
 })
 
 test('uploadPlayerPhoto does not roll back a replacement', async () => {
-  mocks.updateEq.mockResolvedValueOnce({ error: { message: 'boom' } })
+  mocks.updateSelect.mockResolvedValueOnce({ data: null, error: { message: 'boom' } })
   await uploadPlayerPhoto({ id: 'p1', tenant_id: 't1', photo_path: 't1/p1/photo' }, photo('image/jpeg', 1), true)
   expect(mocks.remove).not.toHaveBeenCalled()
 })
@@ -244,6 +247,7 @@ test('removePlayerPhoto removes the object first, then clears photo_path', async
   const res = await removePlayerPhoto({ id: 'p1', photo_path: 't1/p1/photo' })
   expect(res).toEqual({ ok: true })
   expect(mocks.update).toHaveBeenCalledWith({ photo_path: null })
+  expect(mocks.updateSelect).toHaveBeenCalledWith('id')
   expect(mocks.calls).toEqual(['remove', 'update'])
 })
 
@@ -259,4 +263,25 @@ test('uploadPlayerPhoto maps a Storage RLS rejection to the consent message when
   const res = await uploadPlayerPhoto({ id: 'p1', tenant_id: 't1', photo_path: null }, photo('image/jpeg', 1), false)
   expect(res).toEqual({ ok: false, error: 'Primero registra el consentimiento de imagen y el aviso de privacidad.' })
   expect(mocks.update).not.toHaveBeenCalled()
+})
+
+test('uploadPlayerPhoto rolls back a new photo when RLS updates zero rows', async () => {
+  mocks.updateSelect.mockResolvedValueOnce({ data: [], error: null })
+  const res = await uploadPlayerPhoto({ id: 'p1', tenant_id: 't1', photo_path: null }, photo('image/jpeg', 1), true)
+  expect(res).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
+  expect(mocks.remove).toHaveBeenCalledWith(['t1/p1/photo'])
+  expect(mocks.calls).toEqual(['upload', 'update', 'remove'])
+})
+
+test('uploadPlayerPhoto keeps a replaced photo when RLS updates zero rows', async () => {
+  mocks.updateSelect.mockResolvedValueOnce({ data: [], error: null })
+  const res = await uploadPlayerPhoto({ id: 'p1', tenant_id: 't1', photo_path: 't1/p1/photo' }, photo('image/jpeg', 1), true)
+  expect(res).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
+  expect(mocks.remove).not.toHaveBeenCalled()
+})
+
+test('removePlayerPhoto reports zero updated rows as a permission error', async () => {
+  mocks.updateSelect.mockResolvedValueOnce({ data: [], error: null })
+  const res = await removePlayerPhoto({ id: 'p1', photo_path: 't1/p1/photo' })
+  expect(res).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
 })

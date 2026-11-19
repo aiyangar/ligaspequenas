@@ -149,6 +149,16 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
     setToast(text)
   }
 
+  // only the row is replaced: typed values stay, while category and team rules follow the saved data
+  async function refreshRow(playerId: string) {
+    try {
+      const refreshed = await fetchPlayer(playerId)
+      if (refreshed) setRow(refreshed)
+    } catch {
+      setMessage('Error: no se pudo actualizar la vista. Recarga la página.')
+    }
+  }
+
   function handleRetry() {
     setLoadError(false)
     setReloadKey((k) => k + 1)
@@ -175,6 +185,7 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
         return
       }
       showToast('Cambios guardados')
+      await refreshRow(id!)
     } else {
       const result = await createPlayer(values, tenantId)
       setSubmitting(false)
@@ -196,12 +207,7 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
   async function handlePhotoChanged(text: string) {
     showToast(text)
     if (!row) return
-    try {
-      const refreshed = await fetchPlayer(row.id)
-      if (refreshed) setRow(refreshed)
-    } catch {
-      setMessage('Error: no se pudo actualizar la vista. Recarga la página.')
-    }
+    await refreshRow(row.id)
   }
 
   async function handleTeamChange(next: string) {
@@ -214,12 +220,7 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
       setMessage(`Error: ${res.error ?? 'no se pudo actualizar el equipo'}`)
       return
     }
-    try {
-      const refreshed = await fetchPlayer(row.id)
-      if (refreshed) setRow(refreshed)
-    } catch {
-      setMessage('Error: no se pudo actualizar la vista. Recarga la página.')
-    }
+    await refreshRow(row.id)
   }
 
   if (loadError) {

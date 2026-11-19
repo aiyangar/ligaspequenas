@@ -37,9 +37,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/player-photo-zero-rows-and-refresh`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/player-photo-zero-rows-and-refresh`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde).
 
 ---
 
@@ -54,7 +54,7 @@
 - Consumes: `NO_PERMISSION_MESSAGE` (`'No tienes permiso para esta acción.'`), ahora exportado por `src/documents/documents.ts`.
 - Produces: sin cambios de firma: `uploadPlayerPhoto(player, file, consentGranted): Promise<UpdatePlayerResult>` y `removePlayerPhoto(player): Promise<UpdatePlayerResult>`.
 
-- [ ] **Step 1.1: Ajustar los mocks y escribir los tests (rojo)**
+- [x] **Step 1.1: Ajustar los mocks y escribir los tests (rojo)**
 
 En `src/players/players.test.ts`:
 
@@ -117,7 +117,7 @@ test('removePlayerPhoto reports zero updated rows as a permission error', async 
 Run: `pnpm exec vitest run src/players/players.test.ts`
 Expected: FAIL en 6 tests (verificado por el planner): `uploadPlayerPhoto upserts…` y `removePlayerPhoto removes the object first…` (`updateSelect` no llamado), `uploadPlayerPhoto rolls back a new photo when the update fails` (hoy el error viaja en `updateEq`, que ya no lo trae), y los 3 nuevos (hoy cero filas da `{ ok: true }`). 22 pasan, incluido `updatePlayer updates by id and returns ok`.
 
-- [ ] **Step 1.2: Implementar**
+- [x] **Step 1.2: Implementar**
 
 1. En `src/documents/documents.ts` l.61, cambia `const NO_PERMISSION_MESSAGE = 'No tienes permiso para esta acción.'` por `export const NO_PERMISSION_MESSAGE = 'No tienes permiso para esta acción.'`. Nada más en ese archivo.
 2. En `src/players/players.ts`, agrega `NO_PERMISSION_MESSAGE` al import de `'../documents/documents'`:
@@ -184,7 +184,7 @@ Expected: todo PASS (`players.test.ts`: 28 tests).
 
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint src/players src/documents` → exit 0.
 
-- [ ] **Step 1.3: Commit**
+- [x] **Step 1.3: Commit**
 
 `git -C $WT status -s` → solo `players.ts`, `players.test.ts`, `documents.ts` y este plan.
 
@@ -204,7 +204,7 @@ git -C $WT commit -m "fix: detect a zero-row photo_path update on player photo u
 - Modify: `src/players/PlayerFormPage.test.tsx` (test `saving an edit keeps the same page instance and shows the toast` l.286–293; 2 tests nuevos después de él)
 - Modify: `src/players/PlayerFormPage.tsx` (`refreshRow` nuevo antes de `handleRetry`; `handleSubmit` l.177; `handlePhotoChanged` l.196–205; `handleTeamChange` l.217–222)
 
-- [ ] **Step 2.1: Escribir los tests (rojo)**
+- [x] **Step 2.1: Escribir los tests (rojo)**
 
 En `src/players/PlayerFormPage.test.tsx`, reemplaza el test `saving an edit keeps the same page instance and shows the toast` completo por estos tres:
 
@@ -263,7 +263,7 @@ test('a failed refresh after saving an edit keeps the toast and shows an error-s
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx`
 Expected (verificado por el planner): FAIL en los 3 tests de arriba — `saving an edit keeps the same page instance…` (`expected "vi.fn()" to be called 2 times, but got 1 times`), `saving an edit refetches the player…` (`Unable to find an element with the text: /Infantil Menor \(2do\)/`), `a failed refresh after saving an edit…` (`Unable to find an element with the text: Error: no se pudo actualizar la vista…`) — **más** `edit mode loads and shows the documents section`, que falla solo en el rojo porque el `mockRejectedValueOnce` que el test anterior no consumió se queda en la cola de `fetchPlayer` (`vi.clearAllMocks` no vacía las respuestas `*Once`). Desaparece en verde, cuando el refresco sí lo consume. El resto pasa.
 
-- [ ] **Step 2.2: Implementar `refreshRow` y usarlo**
+- [x] **Step 2.2: Implementar `refreshRow` y usarlo**
 
 En `src/players/PlayerFormPage.tsx`:
 
@@ -293,11 +293,11 @@ Comprobación: `grep -c "fetchPlayer(" src/players/PlayerFormPage.tsx` → `2` (
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx`
 Expected: 36 tests PASS (incluidos `a photo upload refetches the player, keeps typed edits…`, `a failed refresh after changing team…` y `an in-flight team change from one player never lands on the next player's page`, sin tocarlos).
 
-- [ ] **Step 2.3: Suite completa, tipos y lint**
+- [x] **Step 2.3: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `B_tests + 5` tests, todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 2.4: Commit**
+- [x] **Step 2.4: Commit**
 
 `git -C $WT status -s` → solo `PlayerFormPage.tsx`, `PlayerFormPage.test.tsx` y este plan.
 
