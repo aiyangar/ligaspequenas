@@ -33,9 +33,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/payments-a11y-tests`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 45 y 449, todo verde).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/payments-a11y-tests`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 45 y 449, todo verde).
 
 ---
 
@@ -47,7 +47,7 @@
 
 El texto visible sigue siendo "Editar"/"Borrar"; el `aria-label` empieza con esa misma palabra (WCAG 2.5.3, *label in name*) y agrega `paymentText(p)`, la fecha y el monto con el mismo formato que la fila (`formatPaymentDate`, `formatMoney`, ya importados), así dos pagos con el mismo concepto y nota tienen nombres distintos. El botón **Borrar del diálogo** de confirmación no cambia (se busca con `within(dialog)`).
 
-- [ ] **Step 1.1: Actualizar los tests (rojo)**
+- [x] **Step 1.1: Actualizar los tests (rojo)**
 
 En `src/payments/PlayerPaymentsSection.test.tsx`, reemplaza el test `admin sees Registrar pago and per-row Editar and Borrar` completo por:
 
@@ -91,7 +91,7 @@ Comprobación: `grep -n "within(item).getByRole('button', { name: '\(Editar\|Bor
 Run: `pnpm exec vitest run src/payments/PlayerPaymentsSection.test.tsx`
 Expected: FAIL en 7 tests: los 6 que buscan un botón de fila por su nombre nuevo (`admin sees … named after the payment`, `editing settles a partial payment`, `Cancelar in the delete confirmation deletes nothing`, `confirming the delete removes it, reloads and reports`, `a failed delete shows an inline alert and closes the confirmation`, `a double click on Borrar deletes once`) con `Unable to find an accessible element with the role "button" and name "… · 04/10/2026 · $150.50"`, y `two payments with the same concept get different button names` (`Unable to find an accessible element with the role "button" and name '/^Editar /'`); 5 pasan.
 
-- [ ] **Step 1.2: Implementar**
+- [x] **Step 1.2: Implementar**
 
 En `src/payments/PlayerPaymentsSection.tsx`, justo antes de `export interface PlayerPaymentsSectionProps {` agrega:
 
@@ -127,7 +127,7 @@ por:
 Run: `pnpm exec vitest run src/payments/PlayerPaymentsSection.test.tsx`
 Expected: 12 tests PASS.
 
-- [ ] **Step 1.3: Commit**
+- [x] **Step 1.3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-f-payments.md src/payments/PlayerPaymentsSection.tsx src/payments/PlayerPaymentsSection.test.tsx

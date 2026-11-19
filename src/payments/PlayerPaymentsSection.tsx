@@ -26,6 +26,10 @@ import {
 } from './payments'
 import type { MutationResult, PaymentFormValues, PaymentRow } from './payments'
 
+function paymentLabel(p: PaymentRow): string {
+  return `${paymentText(p)} · ${formatPaymentDate(p.payment_date)} · ${formatMoney(p.amount)}`
+}
+
 export interface PlayerPaymentsSectionProps {
   playerId: string
   tenantId: string
@@ -145,10 +149,10 @@ export function PlayerPaymentsSection({ playerId, tenantId, canEdit, onChanged }
               </Typography>
               {canEdit && (
                 <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                  <Button size="small" onClick={() => openDialog(p)}>
+                  <Button size="small" onClick={() => openDialog(p)} aria-label={`Editar ${paymentLabel(p)}`}>
                     Editar
                   </Button>
-                  <Button size="small" color="error" onClick={() => setConfirm(p)}>
+                  <Button size="small" color="error" onClick={() => setConfirm(p)} aria-label={`Borrar ${paymentLabel(p)}`}>
                     Borrar
                   </Button>
                 </Stack>
