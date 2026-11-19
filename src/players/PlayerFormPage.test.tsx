@@ -1,6 +1,6 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, expect, vi } from 'vitest'
+import { beforeEach, expect, onTestFinished, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { PlayerFormPage } from './PlayerFormPage'
 import type { PlayerRow } from './players'
@@ -391,4 +391,55 @@ test('the form and its Guardar come first; Equipo, Foto, Documentos and Pagos fo
   expect(follows(team, photoHeading)).toBe(true)
   expect(follows(photoHeading, documentsHeading)).toBe(true)
   expect(follows(documentsHeading, paymentsHeading)).toBe(true)
+})
+
+test('a document change right after saving replaces the toast instead of stacking a second one', async () => {
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  const curp = await screen.findByRole('listitem', { name: 'CURP' })
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  expect(await screen.findByText('Cambios guardados')).toBeInTheDocument()
+  await user.selectOptions(within(curp).getByRole('combobox'), 'fisico')
+  expect(await screen.findByText('Documento actualizado')).toBeInTheDocument()
+  expect(screen.queryByText('Cambios guardados')).not.toBeInTheDocument()
+})
+
+test('the create flash is dropped from history once shown, so a reload does not repeat it', async () => {
+  const user = userEvent.setup()
+  const router = renderAt('/jugadores/nuevo')
+  await user.type(screen.getByLabelText(/Nombre completo/), 'Nuevo Jugador')
+  await user.type(screen.getByLabelText(/Fecha de nacimiento/), '2015-06-10')
+  await user.type(screen.getByLabelText(/Nombre del tutor/), 'Tutor')
+  await user.type(screen.getByLabelText(/WhatsApp del tutor/), '8110000000')
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  expect(await screen.findByText('Jugador creado')).toBeInTheDocument()
+  await waitFor(() => expect(router.state.location.state).toBeNull())
+  expect(router.state.location.pathname).toBe('/jugadores/newid')
+  expect(screen.getByText('Jugador creado')).toBeInTheDocument()
+})
+
+test('saving an edit shows the toast without leaving a flash in history', async () => {
+  const user = userEvent.setup()
+  const router = renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  expect(await screen.findByText('Cambios guardados')).toBeInTheDocument()
+  expect(router.state.location.state).toBeNull()
+  expect(router.state.location.pathname).toBe('/jugadores/p1')
+})
+
+test('a toast that replaces another gets its own full display time', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  onTestFinished(() => { vi.useRealTimers() })
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  renderAt('/jugadores/p1')
+  const curp = await screen.findByRole('listitem', { name: 'CURP' })
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  expect(await screen.findByText('Cambios guardados')).toBeInTheDocument()
+  act(() => vi.advanceTimersByTime(3000))
+  // fireEvent, not a click: a click elsewhere is a Snackbar clickaway, which closes and reopens it anyway
+  fireEvent.change(within(curp).getByRole('combobox'), { target: { value: 'fisico' } })
+  expect(await screen.findByText('Documento actualizado')).toBeInTheDocument()
+  act(() => vi.advanceTimersByTime(2000))
+  expect(screen.getByText('Documento actualizado')).toBeInTheDocument()
 })

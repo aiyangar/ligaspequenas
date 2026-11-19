@@ -408,7 +408,7 @@ git -C $WT commit -m "fix: put the player form and Guardar first, then the self-
 - Modify: `src/players/PlayerFormPage.test.tsx`
 - Modify: `src/players/PlayerFormPage.tsx`
 
-- [ ] **Step 1: Tests (rojo)**
+- [x] **Step 1: Tests (rojo)**
 
 ```ts
 test('a document change right after saving replaces the toast instead of stacking a second one', async () => {
@@ -450,7 +450,7 @@ test('saving an edit shows the toast without leaving a flash in history', async 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx`
 Expected: FAIL en estos 3 (dos Snackbars a la vez; `location.state` sigue con `{ flash }`); el resto pasa.
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 1. Arriba de `export function PlayerFormPage()` agrega:
 
@@ -509,7 +509,7 @@ function flashOf(state: unknown): string | null {
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx` → todo PASS (incluye `creating shows…`, `editing shows…` y `saving an edit keeps the same page instance…`). `pnpm lint` → exit 0 (el efecto no llama `setState`, así que `react-hooks/set-state-in-effect` no aplica).
 
-- [ ] **Step 3: Test del temporizador del toast que reemplaza a otro, y su mutación**
+- [x] **Step 3: Test del temporizador del toast que reemplaza a otro, y su mutación**
 
 Agrega `fireEvent` al import de Testing Library (`import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'`) y `onTestFinished` al de Vitest (`import { beforeEach, expect, onTestFinished, vi } from 'vitest'`). Al final del archivo:
 
@@ -534,7 +534,7 @@ test('a toast that replaces another gets its own full display time', async () =>
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx -t "full display time"` → PASS.
 La mutación de este test va **después** del commit (Step 5), para poder restaurar con `checkout`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerFormPage.tsx src/players/PlayerFormPage.test.tsx
