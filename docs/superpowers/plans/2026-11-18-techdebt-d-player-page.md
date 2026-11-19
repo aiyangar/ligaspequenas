@@ -50,8 +50,8 @@ El `Alert` de mensaje se queda en el form, encima de Guardar: también muestra l
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 1:** `git -C $WT branch --show-current` → `fix/player-page-polish`; `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 2:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests`.
+- [x] **Step 1:** `git -C $WT branch --show-current` → `fix/player-page-polish`; `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 2:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests`.
 
 ---
 
@@ -61,7 +61,7 @@ El `Alert` de mensaje se queda en el form, encima de Guardar: también muestra l
 - Modify: `src/players/PlayerPhoto.test.tsx`
 - Modify: `src/players/players.test.ts`
 
-- [ ] **Step 1: Agregar los tests de `PlayerPhoto`**
+- [x] **Step 1: Agregar los tests de `PlayerPhoto`**
 
 Cambia el import a `import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'`. Al final del archivo agrega:
 
@@ -92,7 +92,7 @@ test('a replaced photo (same path, new updated_at) is signed again', async () =>
 })
 ```
 
-- [ ] **Step 2: Agregar el test de `uploadPlayerPhoto`**
+- [x] **Step 2: Agregar el test de `uploadPlayerPhoto`**
 
 Al final de `src/players/players.test.ts` agrega:
 
@@ -105,18 +105,18 @@ test('uploadPlayerPhoto maps a Storage RLS rejection to the consent message when
 })
 ```
 
-- [ ] **Step 3: Verificar que pasan**
+- [x] **Step 3: Verificar que pasan**
 
 Run: `pnpm exec vitest run src/players/PlayerPhoto.test.tsx src/players/players.test.ts` → todo PASS (3 tests más; cobertura, sin rojo).
 
-- [ ] **Step 4: Mutaciones** (cada una: aplicar → correr → ver FAIL → restaurar con `git -C $WT checkout -- <archivo>`)
+- [x] **Step 4: Mutaciones** (cada una: aplicar → correr → ver FAIL → restaurar con `git -C $WT checkout -- <archivo>`)
 
 1. `src/players/PlayerPhoto.tsx`: borra `    if (inFlight.current) return`. Run `pnpm exec vitest run src/players/PlayerPhoto.test.tsx -t "second photo"` → FAIL.
 2. `src/players/PlayerPhoto.tsx`: cambia `await onChanged('Foto actualizada')` por `void onChanged('Foto actualizada')`. Mismo comando → FAIL (el tercer `change` sube otra vez).
 3. `src/players/PlayerPhoto.tsx`: cambia `` `${player.photo_path}@${player.updated_at}` `` por `player.photo_path`. Run `… -t "signed again"` → FAIL.
 4. `src/players/players.ts`: en `uploadPlayerPhoto`, cambia `documentErrorMessage(uploaded.error.message, { consentGranted })` por `documentErrorMessage(uploaded.error.message)`. Run `pnpm exec vitest run src/players/players.test.ts -t "Storage RLS"` → FAIL.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerPhoto.test.tsx src/players/players.test.ts
@@ -131,7 +131,7 @@ git -C $WT commit -m "test: pin the photo in-flight guard, re-signing and Storag
 - Modify: `src/players/PlayerPhoto.test.tsx`
 - Modify: `src/players/PlayerPhoto.tsx`
 
-- [ ] **Step 1: Test (rojo)**
+- [x] **Step 1: Test (rojo)**
 
 ```ts
 test('a spinner shows while the photo is saving', async () => {
@@ -150,13 +150,13 @@ test('a spinner shows while the photo is saving', async () => {
 
 Run: `pnpm exec vitest run src/players/PlayerPhoto.test.tsx -t spinner` → FAIL (no hay "Guardando").
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 En `PlayerPhoto.tsx` importa `import CircularProgress from '@mui/material/CircularProgress'`. En el `Stack direction="row" spacing={1}` de los botones agrega `sx={{ alignItems: 'center' }}` y, como último hijo (después del botón Quitar), `{busy && <CircularProgress size={20} aria-label="Guardando" />}` (mismo texto que el spinner de las filas de documentos).
 
 Run: `pnpm exec vitest run src/players/PlayerPhoto.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerPhoto.tsx src/players/PlayerPhoto.test.tsx
@@ -171,7 +171,7 @@ git -C $WT commit -m "feat: show a spinner while the player photo saves (#58)" -
 - Modify: `src/players/PlayerPhoto.test.tsx`
 - Modify: `src/players/PlayerPhoto.tsx`
 
-- [ ] **Step 1: Test (rojo)**
+- [x] **Step 1: Test (rojo)**
 
 ```ts
 test('removing the photo drops the signed image before the parent reloads the player', async () => {
@@ -191,7 +191,7 @@ test('removing the photo drops the signed image before the parent reloads the pl
 
 Run: `pnpm exec vitest run src/players/PlayerPhoto.test.tsx -t "drops the signed image"` → FAIL (la imagen sigue mientras el padre no recarga).
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 Reemplaza `handleRemove` por:
 
@@ -209,7 +209,7 @@ Reemplaza `handleRemove` por:
 
 Run: `pnpm exec vitest run src/players/PlayerPhoto.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerPhoto.tsx src/players/PlayerPhoto.test.tsx
@@ -227,7 +227,7 @@ git -C $WT commit -m "fix: drop the signed photo URL as soon as the photo is rem
 **Interfaces:**
 - Produces: `PlayerPhotoProps.onReload?: () => Promise<void> | void`, llamada (y esperada) tras un `res.ok === false`, sin toast.
 
-- [ ] **Step 1: Test del componente (rojo)**
+- [x] **Step 1: Test del componente (rojo)**
 
 ```ts
 test('a failed photo change asks the page to reload, with no success toast', async () => {
@@ -244,7 +244,7 @@ test('a failed photo change asks the page to reload, with no success toast', asy
 
 Run: `pnpm exec vitest run src/players/PlayerPhoto.test.tsx -t "asks the page to reload"` → FAIL (`onReload` no se llama).
 
-- [ ] **Step 2: Implementar en `PlayerPhoto.tsx`**
+- [x] **Step 2: Implementar en `PlayerPhoto.tsx`**
 
 Agrega `onReload?: () => Promise<void> | void` a `PlayerPhotoProps` (después de `onChanged`) y desestructúralo. En `run` reemplaza:
 
@@ -267,7 +267,7 @@ por:
 
 Run: `pnpm exec vitest run src/players/PlayerPhoto.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Test de la página (rojo)**
+- [x] **Step 3: Test de la página (rojo)**
 
 En `PlayerFormPage.test.tsx`, al final:
 
@@ -293,13 +293,13 @@ test('a failed photo upload reloads the documents so a stale consent is correcte
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx -t "stale consent"` → FAIL (`fetchPlayerDocuments` se llama una sola vez).
 
-- [ ] **Step 4: Conectar en la página**
+- [x] **Step 4: Conectar en la página**
 
 En `PlayerFormPage.tsx`, en `<PlayerPhoto … />` agrega `onReload={refreshDocuments}`.
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx` → todo PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerPhoto.tsx src/players/PlayerPhoto.test.tsx src/players/PlayerFormPage.tsx src/players/PlayerFormPage.test.tsx
@@ -314,7 +314,7 @@ git -C $WT commit -m "fix: reload the documents after a failed photo change (#50
 - Modify: `src/players/PlayerFormPage.test.tsx`
 - Modify: `src/players/PlayerFormPage.tsx`
 
-- [ ] **Step 1: Test (rojo)**
+- [x] **Step 1: Test (rojo)**
 
 Después de `seededDocs()` agrega el helper:
 
@@ -346,7 +346,7 @@ test('the form and its Guardar come first; Equipo, Foto, Documentos and Pagos fo
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx -t "come first"` → FAIL (no hay heading "Foto").
 
-- [ ] **Step 2: Reestructurar el JSX**
+- [x] **Step 2: Reestructurar el JSX**
 
 Reemplaza el `return (` final de `PlayerFormContent` (desde `<Box component="form" …>` hasta el cierre `</Box>` que va antes de los Snackbars) para que quede así; **los Snackbars no cambian en esta tarea** (siguen después del `</Stack>` y antes del `</Box>` exterior, como hoy):
 
@@ -393,7 +393,7 @@ Borra el test `registering a payment never submits the player form`: con Pagos f
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx` → todo PASS. (Verificado al planear: el test de cambio de equipo existente y el de #35 de Task 7 siguen pasando con Equipo fuera del form.)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerFormPage.tsx src/players/PlayerFormPage.test.tsx
@@ -408,7 +408,7 @@ git -C $WT commit -m "fix: put the player form and Guardar first, then the self-
 - Modify: `src/players/PlayerFormPage.test.tsx`
 - Modify: `src/players/PlayerFormPage.tsx`
 
-- [ ] **Step 1: Tests (rojo)**
+- [x] **Step 1: Tests (rojo)**
 
 ```ts
 test('a document change right after saving replaces the toast instead of stacking a second one', async () => {
@@ -450,7 +450,7 @@ test('saving an edit shows the toast without leaving a flash in history', async 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx`
 Expected: FAIL en estos 3 (dos Snackbars a la vez; `location.state` sigue con `{ flash }`); el resto pasa.
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 1. Arriba de `export function PlayerFormPage()` agrega:
 
@@ -509,7 +509,7 @@ function flashOf(state: unknown): string | null {
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx` → todo PASS (incluye `creating shows…`, `editing shows…` y `saving an edit keeps the same page instance…`). `pnpm lint` → exit 0 (el efecto no llama `setState`, así que `react-hooks/set-state-in-effect` no aplica).
 
-- [ ] **Step 3: Test del temporizador del toast que reemplaza a otro, y su mutación**
+- [x] **Step 3: Test del temporizador del toast que reemplaza a otro, y su mutación**
 
 Agrega `fireEvent` al import de Testing Library (`import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'`) y `onTestFinished` al de Vitest (`import { beforeEach, expect, onTestFinished, vi } from 'vitest'`). Al final del archivo:
 
@@ -534,14 +534,14 @@ test('a toast that replaces another gets its own full display time', async () =>
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx -t "full display time"` → PASS.
 La mutación de este test va **después** del commit (Step 5), para poder restaurar con `checkout`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerFormPage.tsx src/players/PlayerFormPage.test.tsx
 git -C $WT commit -m "fix: one toast for the player page and no flash after a reload (#54, #61)" -m "The flash and the section toast were two Snackbars at the same anchor and stacked; each message now remounts the single Snackbar so a replacing toast gets its full time. The flash also rode history state, which survives a reload, so Jugador creado reappeared. The page now keeps one toast, reads the create flash once and replaces the history entry without it; saving an edit just shows the toast." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
 ```
 
-- [ ] **Step 5: Mutación del `key`**
+- [x] **Step 5: Mutación del `key`**
 
 Borra la línea `        key={toastKey}` del Snackbar. Run `pnpm exec vitest run src/players/PlayerFormPage.test.tsx -t "full display time"` → FAIL (el toast nuevo se cierra a los 4 s del primero; verificado al planear). Restaura: `git -C $WT checkout -- src/players/PlayerFormPage.tsx`.
 
@@ -552,7 +552,7 @@ Borra la línea `        key={toastKey}` del Snackbar. Run `pnpm exec vitest run
 **Files:**
 - Modify: `src/players/PlayerFormPage.test.tsx`
 
-- [ ] **Step 1: Mockear `getSignedFileUrl` en la página**
+- [x] **Step 1: Mockear `getSignedFileUrl` en la página**
 
 En `mocks` agrega `getSignedFileUrl: vi.fn(),` (después de `uploadPlayerPhoto`). El mock de `'../documents/documents'` pasa a devolver:
 
@@ -566,7 +566,7 @@ En `mocks` agrega `getSignedFileUrl: vi.fn(),` (después de `uploadPlayerPhoto`)
 
 En `beforeEach` agrega `mocks.getSignedFileUrl.mockResolvedValue('https://signed/photo')`. (Sin esto, una fila con `photo_path` llamaría al cliente real de Supabase.)
 
-- [ ] **Step 2: Reemplazar el test de cableado de la foto (#57.3)**
+- [x] **Step 2: Reemplazar el test de cableado de la foto (#57.3)**
 
 Reemplaza el test `a photo upload refetches the player and shows a toast` completo por:
 
@@ -593,7 +593,7 @@ test('a photo upload refetches the player, keeps typed edits and locks Pendiente
 })
 ```
 
-- [ ] **Step 3: Agregar el test de cambio de equipo en vuelo (#35)**
+- [x] **Step 3: Agregar el test de cambio de equipo en vuelo (#35)**
 
 ```ts
 test("an in-flight team change from one player never lands on the next player's page", async () => {
@@ -626,24 +626,24 @@ test("an in-flight team change from one player never lands on the next player's 
 
 (`deferred` ya existe en el archivo. La tercera llamada a `fetchPlayer` es el refresco de Ana que hace la instancia vieja tras el `assign`; con el remount por `key` cae en una instancia desmontada.)
 
-- [ ] **Step 4: Verificar que pasan**
+- [x] **Step 4: Verificar que pasan**
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx` → todo PASS (cobertura, sin rojo).
 
-- [ ] **Step 5: Mutaciones** (aplicar → FAIL → `git -C $WT checkout -- src/players/PlayerFormPage.tsx`)
+- [x] **Step 5: Mutaciones** (aplicar → FAIL → `git -C $WT checkout -- src/players/PlayerFormPage.tsx`)
 
 1. En `PlayerFormPage`, `return <PlayerFormContent key={id ?? 'new'} id={id} />` → `return <PlayerFormContent id={id} />`. Run `pnpm exec vitest run src/players/PlayerFormPage.test.tsx -t "in-flight team change"` → FAIL (Equipo muestra `team9` en la ficha de Beto).
 2. En `handlePhotoChanged`, `if (refreshed) setRow(refreshed)` → `if (refreshed) { setRow(refreshed); setValues(rowToValues(refreshed)) }`. Run `… -t "keeps typed edits"` → FAIL (se pierde lo tecleado).
 3. En `handlePhotoChanged`, `if (refreshed) setRow(refreshed)` → `void refreshed`. Mismo comando → FAIL (no aparece "Quitar"). El test viejo pasaba con esta mutación.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerFormPage.test.tsx
 git -C $WT commit -m "test: pin the photo page wiring and the in-flight team change across players (#57, #35)" -m "The wiring test only proved fetchPlayer ran twice, and the guarantee that a team change for one player cannot land on the next player's page rested on reasoning about the remount key." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
 ```
 
-- [ ] **Step 7: Suite completa, tipos y lint (antes de Task 8)**
+- [x] **Step 7: Suite completa, tipos y lint (antes de Task 8)**
 
 Run: `pnpm exec vitest run` → `B_files` archivos, `B_tests + 12` tests (Task 1: 3; Task 2: 1; Task 3: 1; Task 4: 2; Task 5: +1 −1 = 0; Task 6: 4; Task 7: 1), todo verde (esperado 45 / 461 si la base es `24c14a4`; si E u otro lote ya se mergeó en tu base, el esperado es `B_tests + 12`). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
@@ -658,11 +658,11 @@ Run: `pnpm exec vitest run` → `B_files` archivos, `B_tests + 12` tests (Task 1
 **Interfaces:**
 - Consumes: `PlayerDocumentsSectionProps.onReload?: () => Promise<void> | void` (lote C, Task 5).
 
-- [ ] **Step 1: Traer el lote C**
+- [x] **Step 1: Traer el lote C**
 
 `git -C $WT fetch origin`; `git -C $WT log origin/develop --oneline --grep "#50"` debe mostrar `fix: let the documents section reload its rows after a failed change (#50)`. Si no, **detente y reporta**. Si está: `git -C $WT rebase origin/develop` (tus commits no tocan archivos de C: no hay conflictos). Si el hook de git bloquea el rebase, detente y reporta. Después: `pnpm exec vitest run` y anota `B2_files`/`B2_tests`. Usa **siempre los conteos medidos**: si solo entró C, el esperado es 45 / 469 (461 + 8 de C); si E (u otro lote) se mergeó antes, la base sube (E suma +1 archivo y +7 tests) y los números absolutos de este plan ya no aplican: vale `B2_tests + 1` en el Step 3.
 
-- [ ] **Step 2: Test (rojo)**
+- [x] **Step 2: Test (rojo)**
 
 ```ts
 test('a failed document change reloads the documents without a success toast', async () => {
@@ -679,13 +679,13 @@ test('a failed document change reloads the documents without a success toast', a
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx -t "failed document change"` → FAIL (`fetchPlayerDocuments` una sola vez).
 
-- [ ] **Step 3: Conectar**
+- [x] **Step 3: Conectar**
 
 En `<PlayerDocumentsSection … />` agrega `onReload={refreshDocuments}` después del `onChanged`.
 
 Run: `pnpm exec vitest run` → `B2_files` archivos, `B2_tests + 1` tests, todo verde (con solo C en la base, 45 / 470). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerFormPage.tsx src/players/PlayerFormPage.test.tsx

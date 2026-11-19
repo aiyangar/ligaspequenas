@@ -253,3 +253,10 @@ test('removePlayerPhoto keeps photo_path when the remove fails', async () => {
   expect(res.ok).toBe(false)
   expect(mocks.update).not.toHaveBeenCalled()
 })
+
+test('uploadPlayerPhoto maps a Storage RLS rejection to the consent message when consent is missing', async () => {
+  mocks.upload.mockResolvedValueOnce({ data: null, error: { message: 'new row violates row-level security policy' } })
+  const res = await uploadPlayerPhoto({ id: 'p1', tenant_id: 't1', photo_path: null }, photo('image/jpeg', 1), false)
+  expect(res).toEqual({ ok: false, error: 'Primero registra el consentimiento de imagen y el aviso de privacidad.' })
+  expect(mocks.update).not.toHaveBeenCalled()
+})

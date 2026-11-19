@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, vi } from 'vitest'
 import { PlayerPhoto } from './PlayerPhoto'
@@ -94,4 +94,80 @@ test('Quitar asks for confirmation and removes on confirm', async () => {
   await user.click(screen.getByRole('button', { name: 'Quitar foto' }))
   await waitFor(() => expect(mocks.removePlayerPhoto).toHaveBeenCalledWith(player))
   expect(onChanged).toHaveBeenCalledWith('Foto actualizada')
+})
+
+test('a second photo while the first is still saving or reloading is ignored', async () => {
+  let finishReload!: () => void
+  const onChanged = vi.fn(() => new Promise<void>((r) => { finishReload = r }))
+  render(<PlayerPhoto player={base} canEdit consentGranted onChanged={onChanged} />)
+  const input = screen.getByLabelText('Subir foto', { selector: 'input' })
+  const f = new File(['x'], 'a.jpg', { type: 'image/jpeg' })
+  // fireEvent, not user.upload: user-event skips a disabled input, which would hide a missing guard
+  fireEvent.change(input, { target: { files: [f] } })
+  fireEvent.change(input, { target: { files: [f] } })
+  await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1))
+  fireEvent.change(input, { target: { files: [f] } })
+  expect(mocks.uploadPlayerPhoto).toHaveBeenCalledTimes(1)
+  await act(async () => finishReload())
+})
+
+test('a replaced photo (same path, new updated_at) is signed again', async () => {
+  mocks.getSignedFileUrl.mockResolvedValueOnce('https://signed/v1').mockResolvedValueOnce('https://signed/v2')
+  const player = { ...base, photo_path: 't1/p1/photo', updated_at: 'u1' }
+  const { rerender } = render(<PlayerPhoto player={player} canEdit consentGranted onChanged={vi.fn()} />)
+  expect(await screen.findByRole('img', { name: 'Foto de Ana Ruiz' })).toHaveAttribute('src', 'https://signed/v1')
+  rerender(<PlayerPhoto player={{ ...player, updated_at: 'u2' }} canEdit consentGranted onChanged={vi.fn()} />)
+  await waitFor(() => expect(screen.getByRole('img', { name: 'Foto de Ana Ruiz' })).toHaveAttribute('src', 'https://signed/v2'))
+  expect(mocks.getSignedFileUrl).toHaveBeenCalledTimes(2)
+})
+
+test('a spinner shows while the photo is saving', async () => {
+  let resolve!: (v: { ok: boolean }) => void
+  mocks.uploadPlayerPhoto.mockReturnValueOnce(new Promise((r) => { resolve = r }))
+  renderPhoto()
+  expect(screen.queryByLabelText('Guardando')).not.toBeInTheDocument()
+  fireEvent.change(screen.getByLabelText('Subir foto', { selector: 'input' }), {
+    target: { files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })] },
+  })
+  expect(screen.getByLabelText('Guardando')).toBeInTheDocument()
+  await act(async () => resolve({ ok: true }))
+  expect(screen.queryByLabelText('Guardando')).not.toBeInTheDocument()
+})
+
+test('removing the photo drops the signed image before the parent reloads the player', async () => {
+  let finishReload!: () => void
+  const onChanged = vi.fn(() => new Promise<void>((r) => { finishReload = r }))
+  const user = userEvent.setup()
+  render(<PlayerPhoto player={{ ...base, photo_path: 't1/p1/photo' }} canEdit consentGranted onChanged={onChanged} />)
+  await screen.findByRole('img', { name: 'Foto de Ana Ruiz' })
+  await user.click(screen.getByRole('button', { name: 'Quitar' }))
+  await user.click(await screen.findByRole('button', { name: 'Quitar foto' }))
+  await waitFor(() => expect(onChanged).toHaveBeenCalledWith('Foto actualizada'))
+  expect(screen.queryByRole('img', { name: 'Foto de Ana Ruiz', hidden: true })).not.toBeInTheDocument()
+  expect(screen.getByText('AR')).toBeInTheDocument()
+  await act(async () => finishReload())
+})
+
+test('a failed photo change asks the page to reload, with no success toast', async () => {
+  mocks.uploadPlayerPhoto.mockResolvedValueOnce({ ok: false, error: 'No tienes permiso para esta acción.' })
+  const onReload = vi.fn()
+  const user = userEvent.setup()
+  const { onChanged } = renderPhoto({ onReload })
+  await user.upload(screen.getByLabelText('Subir foto', { selector: 'input' }), new File(['x'], 'a.jpg', { type: 'image/jpeg' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('No tienes permiso para esta acción.')
+  expect(onReload).toHaveBeenCalledTimes(1)
+  expect(onChanged).not.toHaveBeenCalled()
+})
+
+test('a signature that resolves after the photo was removed is ignored', async () => {
+  let sign!: (src: string) => void
+  mocks.getSignedFileUrl.mockReturnValueOnce(new Promise<string>((r) => { sign = r }))
+  const user = userEvent.setup()
+  const { onChanged } = renderPhoto({ player: { ...base, photo_path: 't1/p1/photo' } })
+  await user.click(screen.getByRole('button', { name: 'Quitar' }))
+  await user.click(await screen.findByRole('button', { name: 'Quitar foto' }))
+  await waitFor(() => expect(onChanged).toHaveBeenCalledWith('Foto actualizada'))
+  await act(async () => sign('https://signed/deleted'))
+  expect(screen.queryByRole('img', { name: 'Foto de Ana Ruiz', hidden: true })).not.toBeInTheDocument()
+  expect(screen.getByText('AR')).toBeInTheDocument()
 })
