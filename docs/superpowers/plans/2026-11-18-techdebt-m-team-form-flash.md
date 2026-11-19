@@ -35,10 +35,10 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/team-form-flash`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde).
-- [ ] **Step 0.4:** `grep -rn "flash\|useLocation" src/teams --include='*.tsx' | grep -v '\.test\.tsx'` → solo las dos líneas `navigate(…, { state: { flash: … } })` de `TeamFormPage.tsx` (l.88 y l.97) y el comentario `…never flashes…` de `AddPlayerDialog.tsx`. Confirma que hoy nadie lee el flash.
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/team-form-flash`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde).
+- [x] **Step 0.4:** `grep -rn "flash\|useLocation" src/teams --include='*.tsx' | grep -v '\.test\.tsx'` → solo las dos líneas `navigate(…, { state: { flash: … } })` de `TeamFormPage.tsx` (l.88 y l.97) y el comentario `…never flashes…` de `AddPlayerDialog.tsx`. Confirma que hoy nadie lee el flash.
 
 ---
 
@@ -48,7 +48,7 @@
 - Modify: `src/teams/TeamDetailPage.test.tsx` (import l.1; `renderPage` l.35–45; 4 tests nuevos al final)
 - Modify: `src/teams/TeamDetailPage.tsx` (imports l.2 y l.10; `flashOf` nuevo; estado y efecto nuevos tras `loaded`; `Snackbar` al final del `return`)
 
-- [ ] **Step 1.1: Escribir los tests (rojo)**
+- [x] **Step 1.1: Escribir los tests (rojo)**
 
 En `src/teams/TeamDetailPage.test.tsx`:
 
@@ -103,7 +103,7 @@ test('without a flash no toast is shown', async () => {
 Run: `pnpm exec vitest run src/teams/TeamDetailPage.test.tsx`
 Expected: FAIL en 3 tests (verificado por el planner): `the Equipo creado flash…`, `the Cambios guardados flash…` y `the flash is dropped from history…`, los tres con `Unable to find an element with the text: <flash>`; los 13 restantes pasan (incluido `without a flash no toast is shown`, que es la guarda del caso sin flash).
 
-- [ ] **Step 1.2: Implementar**
+- [x] **Step 1.2: Implementar**
 
 En `src/teams/TeamDetailPage.tsx`:
 
@@ -154,7 +154,7 @@ Expected: 16 tests PASS.
 
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint src/teams` → exit 0.
 
-- [ ] **Step 1.3: Commit**
+- [x] **Step 1.3: Commit**
 
 `git -C $WT status -s` → solo `TeamDetailPage.tsx`, `TeamDetailPage.test.tsx` y este plan.
 
