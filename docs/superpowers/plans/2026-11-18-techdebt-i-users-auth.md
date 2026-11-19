@@ -503,7 +503,7 @@ git -C $WT commit -m "fix: theme the users role selectors and the main navigatio
 
 Los tres puntos del issue: (1) sin prefijo `Error:`; (2) severidad explícita, no derivada del texto; (3) `loadUsers` (hoy `fetchUsers`) se traga el error de la consulta. Además `changeRole` ignora el error del `update` (mismo problema, misma pantalla): también se atiende aquí (ver Discrepancias). Un código de error desconocido de `invite-user` (p. ej. `internal_error`, que agrega Task 5) se muestra como `No se pudo enviar la invitación (internal_error).` para no perder el diagnóstico, pero **solo si parece un código** (`/^[a-z_]+$/`): `inviteUser` también puede devolver el `message` en texto libre de supabase-js (p. ej. `Edge Function returned a non-2xx status code`), y ese no se muestra; queda solo el mensaje en español.
 
-- [ ] **Step 3.1: Reescribir los tests (rojo)**
+- [x] **Step 3.1: Reescribir los tests (rojo)**
 
 Reemplaza **todo** el contenido de `src/users/UsersPage.test.tsx` por:
 
@@ -664,7 +664,7 @@ test('a failed reload after inviting keeps the success message and offers Reinte
 Run: `pnpm exec vitest run src/users/UsersPage.test.tsx`
 Expected: FAIL en 7 tests: `a known invite error …`, `an unknown invite error …`, `an invite error without a code …`, `an invite error that is not a code …`, `a failed role change …`, `a failed list load …`, `a failed reload after inviting …`; los 4 restantes pasan.
 
-- [ ] **Step 3.2: Implementar**
+- [x] **Step 3.2: Implementar**
 
 Reemplaza **todo** el contenido de `src/users/UsersPage.tsx` por:
 
@@ -869,7 +869,7 @@ Expected: 11 tests PASS.
 
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint src/users` → exit 0.
 
-- [ ] **Step 3.3: Commit**
+- [x] **Step 3.3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-i-users-auth.md src/users/UsersPage.tsx src/users/UsersPage.test.tsx
