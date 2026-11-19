@@ -288,7 +288,20 @@ git -C $WT commit -m "fix: ignore stale player refreshes after overlapping saves
 
 - [ ] **O2. Navegador** (Playwright, sesión admin persistente, dev server en `http://localhost:5173`; desktop 1280×800 y móvil 390×844). Con un jugador de prueba que **crea y borra el orquestador** (procedimiento de la ola 1: tutor y datos ficticios):
   1. **Guardado normal:** en la ficha cambia la fecha de nacimiento a una de otra categoría → Guardar → toast `Cambios guardados`, y sin recargar la línea `Categoría: …` y el selector de Equipo siguen a la nueva categoría.
-  2. **Dos guardados con la lectura demorada (#145):** con `page.route` sobre las lecturas `GET …/rest/v1/players_with_category*` que retrase **solo la primera** 2 s (las siguientes pasan sin demora): cambia Estatus a Baja → Guardar; enseguida (Guardar sigue habilitado) Guardar otra vez. Al terminar la lectura demorada la ficha sigue mostrando Equipo deshabilitado con `Jugador de baja: no asignable.` (la fila del último). Quita la ruta, vuelve a Activo → Guardar.
+  2. **Dos guardados con la lectura vieja llegando al final (#145):** con la ficha ya cargada y Equipo habilitado (jugador Activo), instala la ruta **después** de la carga inicial. Solo la **primera** lectura `GET …/rest/v1/players_with_category*` que coincida se lee en el momento y se entrega tarde; las demás pasan sin tocar:
+
+     ```js
+     let delayed = false
+     await page.route('**/rest/v1/players_with_category*', async (route) => {
+       if (delayed || route.request().method() !== 'GET') return route.continue()
+       delayed = true
+       const r = await route.fetch()
+       await new Promise((resolve) => setTimeout(resolve, 3000))
+       await route.fulfill({ response: r })
+     })
+     ```
+
+     (`route.fetch()` lee la fila **en ese momento**, con Estatus Baja, y la entrega 3 s después; un `route.continue()` demorado leería el estado nuevo y no probaría nada.) Pasos: Estatus → Baja → Guardar; mientras esa lectura está retenida (Guardar sigue habilitado), Estatus → Activo → Guardar. La segunda lectura llega primero (Activo). Esperado cuando llega la respuesta vieja: Equipo **sigue habilitado** y **no** aparece `Jugador de baja: no asignable.` (sin el arreglo pasaría a deshabilitado). Después `await page.unroute('**/rest/v1/players_with_category*')`, recarga la página y comprueba el estado final: Estatus Activo y Equipo habilitado.
   3. **Cero filas (#134):** no se reproduce en vivo (exige quitarse permisos sobre `players`); lo cubren los tests de Task 1 y el pin de página de Task 2.
   4. **390 px:** sin scroll horizontal (`document.documentElement.scrollWidth <= 390`), el toast cabe.
   5. Sin errores en la consola.

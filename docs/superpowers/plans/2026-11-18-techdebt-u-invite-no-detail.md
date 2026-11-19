@@ -196,6 +196,8 @@ pnpm exec supabase functions deploy invite-user --project-ref eksbaugyypadtanyjc
 
 Antes y después: `pnpm exec supabase functions list --project-ref eksbaugyypadtanyjcje` → `invite-user` `ACTIVE`, `VERSION` uno más que antes, `UPDATED_AT` = ahora. `ALLOWED_ORIGINS` no cambia.
 
+Además, comprueba que el código desplegado es el nuevo: con el Supabase MCP, `get_edge_function` de `invite-user` → los archivos contienen `failureBody` y ninguno contiene `detail:`. (Alternativa sin MCP: `pnpm exec supabase functions download invite-user --project-ref eksbaugyypadtanyjcje --use-api` en un directorio temporal fuera del repo, `grep -rn "failureBody"` → con salida, `grep -rn "detail:"` → sin salida; borra el directorio después.)
+
 - [ ] **O4. Pruebas con curl** (registrar status y headers CORS tal cual en el PR):
 
 a. Preflight del origen permitido:

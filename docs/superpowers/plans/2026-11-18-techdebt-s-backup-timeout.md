@@ -170,13 +170,13 @@ git -C $WT commit -m "test: pin the cause-code fallback for an unknown Node-shap
 gh workflow run backup.yml --repo aiyangar/ligaspequenas --ref develop
 ```
 
-Luego, para tomar la corrida recién creada y seguirla hasta el final:
+Luego, sondea (cada ~10 s, hasta 2 min) hasta que aparezca una corrida `workflow_dispatch` cuyo `headSha` sea el merge commit del PR (`MERGE_SHA`):
 
 ```bash
-gh run list --repo aiyangar/ligaspequenas --workflow backup.yml --limit 1 --json databaseId,status,conclusion,headSha,event
+gh run list --repo aiyangar/ligaspequenas --workflow backup.yml --event workflow_dispatch --limit 5 --json databaseId,status,conclusion,headSha,createdAt --jq ".[] | select(.headSha == \"$MERGE_SHA\")"
 ```
 
-(esperado `event: workflow_dispatch` y `headSha` = el merge del PR) y
+Toma su `databaseId` (si hay varias, la de `createdAt` más reciente) y sigue esa corrida:
 
 ```bash
 gh run watch <databaseId> --repo aiyangar/ligaspequenas --exit-status

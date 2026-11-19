@@ -74,7 +74,7 @@ The canonical files keep the `begin; plan; …; finish; rollback;` form and cann
 por:
 
 ```
-The canonical files keep the `begin; plan; …; finish; rollback;` form. At the time of this plan they could not be pasted as they were (0002 relied on a `tests` schema that does not exist on the remote and called a nonexistent `reset()`; 0012 kept its consent setup in comments); since lote A they can (see the note above).
+The canonical files keep the `begin; plan; …; finish; rollback;` form. At the time of this plan they could not be pasted as they were (0002 relied on a `tests` schema that does not exist on the remote and called a nonexistent `reset()`; 0012 kept its consent setup in comments); since lote A they carry their own fixtures and run with lote A's `tap` harness (see the note above).
 ```
 
 El resto del párrafo (`Each R-call below is **one** \`execute_sql\` …`) no cambia.
