@@ -38,9 +38,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/users-auth-polish`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 45 y 449, todo verde).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/users-auth-polish`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 45 y 449, todo verde).
 
 ---
 
@@ -53,7 +53,7 @@
 - Modify: `src/auth/AuthCallbackPage.test.tsx` (l.45–49 y l.78–82 captura del listener)
 - Modify: `src/auth/LoginPage.test.tsx` (l.17–23 `deferred` local)
 
-- [ ] **Step 1.1: Escribir los tests de los helpers (rojo)**
+- [x] **Step 1.1: Escribir los tests de los helpers (rojo)**
 
 Crea `src/test/deferred.test.ts`:
 
@@ -99,7 +99,7 @@ test('emit before any listener registered throws', () => {
 Run: `pnpm exec vitest run src/test`
 Expected: FAIL en los 2 archivos: `Failed to resolve import "./deferred"` y `Failed to resolve import "./authListener"`; `Tests  no tests`.
 
-- [ ] **Step 1.2: Implementar los helpers**
+- [x] **Step 1.2: Implementar los helpers**
 
 Crea `src/test/deferred.ts`:
 
@@ -145,7 +145,7 @@ export function captureAuthListener(onAuthStateChange: Mock): AuthListener {
 Run: `pnpm exec vitest run src/test`
 Expected: 2 archivos, 4 tests PASS.
 
-- [ ] **Step 1.3: Migrar los tests de `src/auth/*`**
+- [x] **Step 1.3: Migrar los tests de `src/auth/*`**
 
 `src/auth/AuthContext.test.tsx`:
 1. Debajo de `import { useAuth } from './AuthContext'` agrega:
@@ -189,7 +189,7 @@ Expected: 7 archivos, 31 tests PASS (los 27 de `src/auth` siguen igual + 4 de lo
 
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint src/auth src/test` → exit 0.
 
-- [ ] **Step 1.4: Commit**
+- [x] **Step 1.4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-i-users-auth.md src/test/deferred.ts src/test/deferred.test.ts src/test/authListener.ts src/test/authListener.test.ts src/auth/AuthContext.test.tsx src/auth/AuthCallbackPage.test.tsx src/auth/LoginPage.test.tsx
@@ -213,7 +213,7 @@ Decisión del owner (spec §2): ajuste con el tema actual, sin rediseño. Qué c
 - Navegación: sigue siendo `AppBar` + `Toolbar` + `Button component={NavLink}`. Los cuatro links de sección pasan a estar dentro de `<Box component="nav" aria-label="Principal">`; "Salir" queda fuera (es una acción, no una sección). La sección actual lleva la clase `active` y `aria-current="page"` (los pone `NavLink`; para Jugadores se calculan a mano) y se marca con un subrayado de 2 px en `primary.main` (morado Dracula `#BD93F9`) y `fontWeight: 700`. El texto **no** cambia de color: sigue en `inherit` (texto claro del `AppBar`), porque `#BD93F9` como texto sobre el `AppBar` oscuro da ~2.9:1, bajo el 4.5:1 de AA. "Jugadores" es la sección actual en `/` **y** en `/jugadores/*` (fichas y alta de jugador), algo que `NavLink to="/"` no hace: por eso ese botón usa `Link` con `className`/`aria-current` calculados desde `useLocation()`. Nada más.
 - Usuarios: el rol de cada usuario pasa de `TextField select` nativo a `Select` de MUI con `MenuItem`; el de la invitación, a `TextField select` no nativo (que es `Select` de MUI con su etiqueta). La lista muestra solo el nombre: hoy dice `Ana — admin` (el valor crudo) y el rol ya se ve en el select.
 
-- [ ] **Step 2.1: Tests de navegación (rojo)**
+- [x] **Step 2.1: Tests de navegación (rojo)**
 
 En `src/app/AppLayout.test.tsx`:
 
@@ -287,7 +287,7 @@ test.each(['/', '/jugadores/p1'])('Jugadores is the current section on %s', (ent
 Run: `pnpm exec vitest run src/app/AppLayout.test.tsx`
 Expected: FAIL en los 4 tests nuevos: `the section links live…` (`Unable to find an accessible element with the role "navigation" and name "Principal"`), `the current section is marked…` y `Jugadores is the current section on /` (`toHaveStyle`: falta `boxShadow: inset 0 -2px 0 #bd93f9; fontWeight: 700`), y `Jugadores is the current section on /jugadores/p1` (`toHaveAttribute("aria-current", "page")`: sin atributo); los 6 existentes pasan con el `ThemeProvider`.
 
-- [ ] **Step 2.2: Implementar la navegación**
+- [x] **Step 2.2: Implementar la navegación**
 
 En `src/app/AppLayout.tsx`:
 
@@ -362,7 +362,7 @@ Comprobación: `grep -n "color: 'primary" src/app/AppLayout.tsx` → sin salida 
 Run: `pnpm exec vitest run src/app/AppLayout.test.tsx`
 Expected: 10 tests PASS.
 
-- [ ] **Step 2.3: Tests del rol con MUI (rojo)**
+- [x] **Step 2.3: Tests del rol con MUI (rojo)**
 
 En `src/users/UsersPage.test.tsx`:
 
@@ -405,7 +405,7 @@ Expected: FAIL en 3 tests (mensajes verificados por el planner):
 
 2 pasan.
 
-- [ ] **Step 2.4: Implementar los selects de MUI**
+- [x] **Step 2.4: Implementar los selects de MUI**
 
 En `src/users/UsersPage.tsx`:
 
@@ -483,7 +483,7 @@ Expected: 5 tests PASS.
 
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint src/app src/users` → exit 0.
 
-- [ ] **Step 2.5: Commit**
+- [x] **Step 2.5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-i-users-auth.md src/app/AppLayout.tsx src/app/AppLayout.test.tsx src/users/UsersPage.tsx src/users/UsersPage.test.tsx
@@ -503,7 +503,7 @@ git -C $WT commit -m "fix: theme the users role selectors and the main navigatio
 
 Los tres puntos del issue: (1) sin prefijo `Error:`; (2) severidad explícita, no derivada del texto; (3) `loadUsers` (hoy `fetchUsers`) se traga el error de la consulta. Además `changeRole` ignora el error del `update` (mismo problema, misma pantalla): también se atiende aquí (ver Discrepancias). Un código de error desconocido de `invite-user` (p. ej. `internal_error`, que agrega Task 5) se muestra como `No se pudo enviar la invitación (internal_error).` para no perder el diagnóstico, pero **solo si parece un código** (`/^[a-z_]+$/`): `inviteUser` también puede devolver el `message` en texto libre de supabase-js (p. ej. `Edge Function returned a non-2xx status code`), y ese no se muestra; queda solo el mensaje en español.
 
-- [ ] **Step 3.1: Reescribir los tests (rojo)**
+- [x] **Step 3.1: Reescribir los tests (rojo)**
 
 Reemplaza **todo** el contenido de `src/users/UsersPage.test.tsx` por:
 
@@ -664,7 +664,7 @@ test('a failed reload after inviting keeps the success message and offers Reinte
 Run: `pnpm exec vitest run src/users/UsersPage.test.tsx`
 Expected: FAIL en 7 tests: `a known invite error …`, `an unknown invite error …`, `an invite error without a code …`, `an invite error that is not a code …`, `a failed role change …`, `a failed list load …`, `a failed reload after inviting …`; los 4 restantes pasan.
 
-- [ ] **Step 3.2: Implementar**
+- [x] **Step 3.2: Implementar**
 
 Reemplaza **todo** el contenido de `src/users/UsersPage.tsx` por:
 
@@ -869,7 +869,7 @@ Expected: 11 tests PASS.
 
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint src/users` → exit 0.
 
-- [ ] **Step 3.3: Commit**
+- [x] **Step 3.3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-i-users-auth.md src/users/UsersPage.tsx src/users/UsersPage.test.tsx
@@ -888,7 +888,7 @@ git -C $WT commit -m "fix: surface Usuarios load and role-change errors and deco
 
 Test de caracterización (el código ya compara exacto, `http.ts:20`); el rojo se demuestra con la mutación que cita el issue.
 
-- [ ] **Step 4.1: Escribir el test**
+- [x] **Step 4.1: Escribir el test**
 
 En `supabase/functions/invite-user/http.test.ts`, justo después del test `isOriginAllowed lets a missing Origin through and matches present ones exactly`, agrega:
 
@@ -903,7 +903,7 @@ test('isOriginAllowed does not normalize the incoming Origin', () => {
 Run: `pnpm exec vitest run supabase/functions/invite-user`
 Expected: 3 archivos, 10 tests PASS.
 
-- [ ] **Step 4.2: Mutación (rojo demostrado)**
+- [x] **Step 4.2: Mutación (rojo demostrado)**
 
 En `supabase/functions/invite-user/http.ts`, cambia temporalmente `  return allowed.includes(origin)` (en `isOriginAllowed`) por `  return allowed.includes(origin.toLowerCase())`.
 
@@ -912,7 +912,7 @@ Expected: FAIL solo en `isOriginAllowed does not normalize the incoming Origin`.
 
 Restaura: `git -C $WT checkout -- supabase/functions/invite-user/http.ts`; `git -C $WT diff --stat -- supabase/functions/invite-user/http.ts` → vacío. Vuelve a correr → 10 PASS.
 
-- [ ] **Step 4.3: Commit**
+- [x] **Step 4.3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-i-users-auth.md supabase/functions/invite-user/http.test.ts
@@ -933,7 +933,7 @@ git -C $WT commit -m "test: pin that invite-user matches the incoming Origin exa
 
 Hoy una excepción de `getUser`, `inviteUserByEmail`, el insert de perfil o un body JSON `null` (`body.email` sobre `null`) escapa de `Deno.serve` como un 500 pelado sin CORS, y el navegador reporta un error de CORS en vez de un código. Se agrega un envoltorio puro y probado, y `index.ts` lo usa alrededor de todo el handler.
 
-- [ ] **Step 5.1: Escribir los tests (rojo)**
+- [x] **Step 5.1: Escribir los tests (rojo)**
 
 En `supabase/functions/invite-user/http.test.ts`:
 
@@ -1010,7 +1010,7 @@ test('withInternalErrorResponse also catches a non-Error throw', async () => {
 Run: `pnpm exec vitest run supabase/functions/invite-user`
 Expected: FAIL en los 4 tests nuevos con `TypeError: jsonResponse is not a function` / `TypeError: withInternalErrorResponse is not a function`; 10 pasan. (`pnpm exec tsc -b` también falla en este punto: `Module './http.ts' has no exported member 'jsonResponse'`.)
 
-- [ ] **Step 5.2: Implementar los helpers**
+- [x] **Step 5.2: Implementar los helpers**
 
 Agrega al final de `supabase/functions/invite-user/http.ts`:
 
@@ -1040,7 +1040,7 @@ export async function withInternalErrorResponse(
 Run: `pnpm exec vitest run supabase/functions/invite-user`
 Expected: 3 archivos, 14 tests PASS.
 
-- [ ] **Step 5.3: Envolver el handler en `index.ts`**
+- [x] **Step 5.3: Envolver el handler en `index.ts`**
 
 Reemplaza **todo** el contenido de `supabase/functions/invite-user/index.ts` por:
 
@@ -1152,7 +1152,7 @@ Expected: `1 file changed, 12 insertions(+), 7 deletions(-)` — sin espacios, e
 
 Run: `grep -n "new Response(JSON.stringify" supabase/functions/invite-user/index.ts` → sin salida.
 
-- [ ] **Step 5.4: Typecheck de `index.ts` fuera del repo (recomendado)**
+- [x] **Step 5.4: Typecheck de `index.ts` fuera del repo (recomendado)**
 
 `tsc -b` excluye `index.ts`. Para descartar errores de tipos antes del deploy, compílalo una vez contra los tipos reales de `@supabase/supabase-js` con `Deno` simulado, en un directorio temporal **fuera** del repo (no se commitea nada):
 
@@ -1190,11 +1190,11 @@ EOF
 Run (en `$WT`): `pnpm exec tsc -p "$TC/tsconfig.json"`
 Expected: exit 0 sin salida (el planner corrió exactamente esto contra este `index.ts`). Después: `rm -rf "$TC"`.
 
-- [ ] **Step 5.5: Suite completa, tipos y lint**
+- [x] **Step 5.5: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files + 2` archivos, `B_tests + 20` tests (Task 1: 4; Task 2: 5 — AppLayout 4, UsersPage 1 —; Task 3: 6; Task 4: 1; Task 5: 4), todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0 (ESLint sí lintea `index.ts`).
 
-- [ ] **Step 5.6: Commit**
+- [x] **Step 5.6: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-i-users-auth.md supabase/functions/invite-user/http.ts supabase/functions/invite-user/http.test.ts supabase/functions/invite-user/index.ts

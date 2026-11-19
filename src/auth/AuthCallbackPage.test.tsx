@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { AuthCallbackPage } from './AuthCallbackPage'
+import { captureAuthListener } from '../test/authListener'
 
 const mocks = vi.hoisted(() => ({
   onAuthStateChange: vi.fn(),
@@ -42,15 +43,11 @@ test('shows a signing-in message while the link token is being processed', async
 })
 
 test('navigates home when a session appears via SIGNED_IN', async () => {
-  let captured: ((event: string, session: unknown) => void) | undefined
-  mocks.onAuthStateChange.mockImplementation((cb: (event: string, session: unknown) => void) => {
-    captured = cb
-    return { data: { subscription: { unsubscribe: vi.fn() } } }
-  })
+  const emit = captureAuthListener(mocks.onAuthStateChange)
   renderCallback()
   expect(await screen.findByText('Iniciando sesión…')).toBeInTheDocument()
   await act(async () => {
-    captured!('SIGNED_IN', { user: { id: 'u1' } })
+    emit('SIGNED_IN', { user: { id: 'u1' } })
   })
   await waitFor(() => expect(screen.getByText('Home')).toBeInTheDocument())
 })
@@ -75,18 +72,14 @@ test('shows an error on a bare callback visit when getSession rejects', async ()
 })
 
 test('keeps waiting for SIGNED_IN when getSession rejects but the link carries a token', async () => {
-  let captured: ((event: string, session: unknown) => void) | undefined
-  mocks.onAuthStateChange.mockImplementation((cb: (event: string, session: unknown) => void) => {
-    captured = cb
-    return { data: { subscription: { unsubscribe: vi.fn() } } }
-  })
+  const emit = captureAuthListener(mocks.onAuthStateChange)
   mocks.getSession.mockRejectedValue(new DOMException('The operation is insecure.', 'SecurityError'))
   renderCallback()
   expect(await screen.findByText('Iniciando sesión…')).toBeInTheDocument()
   await act(async () => {})
   expect(screen.queryByText('El enlace no es válido o expiró')).not.toBeInTheDocument()
   await act(async () => {
-    captured!('SIGNED_IN', { user: { id: 'u1' } })
+    emit('SIGNED_IN', { user: { id: 'u1' } })
   })
   await waitFor(() => expect(screen.getByText('Home')).toBeInTheDocument())
 })
