@@ -181,7 +181,7 @@ psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0016_revoke_anon_pr
    - `0019`: 0012 le vuelve a dar a `authenticated` el `EXECUTE` sobre `private.player_consent_granted`; 0019 lo quita y deja `player_file_path_allowed` con la búsqueda por uuid. Va después de 0018 porque redefine la misma función.
    - `0016`: pg_dump escribe los permisos relativos a los defaults de Postgres, y un proyecto nuevo de Supabase da ALL a `anon` sobre lo que se crea en `public`. Sin 0016, el proyecto restaurado le devuelve privilegios a `anon` (checklist B en rojo). Son solo revokes, así que correrla dos veces es seguro.
 
-   **Regla:** toda migración que toque `auth`/`storage` **o que revoque privilegios** se agrega a esta lista. Si una migración posterior redefine una función de 0012, aplicar de 0012 solo las policies.
+   **Regla:** toda migración que toque `auth`/`storage` **o que revoque privilegios** se agrega a esta lista. Si una migración posterior redefine una función o un grant de 0012, se agrega a esta lista después de 0012 (como 0018 y 0019), en orden.
 
 3. Verificar privilegios. El bloque B del checklist (`docs/security/pre-real-data-checklist.md`) debe dar verde sobre el proyecto nuevo, **y** `authenticated` debe tener los mismos grants en los dos proyectos. Se corre esta query en producción (por MCP o `psql`) y en el restaurado, y se comparan:
 
