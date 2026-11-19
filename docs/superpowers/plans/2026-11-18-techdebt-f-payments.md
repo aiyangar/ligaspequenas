@@ -362,7 +362,7 @@ git -C $WT commit -m "test: pin the empty-date wiring of the payment dialog (#68
 
 Decisión del owner (spec §2): `aria-label` = nombre del jugador, el desglose en `aria-describedby`, sin cambio visual. Como `aria-label` reemplaza todo el contenido del link, la categoría también sale del nombre; por eso la descripción apunta a la categoría **y** al desglose. Se aplica a todos los links de la página (los de Sin pagos y Al corriente quedan con nombre = jugador y descripción = categoría). No toques `GroupSection`, `<List>` ni el resto del markup de lista (#71, lote H).
 
-- [ ] **Step 4.1: Escribir los tests (rojo)**
+- [x] **Step 4.1: Escribir los tests (rojo)**
 
 Agrega al final de `src/payments/DebtorsPage.test.tsx`:
 
@@ -384,7 +384,7 @@ test('a link without open charges is named by the player and described by the ca
 Run: `pnpm exec vitest run src/payments/DebtorsPage.test.tsx`
 Expected: FAIL en los 2 tests nuevos con `Unable to find an accessible element with the role "link" and name "Ana Ruiz"` (y `"Beto Gómez"`); los 8 existentes pasan.
 
-- [ ] **Step 4.2: Implementar**
+- [x] **Step 4.2: Implementar**
 
 En `src/payments/DebtorsPage.tsx`:
 
@@ -421,7 +421,7 @@ El `<div>` no lleva estilos: el `Stack` del desglose sigue siendo su único hijo
 Run: `pnpm exec vitest run src/payments/DebtorsPage.test.tsx`
 Expected: 10 tests PASS (incluido `tapping a player opens the player detail`, que busca `/Beto Gómez/`).
 
-- [ ] **Step 4.3: Commit**
+- [x] **Step 4.3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-f-payments.md src/payments/DebtorsPage.tsx src/payments/DebtorsPage.test.tsx

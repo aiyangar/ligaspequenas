@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import Box from '@mui/material/Box'
@@ -42,10 +42,24 @@ function GroupSection({ state, count, children }: { state: PaymentState; count: 
 }
 
 function PlayerLink({ player, children }: { player: PlayerRow; children?: ReactNode }) {
+  const id = useId()
+  const categoryId = `${id}-category`
+  const chargesId = `${id}-charges`
   return (
-    <ListItemButton component={RouterLink} to={`/jugadores/${player.id}`} divider sx={{ display: 'block' }}>
-      <ListItemText primary={player.full_name} secondary={playerCategoryText(player)} />
-      {children}
+    <ListItemButton
+      component={RouterLink}
+      to={`/jugadores/${player.id}`}
+      divider
+      sx={{ display: 'block' }}
+      aria-label={player.full_name}
+      aria-describedby={children ? `${categoryId} ${chargesId}` : categoryId}
+    >
+      <ListItemText
+        primary={player.full_name}
+        secondary={playerCategoryText(player)}
+        slotProps={{ secondary: { id: categoryId } }}
+      />
+      {children && <div id={chargesId}>{children}</div>}
     </ListItemButton>
   )
 }

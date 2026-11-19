@@ -154,3 +154,16 @@ test('admin and readonly see the same read-only page', async () => {
   expect(document.body.textContent).toBe(adminText)
   expect(screen.queryByRole('button')).not.toBeInTheDocument()
 })
+
+test('a debtor link is named by the player and described by the category and the open charges', async () => {
+  renderPage()
+  const region = await screen.findByRole('region', { name: 'Con adeudo (1)' })
+  const link = within(region).getByRole('link', { name: 'Ana Ruiz' })
+  expect(link).toHaveAccessibleDescription('Infantil Mayor (1ro) Mensualidad — Octubre · $200.00 Parcial')
+})
+
+test('a link without open charges is named by the player and described by the category', async () => {
+  renderPage()
+  const region = await screen.findByRole('region', { name: 'Sin pagos (1)' })
+  expect(within(region).getByRole('link', { name: 'Beto Gómez' })).toHaveAccessibleDescription('Infantil Mayor (1ro)')
+})
