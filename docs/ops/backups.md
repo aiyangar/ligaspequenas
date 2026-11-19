@@ -56,12 +56,18 @@ Para la de **recuperación** hay dos opciones:
 - **USB:** generarla en un disco en RAM y copiarla a la USB:
 
 ```bash
-ram=$(hdiutil attach -nomount ram://16384 | tr -d '[:space:]')
-diskutil erasevolume APFS backupsram "$ram"
-age-keygen -o /Volumes/backupsram/recuperacion.txt   # imprime "Public key: age1…"
-cp /Volumes/backupsram/recuperacion.txt /Volumes/<USB>/
-hdiutil detach "$ram"
+if [ -e /Volumes/backupsram ]; then
+  echo 'ALTO: /Volumes/backupsram ya existe; desmontarlo (hdiutil detach /Volumes/backupsram) y repetir'
+else
+  ram=$(hdiutil attach -nomount ram://16384 | tr -d '[:space:]')
+  diskutil erasevolume APFS backupsram "$ram"
+  age-keygen -o /Volumes/backupsram/recuperacion.txt   # imprime "Public key: age1…"
+  cp /Volumes/backupsram/recuperacion.txt /Volumes/<USB>/
+  hdiutil detach "$ram"
+fi
 ```
+
+Si imprime `ALTO`, no seguir hasta desmontar el volumen viejo.
 
 La USB (o la hoja) se guarda en **otro lugar físico** que el Mac. Anotar las dos líneas `age1…` que se vieron en la terminal.
 
@@ -106,18 +112,33 @@ gh run view <run-id> --json headBranch,event,headSha
 
 `headBranch` debe ser `develop`, `event` debe ser `schedule` o `workflow_dispatch`, y `headSha` se anota para compararlo con `manifest.json`. Si algo no coincide, ese artifact **no** se usa.
 
-Los datos descifrados van a un **disco en RAM** (la misma receta que para las llaves), nunca al disco interno. 4194304 sectores son 2 GB; se ajusta si el respaldo crece:
+Los datos descifrados van a un **disco en RAM** (la misma receta que para las llaves), nunca al disco interno. 4194304 sectores son 2 GB; se ajusta si el respaldo crece. Si ya hay un volumen montado como `/Volumes/backupsdata` (uno viejo que no se desmontó), el nuevo se montaría como `backupsdata 1`, `$dir` apuntaría al viejo y el `hdiutil detach "$ram"` del final desmontaría el equivocado; por eso el primer bloque no crea nada en ese caso. Spotlight se apaga en el disco para que no indexe los documentos:
 
 ```bash
-ram=$(hdiutil attach -nomount ram://4194304 | tr -d '[:space:]')
-diskutil erasevolume APFS backupsdata "$ram"
-dir=/Volumes/backupsdata
-gh run download <run-id> -n backup-<ts> -D "$dir"
-# Copiar la llave principal del gestor de contraseñas al portapapeles. Así nunca se escribe en el disco.
-age -d -i <(pbpaste) "$dir/backup-<ts>.tar.age" | tar -xf - -C "$dir"
-pbcopy < /dev/null
-(cd "$dir" && shasum -a 256 -c SHA256SUMS)
-node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).commit)' "$dir/manifest.json"
+if [ -e /Volumes/backupsdata ]; then
+  echo 'ALTO: /Volumes/backupsdata ya existe; desmontarlo (hdiutil detach /Volumes/backupsdata) y repetir'
+else
+  ram=$(hdiutil attach -nomount ram://4194304 | tr -d '[:space:]')
+  diskutil erasevolume APFS backupsdata "$ram"
+  dir=/Volumes/backupsdata
+  sudo mdutil -i off "$dir"
+  mdutil -s "$dir"
+fi
+```
+
+Verde: no imprime `ALTO` y la salida de `mdutil -s` no dice `enabled` (en macOS actuales suele decir `Indexing disabled.`, pero el texto exacto varía por versión). Si imprime `ALTO` o dice `enabled`, no seguir. El segundo bloque solo corre si el primero definió `$dir` y `$ram` (por ejemplo, no tras un `ALTO`); si no, imprime `ALTO: corre primero el bloque anterior` y no ejecuta nada, aunque se pegue entero en un shell interactivo.
+
+```bash
+if [ -n "$dir" ] && [ -n "$ram" ]; then
+  gh run download <run-id> -n backup-<ts> -D "$dir"
+  # Copiar la llave principal del gestor de contraseñas al portapapeles. Así nunca se escribe en el disco.
+  age -d -i <(pbpaste) "$dir/backup-<ts>.tar.age" | tar -xf - -C "$dir"
+  pbcopy < /dev/null
+  (cd "$dir" && shasum -a 256 -c SHA256SUMS)
+  node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).commit)' "$dir/manifest.json"
+else
+  echo "ALTO: corre primero el bloque anterior"
+fi
 ```
 
 Verde: todas las líneas en `OK`, y el `commit` que imprime la última línea es igual al `headSha` de `gh run view`. Si difiere, se descarta el artifact. Con la llave de recuperación es igual: teclear o copiar su línea `AGE-SECRET-KEY-…` al portapapeles y usar el mismo `<(pbpaste)`.
@@ -199,7 +220,7 @@ node ops/backup/storage-restore.ts "$dir" 'https://<ref-nuevo>.supabase.co'
 unset SUPABASE_RESTORE_SECRET_KEY
 ```
 
-Imprime solo `restored=<n> skipped=<n>`, y `restored + skipped` debe coincidir con `objects` de `manifest.json`. `skipped` cuenta los `.emptyFolderPlaceholder` de 0 bytes, marcadores de carpeta del Dashboard que no se suben porque la lista de tipos MIME del bucket puede rechazarlos; su fila de `storage.objects` ya viene en `data.sql`. El script se niega a restaurar sobre producción (`error: target` si el host empieza con `eksbaugyypadtanyjcje.`). La llave se lee de la variable de entorno, nunca de un argumento. Cada archivo se sube con `x-upsert: true`, que reemplaza el binario de la fila que ya existe; el upsert deja `owner` en `null`, que la app no usa. Antes de la primera subida comprueba que cada ruta sea segura y que cada archivo sea un archivo normal (ni symlink ni carpeta); al subir, que el tamaño coincida con `storage-index.json`. Si algo falla imprime `error: <código> index=<n>` y sale con 1. Al terminar, borrar la secret key temporal.
+Imprime solo `restored=<n> skipped=<n>`, y `restored + skipped` debe coincidir con `objects` de `manifest.json`. `skipped` cuenta los `.emptyFolderPlaceholder` de 0 bytes, marcadores de carpeta del Dashboard que no se suben porque la lista de tipos MIME del bucket puede rechazarlos; su fila de `storage.objects` ya viene en `data.sql`. El script se niega a restaurar sobre producción (`error: target` si el host empieza con `eksbaugyypadtanyjcje.`). La llave se lee de la variable de entorno, nunca de un argumento. Cada archivo se sube con `x-upsert: true`, que reemplaza el binario de la fila que ya existe; el upsert deja `owner` en `null`, que la app no usa. Antes de la primera subida comprueba que `storage/` y `storage/player-files/` sean carpetas reales (no symlinks), que cada ruta sea segura, que cada archivo sea un archivo normal (ni symlink ni carpeta) y que su tamaño coincida con `storage-index.json`; al subir lo vuelve a comparar con los bytes leídos. Si algo falla imprime `error: <código>` (más ` index=<n>` cuando el problema es de un archivo) y sale con 1. Al terminar, borrar la secret key temporal.
 
 ## Restaurar producción
 

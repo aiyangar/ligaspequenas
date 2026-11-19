@@ -290,7 +290,7 @@ git -C $WT commit -m "fix: check the storage folders and every size before resto
 **Files:**
 - Modify: `docs/ops/backups.md` (sección "Descargar y descifrar", l.109–121; sección "Restaurar Storage", l.202)
 
-- [ ] **Step 1: Rojo**
+- [x] **Step 1: Rojo**
 
 En `$WT`:
 
@@ -303,7 +303,7 @@ grep -c 'if \[ -e /Volumes/backupsram \]' docs/ops/backups.md
 
 Expected: `0`, `0`, `1`, `0`. Confirma también que la l.59 es `ram=$(hdiutil attach -nomount ram://16384 | tr -d '[:space:]')` (receta USB de la llave de recuperación). Confirma también que `sed -n 109p docs/ops/backups.md` empieza con `Los datos descifrados van a un **disco en RAM**` y que la l.112 es `ram=$(hdiutil attach -nomount ram://4194304 | tr -d '[:space:]')`.
 
-- [ ] **Step 1b: Disco en RAM de la llave de recuperación (mismo riesgo que el Minor 3)**
+- [x] **Step 1b: Disco en RAM de la llave de recuperación (mismo riesgo que el Minor 3)**
 
 En `docs/ops/backups.md`, sección de la llave de **recuperación**, opción **USB**, reemplaza el bloque `bash` de las l.58–64 por este (un `/Volumes/backupsram` viejo haría que el nuevo se montara como `backupsram 1` y la llave se escribiera en el disco viejo):
 
@@ -327,7 +327,7 @@ Si imprime `ALTO`, no seguir hasta desmontar el volumen viejo.
 
  El párrafo "La USB (o la hoja)…" no cambia. Haz este paso antes del Step 2: así los números de línea del Step 2 se desplazan +4 (búscalos por texto, no por número).
 
-- [ ] **Step 2: Disco en RAM (Minor 3)**
+- [x] **Step 2: Disco en RAM (Minor 3)**
 
 En `docs/ops/backups.md`, reemplaza el párrafo de la l.109 y el bloque `bash` que le sigue (l.111–121) por lo siguiente. Las líneas desde `gh run download` hasta `node -e …` son las mismas de hoy (con dos espacios de sangría); pasan a un segundo bloque envuelto en `if [ -n "$dir" ] && [ -n "$ram" ]; then … else echo "ALTO: corre primero el bloque anterior"; fi`:
 
@@ -364,7 +364,7 @@ fi
 
 El párrafo "Verde: todas las líneas en `OK`…" y lo que sigue no cambian.
 
-- [ ] **Step 3: Lo que valida la restauración (Minors 1 y 2)**
+- [x] **Step 3: Lo que valida la restauración (Minors 1 y 2)**
 
 En la l.202 (después del Step 2 el número cambia; búscala con `grep -n 'al subir, que el tamaño coincida' docs/ops/backups.md`), reemplaza exactamente este texto:
 
@@ -380,15 +380,15 @@ Antes de la primera subida comprueba que `storage/` y `storage/player-files/` se
 
 El resto de la línea no cambia.
 
-- [ ] **Step 4: Verde**
+- [x] **Step 4: Verde**
 
 Repite los cuatro `grep -c` del Step 1. Expected: `1`, `1`, `0`, `1`. Además `grep -c 'carpetas reales (no symlinks)' docs/ops/backups.md` → `1`. Y `grep -cF 'if [ -n "$dir" ] && [ -n "$ram" ]; then' docs/ops/backups.md` → `1`; `grep -cF 'ALTO: corre primero el bloque anterior' docs/ops/backups.md` → `1`.
 
-- [ ] **Step 5: Suite completa, tipos y lint**
+- [x] **Step 5: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos y `B_tests + 10` tests, todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0. `git -C $WT diff --stat origin/develop` → solo los 5 archivos de la sección Global Constraints más este plan.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-k-backups.md docs/ops/backups.md
