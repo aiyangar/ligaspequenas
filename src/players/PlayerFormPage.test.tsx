@@ -333,6 +333,81 @@ test('a failed refresh after saving an edit keeps the toast and shows an error-s
   expect(screen.getByDisplayValue('Ana Ruiz')).toBeInTheDocument()
 })
 
+test('a save that RLS filters out shows the permission error, no toast and no refresh', async () => {
+  mocks.updatePlayer.mockResolvedValue({ ok: false, error: 'No tienes permiso para esta acción.' })
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent(/^Error: No tienes permiso para esta acción\.$/)
+  expect(screen.queryByText('Cambios guardados')).not.toBeInTheDocument()
+  expect(mocks.fetchPlayer).toHaveBeenCalledTimes(1)
+})
+
+test('two quick saves keep the row of the last refresh even when the older one resolves last', async () => {
+  const first = deferred<PlayerRow>()
+  const second = deferred<PlayerRow>()
+  mocks.fetchPlayer.mockResolvedValueOnce(ana).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  await waitFor(() => expect(mocks.fetchPlayer).toHaveBeenCalledTimes(2))
+  expect(screen.getByRole('button', { name: 'Guardar' })).toBeEnabled()
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  await waitFor(() => expect(mocks.fetchPlayer).toHaveBeenCalledTimes(3))
+  await act(async () => {
+    second.resolve({ ...ana, status: 'baja', category_id: 'cat2', category_name: 'Infantil Menor', category_year: 2 })
+  })
+  expect(await screen.findByText(/Infantil Menor \(2do\)/)).toBeInTheDocument()
+  await act(async () => {
+    first.resolve(ana)
+  })
+  expect(screen.getByText(/Infantil Menor \(2do\)/)).toBeInTheDocument()
+  expect(screen.queryByText(/Infantil Mayor \(1ro\)/)).not.toBeInTheDocument()
+  expect(screen.getByLabelText('Equipo')).toBeDisabled()
+})
+
+test('a stale refresh that fails after a newer one succeeded shows no error', async () => {
+  const first = deferred<PlayerRow>()
+  const failFirst = new Promise<PlayerRow>((_, reject) => {
+    void first.promise.then(() => reject(new Error('boom')))
+  })
+  mocks.fetchPlayer.mockResolvedValueOnce(ana).mockReturnValueOnce(failFirst).mockResolvedValueOnce(ana)
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  await waitFor(() => expect(mocks.fetchPlayer).toHaveBeenCalledTimes(2))
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  await waitFor(() => expect(mocks.fetchPlayer).toHaveBeenCalledTimes(3))
+  await act(async () => {
+    first.resolve(ana)
+  })
+  expect(screen.queryByText('Error: no se pudo actualizar la vista. Recarga la página.')).not.toBeInTheDocument()
+})
+
+test('a team change refresh that resolves after a newer save refresh does not overwrite it', async () => {
+  const teamRefresh = deferred<PlayerRow>()
+  const saveRefresh = deferred<PlayerRow>()
+  mocks.fetchPlayer.mockResolvedValueOnce(ana).mockReturnValueOnce(teamRefresh.promise).mockReturnValueOnce(saveRefresh.promise)
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  await screen.findByDisplayValue('Ana Ruiz')
+  await user.selectOptions(await screen.findByLabelText('Equipo'), 'team9')
+  await waitFor(() => expect(mocks.fetchPlayer).toHaveBeenCalledTimes(2))
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  await waitFor(() => expect(mocks.fetchPlayer).toHaveBeenCalledTimes(3))
+  await act(async () => {
+    saveRefresh.resolve({ ...ana, team_id: 'team9', team_name: 'MTY AC Rojo' })
+  })
+  await waitFor(() => expect(screen.getByLabelText('Equipo')).toHaveValue('team9'))
+  await act(async () => {
+    teamRefresh.resolve(ana)
+  })
+  expect(screen.getByLabelText('Equipo')).toHaveValue('team9')
+})
+
 test('edit mode loads and shows the documents section', async () => {
   renderAt('/jugadores/p1')
   expect(await screen.findByRole('heading', { name: 'Documentos' })).toBeInTheDocument()
