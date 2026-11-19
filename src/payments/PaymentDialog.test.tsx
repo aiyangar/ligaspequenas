@@ -129,3 +129,14 @@ test('Cancelar closes without saving', async () => {
   expect(onClose).toHaveBeenCalled()
   expect(onSave).not.toHaveBeenCalled()
 })
+
+test('an empty date blocks the save', async () => {
+  const user = userEvent.setup()
+  renderDialog()
+  await user.type(screen.getByLabelText('Monto'), '200')
+  await user.clear(screen.getByLabelText('Fecha'))
+  expect(screen.getByLabelText('Fecha')).toHaveValue('')
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  expect(screen.getByText('Ingresa la fecha.')).toBeInTheDocument()
+  expect(onSave).not.toHaveBeenCalled()
+})

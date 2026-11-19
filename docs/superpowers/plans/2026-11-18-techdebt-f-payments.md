@@ -313,7 +313,7 @@ git -C $WT commit -m "fix: keep the payment delete confirmation titled while it 
 
 La regla ya existe en `validatePayment` (`src/payments/payments.ts:121`) y ya tiene su test unitario en `payments.test.ts`. Lo que faltaba es el cableado del diálogo: no es un `<form>`, así que `required` es solo visual, y nada probaba que el error se muestre y que `onSave` no se llame. El test es de caracterización y pasa al primer intento; el rojo se demuestra con una mutación temporal.
 
-- [ ] **Step 3.1: Escribir el test**
+- [x] **Step 3.1: Escribir el test**
 
 Agrega al final de `src/payments/PaymentDialog.test.tsx`:
 
@@ -333,7 +333,7 @@ test('an empty date blocks the save', async () => {
 Run: `pnpm exec vitest run src/payments/PaymentDialog.test.tsx`
 Expected: 10 tests PASS.
 
-- [ ] **Step 3.2: Mutación (rojo demostrado)**
+- [x] **Step 3.2: Mutación (rojo demostrado)**
 
 Borra temporalmente la línea `  if (values.payment_date === '') errors.payment_date = 'Ingresa la fecha.'` de `src/payments/payments.ts`.
 
@@ -342,7 +342,7 @@ Expected: FAIL solo en `an empty date blocks the save` (no encuentra `Ingresa la
 
 Restaura: `git -C $WT checkout -- src/payments/payments.ts`, y `git -C $WT diff --stat -- src/payments/payments.ts` → vacío. Vuelve a correr el archivo → 10 PASS.
 
-- [ ] **Step 3.3: Commit**
+- [x] **Step 3.3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-f-payments.md src/payments/PaymentDialog.test.tsx
