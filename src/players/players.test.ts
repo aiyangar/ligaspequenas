@@ -44,13 +44,13 @@ beforeEach(() => {
   mocks.range.mockImplementation(async (from: number) => ({ data: from === 0 ? [row()] : [], error: null }))
   mocks.maybeSingle.mockResolvedValue({ data: row(), error: null })
   mocks.eq.mockReturnValue({ maybeSingle: mocks.maybeSingle }) // read path only
-  // write chains: from().insert().select('id').single(), from().update().eq() and from().update().eq().select('id')
+  // write chains: from().insert().select('id').single() and from().update().eq().select('id')
   mocks.single.mockResolvedValue({ data: { id: 'newid' }, error: null })
   mocks.insert.mockReturnValue({ select: mocks.select })
   mocks.updateSelect.mockResolvedValue({ data: [{ id: 'p1' }], error: null })
   mocks.updateEq.mockImplementation(() => {
     mocks.calls.push('update')
-    return Object.assign(Promise.resolve({ error: null }), { select: mocks.updateSelect })
+    return { select: mocks.updateSelect }
   })
   mocks.update.mockReturnValue({ eq: mocks.updateEq })
   // select serves reads (order/eq) and the insert().select('id').single() write
@@ -170,7 +170,20 @@ test('updatePlayer updates by id and returns ok', async () => {
   expect(mocks.from).toHaveBeenCalledWith('players')
   expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ full_name: 'Ana' }))
   expect(mocks.updateEq).toHaveBeenCalledWith('id', 'p1')
+  expect(mocks.updateSelect).toHaveBeenCalledWith('id')
   expect(result).toEqual({ ok: true })
+})
+
+test('updatePlayer reports zero updated rows as a permission error', async () => {
+  mocks.updateSelect.mockResolvedValue({ data: [], error: null })
+  const result = await updatePlayer('p1', { ...emptyPlayer(), full_name: 'Ana', birth_date: '2015-01-01', tutor_name: 'T', tutor_whatsapp: '0' })
+  expect(result).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
+})
+
+test('updatePlayer returns the PostgREST error message', async () => {
+  mocks.updateSelect.mockResolvedValue({ data: null, error: { message: 'curp_format' } })
+  const result = await updatePlayer('p1', { ...emptyPlayer(), full_name: 'Ana', birth_date: '2015-01-01', tutor_name: 'T', tutor_whatsapp: '0' })
+  expect(result).toEqual({ ok: false, error: 'curp_format' })
 })
 
 test('rowToValues maps nulls to empty strings', () => {

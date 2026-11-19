@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import Box from '@mui/material/Box'
@@ -149,12 +149,18 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
     setToast(text)
   }
 
+  const refreshRequest = useRef(0)
+
   // only the row is replaced: typed values stay, while category and team rules follow the saved data
   async function refreshRow(playerId: string) {
+    // saves, photo and team changes can overlap; only the latest request may touch the page
+    const request = ++refreshRequest.current
     try {
       const refreshed = await fetchPlayer(playerId)
+      if (request !== refreshRequest.current) return
       if (refreshed) setRow(refreshed)
     } catch {
+      if (request !== refreshRequest.current) return
       setMessage('Error: no se pudo actualizar la vista. Recarga la página.')
     }
   }

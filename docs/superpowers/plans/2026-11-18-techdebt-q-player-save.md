@@ -37,9 +37,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/player-save-zero-rows-and-stale-refresh`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 566, todo verde).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/player-save-zero-rows-and-stale-refresh`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 566, todo verde).
 
 ---
 
@@ -53,7 +53,7 @@
 - Consumes: `NO_PERMISSION_MESSAGE` (`'No tienes permiso para esta acción.'`), ya importado en `players.ts` desde `../documents/documents`.
 - Produces: sin cambio de firma: `updatePlayer(id: string, values: PlayerFormValues): Promise<UpdatePlayerResult>`.
 
-- [ ] **Step 1.1: Ajustar el mock y escribir los tests (rojo)**
+- [x] **Step 1.1: Ajustar el mock y escribir los tests (rojo)**
 
 En `src/players/players.test.ts`:
 
@@ -94,7 +94,7 @@ Usa `mockResolvedValue` (no `*Once`): `vi.clearAllMocks` no vacía las respuesta
 Run: `pnpm exec vitest run src/players/players.test.ts`
 Expected (verificado por el planner): FAIL en 3 tests — `updatePlayer updates by id and returns ok` (`expected "vi.fn()" to be called with arguments: [ 'id' ]`), `updatePlayer reports zero updated rows…` (`expected { ok: true } to deeply equal { ok: false, …(1) }`) y `updatePlayer returns the PostgREST error message` (`expected { ok: true } to deeply equal { ok: false, error: 'curp_format' }`: con el mock nuevo el error viaja solo en `select`). 27 pasan, incluidos todos los de la foto.
 
-- [ ] **Step 1.2: Implementar**
+- [x] **Step 1.2: Implementar**
 
 En `updatePlayer`, reemplaza:
 
@@ -119,7 +119,7 @@ Comprobación: `grep -c "\.select('id')" src/players/players.ts` → `3` (insert
 Run: `pnpm exec vitest run src/players/players.test.ts` → 30 tests PASS.
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint src/players` → exit 0.
 
-- [ ] **Step 1.3: Commit**
+- [x] **Step 1.3: Commit**
 
 `git -C $WT status -s` → solo `players.ts`, `players.test.ts` y este plan.
 
@@ -143,7 +143,7 @@ git -C $WT commit -m "fix: report a player save that RLS filters out instead of 
 - Consumes: `updatePlayer` de Task 1 (en la página va mockeado: `mocks.updatePlayer`).
 - Produces: nada nuevo hacia fuera; `refreshRow(playerId: string): Promise<void>` conserva su firma.
 
-- [ ] **Step 2.1: Escribir los tests (rojo)**
+- [x] **Step 2.1: Escribir los tests (rojo)**
 
 En `src/players/PlayerFormPage.test.tsx`, justo antes de `test('edit mode loads and shows the documents section', async () => {`, agrega:
 
@@ -229,7 +229,7 @@ test('a team change refresh that resolves after a newer save refresh does not ov
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx`
 Expected (verificado por el planner): FAIL en 3 tests — `two quick saves…` (en `expect(screen.getByText(/Infantil Menor \(2do\)/))` **después** de `first.resolve(ana)`: `Unable to find an element with the text: /Infantil Menor \(2do\)/`), `a stale refresh that fails…` (`expect(element).not.toBeInTheDocument()` con el aviso `Error: no se pudo actualizar la vista…`) y `a team change refresh…` (`expect(element).toHaveValue(team9)`). 37 pasan, incluido `a save that RLS filters out…`: es un pin del comportamiento de la página, que ya trata `!ok` como error; el rojo de #134 está en Task 1.
 
-- [ ] **Step 2.2: Implementar el contador**
+- [x] **Step 2.2: Implementar el contador**
 
 En `src/players/PlayerFormPage.tsx`:
 
@@ -258,15 +258,15 @@ En `src/players/PlayerFormPage.tsx`:
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx` → 40 tests PASS.
 
-- [ ] **Step 2.3: Mutación (cada guarda está fijada)**
+- [x] **Step 2.3: Mutación (cada guarda está fijada)**
 
 Aparta la versión verde: `G=$(mktemp)` y `cp $WT/src/players/PlayerFormPage.tsx "$G"` (no uses `checkout --`: descartaría todo el Step 2.2, que aún no está commiteado). Quita temporalmente la línea `if (request !== refreshRequest.current) return` **del `catch`**. Run → FAIL solo en `a stale refresh that fails after a newer one succeeded shows no error` (verificado por el planner). Restaura con `cp "$G" $WT/src/players/PlayerFormPage.tsx` y `rm "$G"`. Run → 40 PASS.
 
-- [ ] **Step 2.4: Suite completa, tipos y lint**
+- [x] **Step 2.4: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `B_tests + 6` tests, todo verde (planner: 48 y 572). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 2.5: Commit**
+- [x] **Step 2.5: Commit**
 
 `git -C $WT status -s` → solo `PlayerFormPage.tsx`, `PlayerFormPage.test.tsx` y este plan.
 

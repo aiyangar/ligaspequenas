@@ -173,8 +173,10 @@ export async function updatePlayer(
   id: string,
   values: PlayerFormValues,
 ): Promise<UpdatePlayerResult> {
-  const { error } = await supabase.from('players').update(toRecord(values)).eq('id', id)
+  const { data, error } = await supabase.from('players').update(toRecord(values)).eq('id', id).select('id')
   if (error) return { ok: false, error: error.message }
+  // RLS filters the row instead of raising, so a forbidden save looks like a success on zero rows
+  if (!data || data.length === 0) return { ok: false, error: NO_PERMISSION_MESSAGE }
   return { ok: true }
 }
 
