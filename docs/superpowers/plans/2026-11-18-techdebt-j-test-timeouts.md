@@ -262,7 +262,7 @@ Solo si el Step 1.5 decidió F1 o F2. Con F0, salta al Task 5.
 - F1: Modify `src/test/timeouts.ts` (crear si el Task 3 no lo creó) y los `*.test.tsx` con fallos de espera (solo la llamada que falló y el import).
 - F2: Modify `src/test-setup.ts`.
 
-- [ ] **Step 4.1a (F1): Espera puntual**
+- [ ] **Step 4.1a (F1): Espera puntual** — N/A (F0: no wait failures under the protocol)
 
 En `src/test/timeouts.ts` agrega (o crea el archivo con):
 
@@ -277,7 +277,7 @@ En cada llamada que falló, pasa la opción en su forma de Testing Library e imp
 
 Nada más del test cambia. Comprobación: `grep -rn "FIND_TIMEOUT" src --include=*.test.tsx | grep -v import | wc -l` = número de llamadas de la tabla del Step 1.5.
 
-- [ ] **Step 4.1b (F2): Espera global**
+- [ ] **Step 4.1b (F2): Espera global** — N/A (F0: no wait failures under the protocol)
 
 `src/test-setup.ts` queda:
 
@@ -289,11 +289,11 @@ import { configure } from '@testing-library/react'
 configure({ asyncUtilTimeout: 2000 })
 ```
 
-- [ ] **Step 4.2: Volver a medir**
+- [ ] **Step 4.2: Volver a medir** — N/A (F0: no wait failures under the protocol)
 
 Run (en `$WT`): `pnpm exec vitest run` sin carga → `Tests  B_tests passed (B_tests)`. Repite el Step 1.2 con logs `wait-a-$i.txt`/`wait-b-$i.txt` y los conteos del Step 1.3 sobre `wait-*`. Si todavía hay fallos de espera, sube el valor a **3000** (solo esa constante o esa llamada a `configure`), vuelve a medir con `wait2-*`, y si siguen, **detente** y reporta: más de 3000 ms se acerca al timeout de test de 5 s y ya no es un ajuste de margen.
 
-- [ ] **Step 4.3: Commit**
+- [ ] **Step 4.3: Commit** — N/A (F0: no wait failures under the protocol)
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-j-test-timeouts.md <src/test-setup.ts o src/test/timeouts.ts y los archivos de test modificados>
@@ -309,11 +309,11 @@ git -C $WT commit -m "test: give Testing Library waits the margin measured under
 
 ## Task 5: Verde bajo el mismo protocolo
 
-- [ ] **Step 5.1: Sin carga**
+- [x] **Step 5.1: Sin carga**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `Tests  B_tests passed (B_tests)`.
 
-- [ ] **Step 5.2: Con carga (dos rondas, logs `green-a-$i.txt` y `green-b-$i.txt`)**
+- [x] **Step 5.2: Con carga (dos rondas, logs `green-a-$i.txt` y `green-b-$i.txt`)**
 
 Repite el Step 1.2. Criterio de verde, **todo** a la vez:
 - Cada una de las 6 corridas termina con `Tests  B_tests passed (B_tests)`:
@@ -342,11 +342,11 @@ Repite el Step 1.2. Criterio de verde, **todo** a la vez:
 
 Si aparece un fallo de espera nuevo, aplica la regla F del Step 1.5 a ese test (Task 4) y reporta por qué no salió en la primera medición. Si aparece un timeout en un test no seleccionado que cumple la regla, vuelve a la palanca 1 para ese test (Task 2), luego a la palanca 2 si hace falta, y reporta por qué no salió en la primera medición. Si la corrida falla por otra causa, repórtalo y no lo toques.
 
-- [ ] **Step 5.3: Tipos y lint**
+- [x] **Step 5.3: Tipos y lint**
 
 `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 5.4:** Si el Step 5.2 obligó a tocar más tests, haz un commit adicional con el mismo formato que el Task 2, el Task 3 o el Task 4, según la palanca.
+- [x] **Step 5.4:** Si el Step 5.2 obligó a tocar más tests, haz un commit adicional con el mismo formato que el Task 2, el Task 3 o el Task 4, según la palanca.
 
 **Reporte al orquestador:**
 - Los SHAs.
