@@ -541,7 +541,7 @@ git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/p
 git -C $WT commit -m "fix: one toast for the player page and no flash after a reload (#54, #61)" -m "The flash and the section toast were two Snackbars at the same anchor and stacked; each message now remounts the single Snackbar so a replacing toast gets its full time. The flash also rode history state, which survives a reload, so Jugador creado reappeared. The page now keeps one toast, reads the create flash once and replaces the history entry without it; saving an edit just shows the toast." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
 ```
 
-- [ ] **Step 5: Mutación del `key`**
+- [x] **Step 5: Mutación del `key`**
 
 Borra la línea `        key={toastKey}` del Snackbar. Run `pnpm exec vitest run src/players/PlayerFormPage.test.tsx -t "full display time"` → FAIL (el toast nuevo se cierra a los 4 s del primero; verificado al planear). Restaura: `git -C $WT checkout -- src/players/PlayerFormPage.tsx`.
 
@@ -636,14 +636,14 @@ Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx` → todo PASS (c
 2. En `handlePhotoChanged`, `if (refreshed) setRow(refreshed)` → `if (refreshed) { setRow(refreshed); setValues(rowToValues(refreshed)) }`. Run `… -t "keeps typed edits"` → FAIL (se pierde lo tecleado).
 3. En `handlePhotoChanged`, `if (refreshed) setRow(refreshed)` → `void refreshed`. Mismo comando → FAIL (no aparece "Quitar"). El test viejo pasaba con esta mutación.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerFormPage.test.tsx
 git -C $WT commit -m "test: pin the photo page wiring and the in-flight team change across players (#57, #35)" -m "The wiring test only proved fetchPlayer ran twice, and the guarantee that a team change for one player cannot land on the next player's page rested on reasoning about the remount key." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
 ```
 
-- [ ] **Step 7: Suite completa, tipos y lint (antes de Task 8)**
+- [x] **Step 7: Suite completa, tipos y lint (antes de Task 8)**
 
 Run: `pnpm exec vitest run` → `B_files` archivos, `B_tests + 12` tests (Task 1: 3; Task 2: 1; Task 3: 1; Task 4: 2; Task 5: +1 −1 = 0; Task 6: 4; Task 7: 1), todo verde (esperado 45 / 461 si la base es `24c14a4`; si E u otro lote ya se mergeó en tu base, el esperado es `B_tests + 12`). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
