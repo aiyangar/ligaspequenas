@@ -29,3 +29,23 @@ export function corsHeaders(origin: string | null, allowed: string[]): Record<st
   if (origin !== null && allowed.includes(origin)) headers['Access-Control-Allow-Origin'] = origin
   return headers
 }
+
+export function jsonResponse(body: unknown, status: number, cors: Record<string, string>): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...cors, 'Content-Type': 'application/json' },
+  })
+}
+
+export async function withInternalErrorResponse(
+  handle: () => Promise<Response>,
+  cors: Record<string, string>,
+): Promise<Response> {
+  try {
+    return await handle()
+  } catch (err) {
+    // an escaped throw would reach the browser as a bare 500 without CORS, i.e. a CORS error
+    console.error('invite-user unexpected error', { message: err instanceof Error ? err.message : String(err) })
+    return jsonResponse({ error: 'internal_error' }, 500, cors)
+  }
+}

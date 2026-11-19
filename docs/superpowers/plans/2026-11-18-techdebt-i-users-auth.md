@@ -933,7 +933,7 @@ git -C $WT commit -m "test: pin that invite-user matches the incoming Origin exa
 
 Hoy una excepción de `getUser`, `inviteUserByEmail`, el insert de perfil o un body JSON `null` (`body.email` sobre `null`) escapa de `Deno.serve` como un 500 pelado sin CORS, y el navegador reporta un error de CORS en vez de un código. Se agrega un envoltorio puro y probado, y `index.ts` lo usa alrededor de todo el handler.
 
-- [ ] **Step 5.1: Escribir los tests (rojo)**
+- [x] **Step 5.1: Escribir los tests (rojo)**
 
 En `supabase/functions/invite-user/http.test.ts`:
 
@@ -1010,7 +1010,7 @@ test('withInternalErrorResponse also catches a non-Error throw', async () => {
 Run: `pnpm exec vitest run supabase/functions/invite-user`
 Expected: FAIL en los 4 tests nuevos con `TypeError: jsonResponse is not a function` / `TypeError: withInternalErrorResponse is not a function`; 10 pasan. (`pnpm exec tsc -b` también falla en este punto: `Module './http.ts' has no exported member 'jsonResponse'`.)
 
-- [ ] **Step 5.2: Implementar los helpers**
+- [x] **Step 5.2: Implementar los helpers**
 
 Agrega al final de `supabase/functions/invite-user/http.ts`:
 
@@ -1040,7 +1040,7 @@ export async function withInternalErrorResponse(
 Run: `pnpm exec vitest run supabase/functions/invite-user`
 Expected: 3 archivos, 14 tests PASS.
 
-- [ ] **Step 5.3: Envolver el handler en `index.ts`**
+- [x] **Step 5.3: Envolver el handler en `index.ts`**
 
 Reemplaza **todo** el contenido de `supabase/functions/invite-user/index.ts` por:
 
@@ -1152,7 +1152,7 @@ Expected: `1 file changed, 12 insertions(+), 7 deletions(-)` — sin espacios, e
 
 Run: `grep -n "new Response(JSON.stringify" supabase/functions/invite-user/index.ts` → sin salida.
 
-- [ ] **Step 5.4: Typecheck de `index.ts` fuera del repo (recomendado)**
+- [x] **Step 5.4: Typecheck de `index.ts` fuera del repo (recomendado)**
 
 `tsc -b` excluye `index.ts`. Para descartar errores de tipos antes del deploy, compílalo una vez contra los tipos reales de `@supabase/supabase-js` con `Deno` simulado, en un directorio temporal **fuera** del repo (no se commitea nada):
 
@@ -1190,11 +1190,11 @@ EOF
 Run (en `$WT`): `pnpm exec tsc -p "$TC/tsconfig.json"`
 Expected: exit 0 sin salida (el planner corrió exactamente esto contra este `index.ts`). Después: `rm -rf "$TC"`.
 
-- [ ] **Step 5.5: Suite completa, tipos y lint**
+- [x] **Step 5.5: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files + 2` archivos, `B_tests + 20` tests (Task 1: 4; Task 2: 5 — AppLayout 4, UsersPage 1 —; Task 3: 6; Task 4: 1; Task 5: 4), todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0 (ESLint sí lintea `index.ts`).
 
-- [ ] **Step 5.6: Commit**
+- [x] **Step 5.6: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-i-users-auth.md supabase/functions/invite-user/http.ts supabase/functions/invite-user/http.test.ts supabase/functions/invite-user/index.ts

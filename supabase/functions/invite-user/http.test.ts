@@ -1,6 +1,18 @@
-import { corsHeaders, isOriginAllowed, parseAllowedOrigins, parseBearerToken } from './http.ts'
+import { afterEach, vi } from 'vitest'
+import {
+  corsHeaders,
+  isOriginAllowed,
+  jsonResponse,
+  parseAllowedOrigins,
+  parseBearerToken,
+  withInternalErrorResponse,
+} from './http.ts'
 
 const ALLOWED = ['https://app.example.com', 'http://localhost:5173']
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 test('parseBearerToken accepts a single Bearer token, case-insensitive scheme, surrounding spaces', () => {
   expect(parseBearerToken('Bearer abc')).toBe('abc')
@@ -58,4 +70,47 @@ test('corsHeaders echoes only an allowed origin and never a wildcard', () => {
   for (const headers of [allowed, denied, missing, failClosed]) {
     expect(Object.values(headers)).not.toContain('*')
   }
+})
+
+test('jsonResponse sends the body as JSON with the given status and CORS headers', async () => {
+  const cors = corsHeaders('https://app.example.com', ALLOWED)
+  const res = jsonResponse({ error: 'forbidden' }, 403, cors)
+  expect(res.status).toBe(403)
+  expect(res.headers.get('Content-Type')).toBe('application/json')
+  expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://app.example.com')
+  expect(res.headers.get('Vary')).toBe('Origin')
+  expect(await res.json()).toEqual({ error: 'forbidden' })
+})
+
+test('withInternalErrorResponse passes the handler response through untouched', async () => {
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  const cors = corsHeaders('https://app.example.com', ALLOWED)
+  const ok = new Response('ok', { status: 201 })
+  expect(await withInternalErrorResponse(async () => ok, cors)).toBe(ok)
+  expect(errorSpy).not.toHaveBeenCalled()
+})
+
+test('withInternalErrorResponse turns an unexpected exception into a 500 JSON with CORS headers', async () => {
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  const cors = corsHeaders('https://app.example.com', ALLOWED)
+  const res = await withInternalErrorResponse(async () => {
+    throw new TypeError('fetch failed')
+  }, cors)
+  expect(res.status).toBe(500)
+  expect(res.headers.get('Content-Type')).toBe('application/json')
+  expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://app.example.com')
+  expect(res.headers.get('Vary')).toBe('Origin')
+  expect(await res.json()).toEqual({ error: 'internal_error' })
+  expect(errorSpy).toHaveBeenCalledWith('invite-user unexpected error', { message: 'fetch failed' })
+})
+
+test('withInternalErrorResponse also catches a non-Error throw', async () => {
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  const res = await withInternalErrorResponse(async () => {
+    throw 'boom'
+  }, corsHeaders(null, ALLOWED))
+  expect(res.status).toBe(500)
+  expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull()
+  expect(await res.json()).toEqual({ error: 'internal_error' })
+  expect(errorSpy).toHaveBeenCalledWith('invite-user unexpected error', { message: 'boom' })
 })
