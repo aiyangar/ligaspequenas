@@ -49,3 +49,18 @@ export async function withInternalErrorResponse(
     return jsonResponse({ error: 'internal_error' }, 500, cors)
   }
 }
+
+export interface InviteBody {
+  email?: string
+  fullName?: string
+  role?: string
+  redirectTo?: string
+}
+
+// req.json() accepts any JSON value; only an object is an invitation, and only its string fields count
+export function parseInviteBody(raw: unknown): InviteBody | null {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const record = raw as Record<string, unknown>
+  const text = (key: keyof InviteBody) => (typeof record[key] === 'string' ? record[key] : undefined)
+  return { email: text('email'), fullName: text('fullName'), role: text('role'), redirectTo: text('redirectTo') }
+}

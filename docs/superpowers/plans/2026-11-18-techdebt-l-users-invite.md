@@ -38,9 +38,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/users-invite-edge-cases`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/users-invite-edge-cases`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde).
 
 ---
 
@@ -54,7 +54,7 @@
 **Interfaces:**
 - Produces: `export interface InviteBody { email?: string; fullName?: string; role?: string; redirectTo?: string }` y `export function parseInviteBody(raw: unknown): InviteBody | null` en `http.ts`.
 
-- [ ] **Step 1.1: Escribir los tests (rojo)**
+- [x] **Step 1.1: Escribir los tests (rojo)**
 
 En `supabase/functions/invite-user/http.test.ts`, agrega `parseInviteBody,` al import de `./http.ts` (entre `parseBearerToken,` y `withInternalErrorResponse,`) y al final del archivo:
 
@@ -80,7 +80,7 @@ test('parseInviteBody drops fields that are not strings', () => {
 Run: `pnpm exec vitest run supabase/functions/invite-user`
 Expected: FAIL en los 8 tests nuevos con `TypeError: parseInviteBody is not a function` (los 6 casos aparecen como `… body null`, `42`, `"text"`, `true`, `[]`, `[{"email":"a@b.com"}]`); los 14 existentes pasan. Verificado por el planner.
 
-- [ ] **Step 1.2: Implementar `parseInviteBody`**
+- [x] **Step 1.2: Implementar `parseInviteBody`**
 
 Al final de `supabase/functions/invite-user/http.ts`:
 
@@ -104,7 +104,7 @@ export function parseInviteBody(raw: unknown): InviteBody | null {
 Run: `pnpm exec vitest run supabase/functions/invite-user`
 Expected: 3 archivos, 22 tests PASS.
 
-- [ ] **Step 1.3: Usarlo en `index.ts`**
+- [x] **Step 1.3: Usarlo en `index.ts`**
 
 1. En el import de `./http.ts`, después de `  parseBearerToken,` agrega:
 
@@ -140,14 +140,14 @@ por:
 
 Nada más de `index.ts` cambia.
 
-- [ ] **Step 1.4: Comprobar el diff de `index.ts`**
+- [x] **Step 1.4: Comprobar el diff de `index.ts`**
 
 Run: `git -C $WT diff --stat -- supabase/functions/invite-user/index.ts`
 Expected: `1 file changed, 5 insertions(+), 2 deletions(-)`.
 
 Run: `git -C $WT diff -- supabase/functions/invite-user/index.ts` → solo el import y el bloque del body; ningún chequeo previo se movió.
 
-- [ ] **Step 1.5: Typecheck de `index.ts` fuera del repo**
+- [x] **Step 1.5: Typecheck de `index.ts` fuera del repo**
 
 `tsc -b` excluye `index.ts`. Compílalo una vez contra los tipos reales de `@supabase/supabase-js` con `Deno` simulado, en un directorio temporal **fuera** del repo (no se commitea nada):
 
@@ -187,7 +187,7 @@ Expected: exit 0 sin salida (el planner corrió exactamente esto con este cambio
 
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint supabase/functions/invite-user` → exit 0.
 
-- [ ] **Step 1.6: Commit**
+- [x] **Step 1.6: Commit**
 
 `git -C $WT status -s` → solo `http.ts`, `http.test.ts`, `index.ts` y este plan.
 

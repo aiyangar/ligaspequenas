@@ -7,6 +7,8 @@ import {
   jsonResponse,
   parseAllowedOrigins,
   parseBearerToken,
+  parseInviteBody,
+  type InviteBody,
   withInternalErrorResponse,
 } from './http.ts'
 import { rollbackInvitedUser } from './rollback.ts'
@@ -47,12 +49,13 @@ Deno.serve((req: Request) => {
     const profile = data as CallerProfile | null
     if (!checkAdmin(profile)) return json({ error: 'forbidden' }, 403)
 
-    let body: { email?: string; fullName?: string; role?: string; redirectTo?: string }
+    let body: InviteBody | null
     try {
-      body = await req.json()
+      body = parseInviteBody(await req.json())
     } catch {
       return json({ error: 'invalid_json' }, 400)
     }
+    if (!body) return json({ error: 'invalid_json' }, 400)
 
     const email = body.email?.trim()
     const fullName = body.fullName?.trim()
