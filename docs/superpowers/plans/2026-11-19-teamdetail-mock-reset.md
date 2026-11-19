@@ -40,9 +40,9 @@ El primer test deja en cola un `mockImplementationOnce` que lanza en **cada** mo
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/teamdetail-mock-reset`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → solo el commit de este plan (`docs: plan …`).
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado 49 y 586; si `develop` avanzó, cuenta el delta).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/teamdetail-mock-reset`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → solo el commit de este plan (`docs: plan …`).
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado 49 y 586; si `develop` avanzó, cuenta el delta).
 
 ---
 
@@ -54,7 +54,7 @@ El primer test deja en cola un `mockImplementationOnce` que lanza en **cada** mo
 **Interfaces:**
 - Consumes: el objeto `mocks` de `vi.hoisted` (l.8-11) y `renderPage()` del mismo archivo.
 
-- [ ] **Step 1.1: Escribir el par de regresión (rojo)**
+- [x] **Step 1.1: Escribir el par de regresión (rojo)**
 
 Al final del archivo, después de `test('without a flash no toast is shown', …)`:
 
@@ -76,16 +76,16 @@ describe('mock isolation between tests', () => {
 
 `describe` y `test` son globals (no se importan).
 
-- [ ] **Step 1.2: Correr y ver el rojo**
+- [x] **Step 1.2: Correr y ver el rojo**
 
 Run: `pnpm exec vitest run src/teams/TeamDetailPage.test.tsx` (en `$WT`)
 Expected: `Tests  1 failed | 17 passed (18)`, `Errors  1 error`. Falla `the next test gets the beforeEach defaults, not the leaked responses` con `Unable to find role="heading" and name /MTY AC Rojo/` (se ve el `MuiAlert-colorError`) y el error no manejado `Caused by: Error: leaked *Once`. Si pasa, **detente**: el test no está probando nada.
 
-- [ ] **Step 1.2b (opcional, no se commitea): comprobar que un reinicio parcial no basta**
+- [x] **Step 1.2b (opcional, no se commitea): comprobar que un reinicio parcial no basta**
 
 Añade temporalmente `mocks.fetchRoster.mockReset()` debajo de `vi.clearAllMocks()` y corre el mismo comando → sigue `1 failed | 17 passed`. Luego borra esa línea a mano (nunca `stash`, ni `checkout` del archivo, que perdería el Step 1.1).
 
-- [ ] **Step 1.3: El arreglo (verde)**
+- [x] **Step 1.3: El arreglo (verde)**
 
 En el `beforeEach`, sustituye la línea `  vi.clearAllMocks()` por exactamente:
 
@@ -96,19 +96,19 @@ En el `beforeEach`, sustituye la línea `  vi.clearAllMocks()` por exactamente:
 
 Nada más cambia en el `beforeEach` (los `mockReturnValue`/`mockResolvedValue` siguientes se quedan igual).
 
-- [ ] **Step 1.4: Correr y ver el verde (3 veces)**
+- [x] **Step 1.4: Correr y ver el verde (3 veces)**
 
 Run (3 veces): `pnpm exec vitest run src/teams/TeamDetailPage.test.tsx`
 Expected: `Test Files  1 passed (1)`, `Tests  18 passed (18)`, sin `Errors`, las tres veces.
 
-- [ ] **Step 1.5: Verificación completa**
+- [x] **Step 1.5: Verificación completa**
 
 En `$WT`:
 - `pnpm exec vitest run` → `Test Files  49 passed (49)`, `Tests  588 passed (588)` (o `B_files` / `B_tests + 2`).
 - `pnpm exec tsc -b` → sale con código 0, sin salida.
 - `pnpm lint` → sale con código 0.
 
-- [ ] **Step 1.6: Commit**
+- [x] **Step 1.6: Commit**
 
 `git -C $WT status -s` → solo `M src/teams/TeamDetailPage.test.tsx` y `M docs/superpowers/plans/2026-11-19-teamdetail-mock-reset.md`.
 
