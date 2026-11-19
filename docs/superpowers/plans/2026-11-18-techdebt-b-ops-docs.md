@@ -46,11 +46,11 @@ Las fechas de pgTAP se escriben como **"según #93"**: las da el issue y el PR #
 
 **Interfaces:** ninguna (documentación).
 
-- [ ] **Step 0: Preparar y medir el baseline**
+- [x] **Step 0: Preparar y medir el baseline**
 
 `git -C $WT branch --show-current` → `update/ops-docs-nits`; `git -C $WT log --oneline origin/develop..HEAD` → vacío. En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`; anota `B_files` y `B_tests` (todo verde).
 
-- [ ] **Step 1: Rojo — el texto viejo está y el nuevo no**
+- [x] **Step 1: Rojo — el texto viejo está y el nuevo no**
 
 En `$WT`:
 
@@ -64,7 +64,7 @@ grep -c 'fase O6 de #89' docs/security/pre-real-data-checklist.md
 
 Expected: `1`, `1`, `1`, `0`, `0`. Confirma además que las líneas siguen donde las cita este plan: `sed -n 22p` del plan muestra la viñeta "**MCP mechanics**"; `sed -n 192p` del checklist empieza con `- **E (pgTAP):**`; `sed -n 207p` empieza con `| E4 |`. (Los issues citan 190 y 205: el archivo creció 2 líneas desde que se abrieron; ver Discrepancias.)
 
-- [ ] **Step 2: #90 — nota de mecánica MCP**
+- [x] **Step 2: #90 — nota de mecánica MCP**
 
 En `docs/superpowers/plans/2026-10-16-pre-real-data-checklist.md` línea 22, reemplaza exactamente este texto:
 
@@ -80,7 +80,7 @@ Only `extensions.is()` (plus `throws_ok`/`lives_ok` in 0002/0014/0015 and the `h
 
 El resto de la línea no cambia. (Verificado: `throws_ok` está en `supabase/tests/0014_player_payment_status_view.test.sql` l.64 y `0015_players_view_status_columns.test.sql` l.85; `has_view`/`has_column` en 0014 l.32–35; R-0014 los usa en este mismo plan l.620–623.)
 
-- [ ] **Step 3: #93.1 — E4**
+- [x] **Step 3: #93.1 — E4**
 
 En `docs/security/pre-real-data-checklist.md`, la fila E4 (línea 207) queda:
 
@@ -90,7 +90,7 @@ En `docs/security/pre-real-data-checklist.md`, la fila E4 (línea 207) queda:
 
 (La columna de fecha la agrega el Step 4; esta es la fila final.)
 
-- [ ] **Step 4: #93.2 — fecha por resultado**
+- [x] **Step 4: #93.2 — fecha por resultado**
 
 1. La viñeta de la línea 192 queda:
 
@@ -116,7 +116,7 @@ En `docs/security/pre-real-data-checklist.md`, la fila E4 (línea 207) queda:
 
 Los textos de resultado de E1–E3c y E5 son los actuales, sin cambios. Aparte de la línea "Fecha del E2E inferida…" agregada justo debajo, lo que sigue a la tabla no cambia.
 
-- [ ] **Step 4b: R-0002/R-0012/R-0013 obsoletas en el plan del 2026-10-16 (consecuencia del lote A)**
+- [x] **Step 4b: R-0002/R-0012/R-0013 obsoletas en el plan del 2026-10-16 (consecuencia del lote A)**
 
 En `docs/superpowers/plans/2026-10-16-pre-real-data-checklist.md`, justo debajo del encabezado `### Regression calls (orchestrator) — R-0002, R-0012, R-0013, R-0014, R-0015` (l.421), agrega una línea en blanco y este párrafo (el plan está en inglés):
 
@@ -126,7 +126,7 @@ En `docs/superpowers/plans/2026-10-16-pre-real-data-checklist.md`, justo debajo 
 
 Si el lote A todavía no está mergeado cuando corras esto, el párrafo igual va (describe el estado que deja el lote A, que es de la misma ola); el orquestador mergea B después de A. Nada más de esa sección cambia.
 
-- [ ] **Step 5: Verde — el texto nuevo está y el viejo no**
+- [x] **Step 5: Verde — el texto nuevo está y el viejo no**
 
 Repite los cinco `grep -c` del Step 1. Expected: `0`, `0`, `0`, `1`, `1`. Además:
 
@@ -138,7 +138,7 @@ Repite los cinco `grep -c` del Step 1. Expected: `0`, `0`, `0`, `1`, `1`. Ademá
 - `git -C $WT diff --stat` → solo los dos archivos de docs (y este plan).
 - `pnpm exec vitest run` → `B_files` / `B_tests`; `pnpm exec tsc -b` → exit 0; `pnpm lint` → exit 0.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-b-ops-docs.md docs/superpowers/plans/2026-10-16-pre-real-data-checklist.md docs/security/pre-real-data-checklist.md
