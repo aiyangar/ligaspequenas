@@ -5,6 +5,7 @@ import {
   jsonResponse,
   parseAllowedOrigins,
   parseBearerToken,
+  parseInviteBody,
   withInternalErrorResponse,
 } from './http.ts'
 
@@ -113,4 +114,21 @@ test('withInternalErrorResponse also catches a non-Error throw', async () => {
   expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull()
   expect(await res.json()).toEqual({ error: 'internal_error' })
   expect(errorSpy).toHaveBeenCalledWith('invite-user unexpected error', { message: 'boom' })
+})
+
+// each case is wrapped: test.each spreads a bare array into arguments
+test.each([[null], [42], ['text'], [true], [[]], [[{ email: 'a@b.com' }]]])('parseInviteBody rejects the non-object JSON body %j', (raw) => {
+  expect(parseInviteBody(raw)).toBeNull()
+})
+
+test('parseInviteBody keeps the string fields of an object body', () => {
+  expect(
+    parseInviteBody({ email: 'a@b.com', fullName: 'Ana', role: 'admin', redirectTo: 'https://app.example.com/auth/callback', extra: 1 }),
+  ).toStrictEqual({ email: 'a@b.com', fullName: 'Ana', role: 'admin', redirectTo: 'https://app.example.com/auth/callback' })
+})
+
+test('parseInviteBody drops fields that are not strings', () => {
+  const empty = { email: undefined, fullName: undefined, role: undefined, redirectTo: undefined }
+  expect(parseInviteBody({ email: 5, fullName: null, role: ['admin'], redirectTo: {} })).toStrictEqual(empty)
+  expect(parseInviteBody({})).toStrictEqual(empty)
 })

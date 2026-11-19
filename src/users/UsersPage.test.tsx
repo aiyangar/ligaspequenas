@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   update: vi.fn(),
   eq: vi.fn(),
+  updateSelect: vi.fn(),
   from: vi.fn(),
 }))
 vi.mock('./inviteUser', () => ({ inviteUser: mocks.inviteUser }))
@@ -20,7 +21,8 @@ beforeEach(() => {
     data: [{ id: 'u1', full_name: 'Ana', role: 'admin' }],
     error: null,
   })
-  mocks.eq.mockResolvedValue({ data: null, error: null })
+  mocks.updateSelect.mockResolvedValue({ data: [{ id: 'u1' }], error: null })
+  mocks.eq.mockReturnValue({ select: mocks.updateSelect })
   mocks.update.mockReturnValue({ eq: mocks.eq })
   mocks.from.mockReturnValue({ select: mocks.select, update: mocks.update })
 })
@@ -115,16 +117,29 @@ test('changes a user role through the MUI select', async () => {
   await waitFor(() => expect(mocks.update).toHaveBeenCalledWith({ role: 'readonly' }))
   expect(mocks.from).toHaveBeenCalledWith('profiles')
   expect(mocks.eq).toHaveBeenCalledWith('id', 'u1')
+  expect(mocks.updateSelect).toHaveBeenCalledWith('id')
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 })
 
 test('a failed role change shows an alert and keeps the previous role', async () => {
-  mocks.eq.mockResolvedValue({ data: null, error: { message: 'RLS denied' } })
+  mocks.updateSelect.mockResolvedValue({ data: null, error: { message: 'RLS denied' } })
   const user = userEvent.setup()
   render(<UsersPage />)
   await user.click(await screen.findByRole('combobox', { name: 'Rol de Ana' }))
   await user.click(await screen.findByRole('option', { name: 'Solo lectura' }))
   expect(await screen.findByRole('alert')).toHaveTextContent(/^No se pudo cambiar el rol\.$/)
   expect(screen.getByRole('combobox', { name: 'Rol de Ana' })).toHaveTextContent('Administrador')
+})
+
+test('a role change that RLS filters out (zero rows) shows a permission alert and keeps the previous role', async () => {
+  mocks.updateSelect.mockResolvedValue({ data: [], error: null })
+  const user = userEvent.setup()
+  render(<UsersPage />)
+  await user.click(await screen.findByRole('combobox', { name: 'Rol de Ana' }))
+  await user.click(await screen.findByRole('option', { name: 'Solo lectura' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent(/^No tienes permiso para esta acción\.$/)
+  expect(screen.getByRole('combobox', { name: 'Rol de Ana' })).toHaveTextContent('Administrador')
+  expect(mocks.select).toHaveBeenCalledTimes(1)
 })
 
 test('a failed list load shows LoadError and Reintentar reloads', async () => {

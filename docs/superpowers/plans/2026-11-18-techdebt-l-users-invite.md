@@ -38,9 +38,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/users-invite-edge-cases`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/users-invite-edge-cases`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde).
 
 ---
 
@@ -54,7 +54,7 @@
 **Interfaces:**
 - Produces: `export interface InviteBody { email?: string; fullName?: string; role?: string; redirectTo?: string }` y `export function parseInviteBody(raw: unknown): InviteBody | null` en `http.ts`.
 
-- [ ] **Step 1.1: Escribir los tests (rojo)**
+- [x] **Step 1.1: Escribir los tests (rojo)**
 
 En `supabase/functions/invite-user/http.test.ts`, agrega `parseInviteBody,` al import de `./http.ts` (entre `parseBearerToken,` y `withInternalErrorResponse,`) y al final del archivo:
 
@@ -80,7 +80,7 @@ test('parseInviteBody drops fields that are not strings', () => {
 Run: `pnpm exec vitest run supabase/functions/invite-user`
 Expected: FAIL en los 8 tests nuevos con `TypeError: parseInviteBody is not a function` (los 6 casos aparecen como `… body null`, `42`, `"text"`, `true`, `[]`, `[{"email":"a@b.com"}]`); los 14 existentes pasan. Verificado por el planner.
 
-- [ ] **Step 1.2: Implementar `parseInviteBody`**
+- [x] **Step 1.2: Implementar `parseInviteBody`**
 
 Al final de `supabase/functions/invite-user/http.ts`:
 
@@ -104,7 +104,7 @@ export function parseInviteBody(raw: unknown): InviteBody | null {
 Run: `pnpm exec vitest run supabase/functions/invite-user`
 Expected: 3 archivos, 22 tests PASS.
 
-- [ ] **Step 1.3: Usarlo en `index.ts`**
+- [x] **Step 1.3: Usarlo en `index.ts`**
 
 1. En el import de `./http.ts`, después de `  parseBearerToken,` agrega:
 
@@ -140,14 +140,14 @@ por:
 
 Nada más de `index.ts` cambia.
 
-- [ ] **Step 1.4: Comprobar el diff de `index.ts`**
+- [x] **Step 1.4: Comprobar el diff de `index.ts`**
 
 Run: `git -C $WT diff --stat -- supabase/functions/invite-user/index.ts`
 Expected: `1 file changed, 5 insertions(+), 2 deletions(-)`.
 
 Run: `git -C $WT diff -- supabase/functions/invite-user/index.ts` → solo el import y el bloque del body; ningún chequeo previo se movió.
 
-- [ ] **Step 1.5: Typecheck de `index.ts` fuera del repo**
+- [x] **Step 1.5: Typecheck de `index.ts` fuera del repo**
 
 `tsc -b` excluye `index.ts`. Compílalo una vez contra los tipos reales de `@supabase/supabase-js` con `Deno` simulado, en un directorio temporal **fuera** del repo (no se commitea nada):
 
@@ -187,7 +187,7 @@ Expected: exit 0 sin salida (el planner corrió exactamente esto con este cambio
 
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint supabase/functions/invite-user` → exit 0.
 
-- [ ] **Step 1.6: Commit**
+- [x] **Step 1.6: Commit**
 
 `git -C $WT status -s` → solo `http.ts`, `http.test.ts`, `index.ts` y este plan.
 
@@ -207,7 +207,7 @@ git -C $WT commit -m "fix: answer a non-object invite-user JSON body with 400 in
 - Modify: `src/users/UsersPage.test.tsx` (mocks l.6–26; tests `changes a user role through the MUI select` y `a failed role change shows an alert and keeps the previous role`; 1 test nuevo antes de `a failed list load shows LoadError and Reintentar reloads`)
 - Modify: `src/users/UsersPage.tsx` (`changeRole`, l.104–112)
 
-- [ ] **Step 2.1: Ajustar los mocks y escribir el test (rojo)**
+- [x] **Step 2.1: Ajustar los mocks y escribir el test (rojo)**
 
 En `src/users/UsersPage.test.tsx`:
 
@@ -245,7 +245,7 @@ test('a role change that RLS filters out (zero rows) shows a permission alert an
 Run: `pnpm exec vitest run src/users/UsersPage.test.tsx`
 Expected: FAIL en 3 tests (verificado por el planner): `changes a user role through the MUI select` (`expected "vi.fn()" to be called with arguments: [ 'id' ]`), `a failed role change shows an alert…` y `a role change that RLS filters out…` (ambos `Unable to find role="alert"`: hoy `changeRole` no encadena `.select`); 9 pasan.
 
-- [ ] **Step 2.2: Implementar**
+- [x] **Step 2.2: Implementar**
 
 En `src/users/UsersPage.tsx`, dentro de `changeRole`, reemplaza:
 
@@ -277,11 +277,11 @@ por:
 Run: `pnpm exec vitest run src/users/UsersPage.test.tsx`
 Expected: 12 tests PASS.
 
-- [ ] **Step 2.3: Suite completa, tipos y lint**
+- [x] **Step 2.3: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `B_tests + 9` tests, todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0 (ESLint sí lintea `index.ts`).
 
-- [ ] **Step 2.4: Commit**
+- [x] **Step 2.4: Commit**
 
 `git -C $WT status -s` → solo `UsersPage.tsx`, `UsersPage.test.tsx` y este plan.
 
