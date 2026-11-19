@@ -110,7 +110,7 @@ git -C $WT commit -m "fix: stop paging when the server keeps ignoring the reques
 
 **Interfaces (verificadas en `node_modules/write-excel-file` 4.1.1):** `write-excel-file/browser` exporta `default(sheetData, sheetOptions?)` que devuelve `{ toBlob(): Promise<Blob>; toFile(name): Promise<void> }`. `write-excel-file/node` devuelve `toBuffer()`, pero sus tipos importan `node:stream`, y `tsconfig.app.json` no incluye los tipos de Node (`"types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]`): por eso el test usa la entrada `browser`, que además es la que usa producción (`src/players/exportPlayers.ts`).
 
-- [ ] **Step 1: Crear el test**
+- [x] **Step 1: Crear el test**
 
 ```ts
 import { expect } from 'vitest'
@@ -178,21 +178,21 @@ test('the written workbook stores formula-like values as shared strings, never a
 
 (`Blob.stream()` no existe en el `Blob` de jsdom; `arrayBuffer()` sí. `ReadableStream`, `DecompressionStream` y `Response` vienen de Node 24 y siguen disponibles en el entorno jsdom de Vitest. Verificado al planear.)
 
-- [ ] **Step 2: Verificar que pasa**
+- [x] **Step 2: Verificar que pasa**
 
 Run: `pnpm exec vitest run src/players/playersSheet.xlsx.test.ts` → 1 test PASS (cobertura, sin rojo).
 
-- [ ] **Step 3: Mutación**
+- [x] **Step 3: Mutación**
 
 En `src/players/playersSheet.ts` (`playerRow`), cambia la primera celda `p.full_name,` por `{ value: p.full_name.slice(1), type: 'Formula' },`.
 Run: `pnpm exec vitest run src/players/playersSheet.xlsx.test.ts` → FAIL (`expected '<?xml … not to match /<f[\s>]/`).
 Restaura: `git -C $WT checkout -- src/players/playersSheet.ts`.
 
-- [ ] **Step 4: Tipos y lint del archivo nuevo**
+- [x] **Step 4: Tipos y lint del archivo nuevo**
 
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint src/players/playersSheet.xlsx.test.ts` → exit 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-e-players-list.md src/players/playersSheet.xlsx.test.ts
