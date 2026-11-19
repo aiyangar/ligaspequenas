@@ -33,8 +33,8 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 1:** `git -C $WT branch --show-current` → `fix/documents-section-hardening`; `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 2:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado 45 / 449).
+- [x] **Step 1:** `git -C $WT branch --show-current` → `fix/documents-section-hardening`; `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 2:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado 45 / 449).
 
 ---
 
@@ -43,7 +43,7 @@
 **Files:**
 - Modify: `src/documents/documents.test.ts`
 
-- [ ] **Step 1: Agregar los tres tests**
+- [x] **Step 1: Agregar los tres tests**
 
 Después del test `documentErrorMessage translates by prefix` agrega:
 
@@ -78,18 +78,18 @@ test('a consent row whose file removal fails after the update reports the failur
 })
 ```
 
-- [ ] **Step 2: Verificar que pasan**
+- [x] **Step 2: Verificar que pasan**
 
 Run: `pnpm exec vitest run src/documents/documents.test.ts`
 Expected: PASS, 3 tests más que antes (cobertura sobre código existente, sin rojo).
 
-- [ ] **Step 3: Mutación del test de `list()`**
+- [x] **Step 3: Mutación del test de `list()`**
 
 En `src/documents/documents.ts` (`removeFile`) cambia `if (listed.error) return { ok: false, error: documentErrorMessage(listed.error.message) }` por `if (listed.error) return { ok: true }`.
 Run: `pnpm exec vitest run src/documents/documents.test.ts -t "reports a list error"` → FAIL.
 Restaura: `git -C $WT checkout -- src/documents/documents.ts`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-c-documents.md src/documents/documents.test.ts

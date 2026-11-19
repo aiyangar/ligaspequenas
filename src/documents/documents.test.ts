@@ -92,6 +92,12 @@ test('documentErrorMessage translates by prefix', () => {
   expect(documentErrorMessage('network down')).toBe('network down')
 })
 
+test('documentErrorMessage treats Unauthorized and a 403 status as a permission error', () => {
+  expect(documentErrorMessage('Unauthorized')).toBe('No tienes permiso para esta acción.')
+  expect(documentErrorMessage('Request failed with status 403')).toBe('No tienes permiso para esta acción.')
+  expect(documentErrorMessage('403 Forbidden', { consentGranted: false })).toBe(CONSENT_REQUIRED_MESSAGE)
+})
+
 test('validateDocumentFile accepts the 4 MIME types up to exactly 10 MB', () => {
   expect(validateDocumentFile(file('application/pdf', 10 * 1024 * 1024))).toBeNull()
   expect(validateDocumentFile(file('image/webp', 1))).toBeNull()
@@ -129,6 +135,12 @@ test('removeFile with an empty result treats a missing object as gone', async ()
   expect(mocks.list).toHaveBeenCalledWith('t1/p1', { search: 'curp' })
 })
 
+test('removeFile with an empty result reports a list error', async () => {
+  mocks.remove.mockResolvedValueOnce({ data: [], error: null })
+  mocks.list.mockResolvedValueOnce({ data: null, error: { message: 'network down' } })
+  expect(await removeFile('t1/p1/curp')).toEqual({ ok: false, error: 'network down' })
+})
+
 test('removeFile with an empty result fails when the object still exists', async () => {
   mocks.remove.mockResolvedValueOnce({ data: [], error: null })
   mocks.list.mockResolvedValueOnce({ data: [{ name: 'curp' }], error: null })
@@ -159,6 +171,15 @@ test('setDocumentStatus on a digital consent row updates first, then removes', a
   const consent = doc({ doc_type: 'image_consent', status: 'digital', file_path: 't1/p1/image_consent' })
   expect(await setDocumentStatus(consent, 'fisico')).toEqual({ ok: true })
   expect(mocks.calls).toEqual(['update', 'remove'])
+})
+
+test('a consent row whose file removal fails after the update reports the failure', async () => {
+  mocks.remove.mockResolvedValueOnce({ data: null, error: { message: 'network down' } })
+  const consent = doc({ doc_type: 'image_consent', status: 'digital', file_path: 't1/p1/image_consent' })
+  expect(await setDocumentStatus(consent, 'fisico')).toEqual({ ok: false, error: 'network down' })
+  expect(mocks.update).toHaveBeenCalledWith({ status: 'fisico', file_path: null })
+  expect(mocks.remove).toHaveBeenCalledWith(['t1/p1/image_consent'])
+  expect(mocks.updateEq.mock.invocationCallOrder[0]).toBeLessThan(mocks.remove.mock.invocationCallOrder[0])
 })
 
 test('a rejected consent revocation keeps the file', async () => {
