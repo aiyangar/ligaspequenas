@@ -440,7 +440,7 @@ git -C $WT commit -m "fix: announce Quién debe links by the player's name, brea
 
 El issue tiene dos puntos. (1) Falta un test de "Cargando…": se agrega aquí. (2) El test `admin and readonly see the same read-only page` pasa trivialmente porque `DebtorsPage` no lee `TenantContext`; el issue dice explícitamente "no change needed" (es una guarda contra acoplar el rol en el futuro). Se deja tal cual y el PR lo cita al cerrar #74.
 
-- [ ] **Step 5.1: Escribir el test**
+- [x] **Step 5.1: Escribir el test**
 
 Agrega al final de `src/payments/DebtorsPage.test.tsx`:
 
@@ -458,7 +458,7 @@ test('shows Cargando… while the three reads are pending', async () => {
 Run: `pnpm exec vitest run src/payments/DebtorsPage.test.tsx`
 Expected: 11 tests PASS.
 
-- [ ] **Step 5.2: Mutación (rojo demostrado)**
+- [x] **Step 5.2: Mutación (rojo demostrado)**
 
 En `src/payments/DebtorsPage.tsx`, en la rama `groups === null` del ternario, reemplaza temporalmente `<Typography sx={{ mt: 2 }}>Cargando…</Typography>` por `null` (la página no muestra nada mientras carga: la regresión que el test debe atrapar).
 
@@ -467,11 +467,11 @@ Expected: FAIL solo en `shows Cargando… while the three reads are pending` (`U
 
 Restaura la línea exacta `        <Typography sx={{ mt: 2 }}>Cargando…</Typography>` (elipsis `…`, U+2026); `git -C $WT diff -- src/payments/DebtorsPage.tsx` debe mostrar solo los cambios de Task 4. Vuelve a correr → 11 PASS.
 
-- [ ] **Step 5.3: Suite completa, tipos y lint**
+- [x] **Step 5.3: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `B_tests + 9` tests (Task 1: 1; Task 2: 4; Task 3: 1; Task 4: 2; Task 5: 1), todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 5.4: Commit**
+- [x] **Step 5.4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-f-payments.md src/payments/DebtorsPage.test.tsx
