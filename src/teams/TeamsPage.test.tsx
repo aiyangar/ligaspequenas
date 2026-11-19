@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
@@ -80,4 +80,19 @@ test('each team is a list item that holds its link', async () => {
   expect(links).toHaveLength(2)
   for (const link of links) expect(link.closest('li')).not.toBeNull()
   expect(list.querySelectorAll(':scope > a')).toHaveLength(0)
+})
+
+test('the first load and a retry show Cargando… until the teams arrive', async () => {
+  let finishRetry!: (rows: TeamRow[]) => void
+  mocks.fetchTeams
+    .mockRejectedValueOnce(new Error('boom'))
+    .mockReturnValueOnce(new Promise<TeamRow[]>((r) => { finishRetry = r }))
+  const user = userEvent.setup()
+  renderPage()
+  expect(screen.getByText('Cargando…')).toBeInTheDocument()
+  await user.click(await screen.findByRole('button', { name: 'Reintentar' }))
+  expect(screen.getByText('Cargando…')).toBeInTheDocument()
+  await act(async () => finishRetry([team({ id: 't1', name: 'MTY AC Rojo' })]))
+  expect(await screen.findByText('MTY AC Rojo')).toBeInTheDocument()
+  expect(screen.queryByText('Cargando…')).not.toBeInTheDocument()
 })

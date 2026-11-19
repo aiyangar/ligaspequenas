@@ -192,7 +192,7 @@ git -C $WT commit -m "fix: wrap list links in list items on Jugadores, Equipos a
 - Modify: `src/players/PlayersPage.test.tsx`
 - Modify: `src/players/PlayersPage.tsx`
 
-- [ ] **Step 1: Test (rojo)**
+- [x] **Step 1: Test (rojo)**
 
 ```ts
 test('the first load and a retry show Cargando… until the players arrive', async () => {
@@ -214,7 +214,7 @@ test('the first load and a retry show Cargando… until the players arrive', asy
 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx -t "Cargando"` → FAIL (no hay "Cargando…"; se ven los filtros).
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 1. Agrega `const [loaded, setLoaded] = useState(false)` junto a `loadError`.
 2. En el `.then` del efecto de carga, después de `setPlayers(rows)`, agrega `setLoaded(true)`.
@@ -242,7 +242,7 @@ Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx` → todo PASS.
 - Modify: `src/teams/TeamsPage.test.tsx`
 - Modify: `src/teams/TeamsPage.tsx`
 
-- [ ] **Step 1: Test (rojo)**
+- [x] **Step 1: Test (rojo)**
 
 ```ts
 test('the first load and a retry show Cargando… until the teams arrive', async () => {
@@ -263,7 +263,7 @@ test('the first load and a retry show Cargando… until the teams arrive', async
 
 Run: `pnpm exec vitest run src/teams/TeamsPage.test.tsx -t "Cargando"` → FAIL (la página queda en blanco).
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 Después de `{loadError && <LoadError onRetry={handleRetry} />}` agrega:
 
@@ -273,11 +273,11 @@ Después de `{loadError && <LoadError onRetry={handleRetry} />}` agrega:
 
 Run: `pnpm exec vitest run src/teams/TeamsPage.test.tsx` → todo PASS (incluye `empty active season shows an explanatory state`: con la carga terminada `loaded` es `true` y sale el mensaje de vacío).
 
-- [ ] **Step 3: Suite completa, tipos y lint**
+- [x] **Step 3: Suite completa, tipos y lint**
 
 Run: `pnpm exec vitest run` → `B_files` archivos, `B_tests + 5` tests, todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-h-lists-a11y.md src/players/PlayersPage.tsx src/players/PlayersPage.test.tsx src/teams/TeamsPage.tsx src/teams/TeamsPage.test.tsx

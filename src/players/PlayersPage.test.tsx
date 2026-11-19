@@ -599,3 +599,19 @@ test('each player is a list item that holds its link', async () => {
   expect(within(items[0]).getByRole('link')).toHaveAttribute('href', '/jugadores/p1')
   expect(list.querySelectorAll(':scope > a')).toHaveLength(0)
 })
+
+test('the first load and a retry show Cargando… until the players arrive', async () => {
+  let finishRetry!: (rows: PlayerRow[]) => void
+  mocks.fetchPlayers
+    .mockRejectedValueOnce(new Error('boom'))
+    .mockReturnValueOnce(new Promise<PlayerRow[]>((r) => { finishRetry = r }))
+  const user = userEvent.setup()
+  renderPage()
+  expect(screen.getByText('Cargando…')).toBeInTheDocument()
+  await user.click(await screen.findByRole('button', { name: 'Reintentar' }))
+  expect(screen.getByText('Cargando…')).toBeInTheDocument()
+  expect(screen.queryByLabelText('Buscar por nombre')).not.toBeInTheDocument()
+  await act(async () => finishRetry([player({ id: 'p1', full_name: 'Ana Ruiz' })]))
+  expect(await screen.findByText('Ana Ruiz')).toBeInTheDocument()
+  expect(screen.queryByText('Cargando…')).not.toBeInTheDocument()
+})

@@ -76,6 +76,8 @@ export function TeamsPage() {
 
       {loadError && <LoadError onRetry={handleRetry} />}
 
+      {!loaded && !loadError && <Typography sx={{ mt: 2 }}>Cargando…</Typography>}
+
       {loaded && !loadError && teams.length === 0 && (
         <Typography sx={{ mt: 3, color: 'text.secondary' }}>
           No hay equipos en la temporada activa (o no hay temporada activa).

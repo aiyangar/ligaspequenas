@@ -59,6 +59,7 @@ export function PlayersPage() {
   const [paymentState, setPaymentState] = useState<'' | PaymentState>('')
   const [docsFilter, setDocsFilter] = useState<DocsFilter>('')
   const [affiliation, setAffiliation] = useState<'' | AffiliationStatus>('')
+  const [loaded, setLoaded] = useState(false)
   const [loadError, setLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [exporting, setExporting] = useState(false)
@@ -76,6 +77,7 @@ export function PlayersPage() {
         if (!active) return
         setLoadError(false)
         setPlayers(rows)
+        setLoaded(true)
       })
       .catch(() => {
         if (active) setLoadError(true)
@@ -189,6 +191,8 @@ export function PlayersPage() {
 
       {loadError ? (
         <LoadError onRetry={handleRetry} />
+      ) : !loaded ? (
+        <Typography sx={{ mt: 2 }}>Cargando…</Typography>
       ) : (
         <>
           <Stack
