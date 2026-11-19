@@ -147,7 +147,7 @@ git -C $WT commit -m "fix: name each payment's Editar and Borrar buttons after t
 
 Hoy `open={confirm !== null}` y el título es `confirm ? … : ''`: al cerrar, `confirm` pasa a `null` antes de la transición de salida de MUI y el diálogo que se desvanece queda con título (y nombre accesible) vacío. El arreglo (`confirmOpen` + limpiar la fila en `onExited`) deja la fila cargada durante el fade, así que el botón Borrar del diálogo seguiría borrando ahí: el guard `!confirmOpen` en `handleDelete` es parte del arreglo. Los dos tests de fade pasan con el código actual (hoy `confirm` ya es `null` durante el fade); su rojo aparece en el Step 2.2, con `confirmOpen` sin guard, que es justo la regresión que fijan.
 
-- [ ] **Step 2.1: Escribir los tests (rojo)**
+- [x] **Step 2.1: Escribir los tests (rojo)**
 
 Agrega al final de `src/payments/PlayerPaymentsSection.test.tsx`:
 
@@ -213,7 +213,7 @@ test('a click during the fade after a successful delete does not delete again', 
 Run: `pnpm exec vitest run src/payments/PlayerPaymentsSection.test.tsx`
 Expected: FAIL en los 2 tests de título (`… after Cancelar`, `… after a successful delete`) en `toHaveAccessibleName` (`Received:` vacío); 14 pasan (incluidos los 2 de fade).
 
-- [ ] **Step 2.2: Implementar `confirmOpen` (todavía sin guard) y ver el rojo de los fades**
+- [x] **Step 2.2: Implementar `confirmOpen` (todavía sin guard) y ver el rojo de los fades**
 
 En `src/payments/PlayerPaymentsSection.tsx`:
 
@@ -275,7 +275,7 @@ por:
 Run: `pnpm exec vitest run src/payments/PlayerPaymentsSection.test.tsx`
 Expected: FAIL en los 2 tests de fade (rojo del guard): `Borrar during the fade after Cancelar does not delete` (`expected "vi.fn()" to not be called at all, but actually been called 1 times`) y `a click during the fade after a successful delete does not delete again` (`expected "vi.fn()" to be called 1 times, but got 2 times`); 14 pasan (los 2 de título ya en verde).
 
-- [ ] **Step 2.3: Agregar el guard**
+- [x] **Step 2.3: Agregar el guard**
 
 En `handleDelete`, cambia:
 
@@ -294,7 +294,7 @@ Comprobación: `grep -n "setConfirm(null)" src/payments/PlayerPaymentsSection.ts
 Run: `pnpm exec vitest run src/payments/PlayerPaymentsSection.test.tsx`
 Expected: 16 tests PASS.
 
-- [ ] **Step 2.4: Commit**
+- [x] **Step 2.4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-f-payments.md src/payments/PlayerPaymentsSection.tsx src/payments/PlayerPaymentsSection.test.tsx
