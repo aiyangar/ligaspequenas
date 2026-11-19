@@ -207,7 +207,7 @@ git -C $WT commit -m "test: type without per-key delays in form tests that time 
 - Create: `src/test/timeouts.ts`
 - Modify: cada `*.test.tsx` con tests que el Step 2.2 mandó a la palanca 2 (la línea `test(` y el import)
 
-- [ ] **Step 3.1: Crear la constante**
+- [x] **Step 3.1: Crear la constante**
 
 Crea `src/test/timeouts.ts`:
 
@@ -216,7 +216,7 @@ Crea `src/test/timeouts.ts`:
 export const TYPING_TEST_TIMEOUT = 15_000
 ```
 
-- [ ] **Step 3.2: Aplicarla a cada test de la palanca 2**
+- [x] **Step 3.2: Aplicarla a cada test de la palanca 2**
 
 1. Agrega el import junto a los imports locales del archivo (después de los de paquetes), con la ruta relativa correcta. Desde `src/players/`, `src/teams/`, `src/users/`, `src/payments/` o `src/documents/`:
 
@@ -242,7 +242,7 @@ Comprobaciones:
 - `grep -rn "{ timeout: TYPING_TEST_TIMEOUT }" src --include=*.test.tsx | wc -l` = número de tests de la palanca 2.
 - `grep -rn "testTimeout\|setConfig" vite.config.ts src` → sin salida.
 
-- [ ] **Step 3.3: Commit**
+- [x] **Step 3.3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-j-test-timeouts.md src/test/timeouts.ts <cada archivo de test modificado>
