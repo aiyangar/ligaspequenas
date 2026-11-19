@@ -63,9 +63,9 @@ Los tres que ya tiene el test `the system code %s passes through` (`ERR_INVALID_
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/backups-node-code`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde). `pnpm exec vitest run ops/backup` → 5 archivos, 113 tests.
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/backups-node-code`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde). `pnpm exec vitest run ops/backup` → 5 archivos, 113 tests.
 
 ---
 
@@ -78,7 +78,7 @@ Los tres que ya tiene el test `the system code %s passes through` (`ERR_INVALID_
 **Interfaces:**
 - Produces: `export const NODE_ERROR_CODES: readonly string[]` en `ops/backup/lib/safe-error.ts` (Task 2 lo importa).
 
-- [ ] **Step 1.1: Escribir el test (rojo)**
+- [x] **Step 1.1: Escribir el test (rojo)**
 
 Al final de `ops/backup/safe-error.test.ts`:
 
@@ -94,7 +94,7 @@ test('a Node-shaped code outside the known list is never printed', () => {
 Run: `pnpm exec vitest run ops/backup/safe-error.test.ts`
 Expected: FAIL solo en `a Node-shaped code outside the known list is never printed` con `expected 'error: ERR_SB_SECRET_ABCDEFGHIJKLMNOP' to be 'error: unknown'` (verificado por el planner); 32 pasan.
 
-- [ ] **Step 1.2: Implementar**
+- [x] **Step 1.2: Implementar**
 
 En `ops/backup/lib/safe-error.ts`:
 
@@ -132,7 +132,7 @@ Comprobación: `grep -n "NODE_CODE\b" ops/backup/lib/safe-error.ts` → sin sali
 
 Run: `pnpm exec vitest run ops/backup/safe-error.test.ts` → 33 tests PASS (incluido `the system code %s passes through` con `ERR_INVALID_URL`, `UND_ERR_SOCKET`, `UND_ERR_CONNECT_TIMEOUT`).
 
-- [ ] **Step 1.3: Commit**
+- [x] **Step 1.3: Commit**
 
 `git -C $WT status -s` → solo `safe-error.ts`, `safe-error.test.ts` y este plan.
 
@@ -151,7 +151,7 @@ git -C $WT commit -m "fix: print only known Node and undici codes in backup erro
 **Files:**
 - Modify: `ops/backup/safe-error.test.ts` (import l.2; `test.each` nuevo al final)
 
-- [ ] **Step 2.1: Escribir el test**
+- [x] **Step 2.1: Escribir el test**
 
 1. En el import de `./lib/safe-error.ts`, agrega `NODE_ERROR_CODES` (orden: `CodedError, HttpError, INTERNAL_CODES, NODE_ERROR_CODES, errorLine`).
 2. Al final del archivo:
@@ -165,7 +165,7 @@ test.each([...NODE_ERROR_CODES])('the known Node code %s has the Node shape and 
 
 Run: `pnpm exec vitest run ops/backup/safe-error.test.ts` → 39 tests PASS.
 
-- [ ] **Step 2.2: Mutaciones (rojo demostrado)**
+- [x] **Step 2.2: Mutaciones (rojo demostrado)**
 
 a. En `NODE_ERROR_CODES`, agrega temporalmente `'ERR_lower'` al final. Run → FAIL solo en `the known Node code ERR_lower has the Node shape and passes through` (`toMatch`).
 
@@ -173,13 +173,13 @@ b. Restaura con `git -C $WT checkout -- ops/backup/lib/safe-error.ts` (Task 1 ya
 
 c. En `codeOf`, cambia temporalmente `const nodeCode = NODE_CODE_SHAPE.test(code) && NODE_ERROR_CODES.includes(code)` por `const nodeCode = NODE_CODE_SHAPE.test(code)`. Run → FAIL solo en `a Node-shaped code outside the known list is never printed`. Restaura con `git -C $WT checkout -- ops/backup/lib/safe-error.ts`; `git -C $WT diff --stat -- ops/backup/lib/safe-error.ts` → vacío. Vuelve a correr → 39 PASS.
 
-- [ ] **Step 2.3: `ops/backup`, suite completa, tipos y lint**
+- [x] **Step 2.3: `ops/backup`, suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run ops/backup` → 5 archivos, 120 tests PASS (incluye los tests de `storage-dump.ts`/`storage-restore.ts`/`manifest.ts` que corren los scripts reales con `spawnSync` y comparan la línea de error). `pnpm exec vitest run` → `B_files` archivos, `B_tests + 7` tests, todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
 Run: `node ops/backup/crosscheck.ts` (sin argumentos) → stderr `error: args` y exit 1 (el script sigue arrancando con type stripping).
 
-- [ ] **Step 2.4: Commit**
+- [x] **Step 2.4: Commit**
 
 `git -C $WT status -s` → solo `safe-error.test.ts` y este plan.
 

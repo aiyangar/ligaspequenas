@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { CodedError, HttpError, INTERNAL_CODES, errorLine } from './lib/safe-error.ts'
+import { CodedError, HttpError, INTERNAL_CODES, NODE_ERROR_CODES, errorLine } from './lib/safe-error.ts'
 
 test('an fs error prints only its code, never the path', () => {
   const err = Object.assign(new Error("ENOENT: no such file, open '/tmp/x/t1/p1/curp'"), { code: 'ENOENT' })
@@ -82,5 +82,17 @@ test.each([
 
 test.each([...INTERNAL_CODES])('the internal code %s passes through', (code) => {
   expect(errorLine(new CodedError(code))).toBe(`error: ${code}`)
+  expect(errorLine({ code })).toBe(`error: ${code}`)
+})
+
+test('a Node-shaped code outside the known list is never printed', () => {
+  expect(errorLine({ code: 'ERR_SB_SECRET_ABCDEFGHIJKLMNOP' })).toBe('error: unknown')
+  expect(errorLine({ code: 'ERR_AGE_SECRET_KEY_1QQQ' })).toBe('error: unknown')
+  expect(errorLine({ code: 'UND_ERR_SB_SECRET_ABCDEFGH' })).toBe('error: unknown')
+  expect(errorLine(new TypeError('fetch failed', { cause: { code: 'ERR_SB_SECRET_ABCDEFGH' } }))).toBe('error: unknown')
+})
+
+test.each([...NODE_ERROR_CODES])('the known Node code %s has the Node shape and passes through', (code) => {
+  expect(code).toMatch(/^(ERR|UND_ERR)_[A-Z0-9_]+$/)
   expect(errorLine({ code })).toBe(`error: ${code}`)
 })
