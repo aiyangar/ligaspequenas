@@ -129,7 +129,7 @@ git -C $WT commit -m "test: pin failed move and failed assign keeping their erro
 
 Spec §3 permite "el `key` sugerido o el 'Cargando…' al re-ejecutar el efecto". Este plan usa el segundo, dentro del componente: cubre a cualquier llamador (no depende de que el padre recuerde el `key`) y se prueba directo con `rerender`. Va en el render y no en el efecto porque `react-hooks/set-state-in-effect` prohíbe el `setState` síncrono en el cuerpo del efecto (ver el comentario existente en l.39–40) y porque así la lista vieja no llega a pintarse.
 
-- [ ] **Step 2.1: Escribir el test (rojo)**
+- [x] **Step 2.1: Escribir el test (rojo)**
 
 Agrega al final de `src/teams/AddPlayerDialog.test.tsx` (usa el `deferred` local del archivo):
 
@@ -179,7 +179,7 @@ test('a late response for the previous source does not replace Cargando… for t
 Run: `pnpm exec vitest run src/teams/AddPlayerDialog.test.tsx`
 Expected: FAIL solo en `switching team or category while open shows Cargando…` con `Unable to find an element with the text: Cargando…` (la lista anterior sigue visible); 9 pasan. `a late response for the previous source…` pasa ya: el flag `active` del efecto existente descarta la respuesta vieja. Es una guarda de regresión; su rojo se demuestra en el Step 2.3.
 
-- [ ] **Step 2.2: Implementar**
+- [x] **Step 2.2: Implementar**
 
 En `src/teams/AddPlayerDialog.tsx`, justo después de `  const [loading, setLoading] = useState(true)` y antes del comentario `// Reset search/pending inside the async callback …`, agrega:
 
@@ -205,7 +205,7 @@ Expected: 10 tests PASS.
 Run: `pnpm exec eslint src/teams`
 Expected: exit 0 (el planner lo verificó con `eslint-plugin-react-hooks` 7: el patrón no dispara `set-state-in-effect` ni otra regla).
 
-- [ ] **Step 2.3: Mutación del flag `active` (rojo demostrado)**
+- [x] **Step 2.3: Mutación del flag `active` (rojo demostrado)**
 
 En el efecto de carga de `src/teams/AddPlayerDialog.tsx`, borra temporalmente la línea `        if (!active) return` del `.then((rows) => {`.
 
@@ -214,7 +214,7 @@ Expected: FAIL en `a late response for the previous source does not replace Carg
 
 Restaura la línea; `git -C $WT diff -- src/teams/AddPlayerDialog.tsx` muestra solo el bloque del Step 2.2. Vuelve a correr → 10 PASS.
 
-- [ ] **Step 2.4: Commit**
+- [x] **Step 2.4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-g-teams.md src/teams/AddPlayerDialog.tsx src/teams/AddPlayerDialog.test.tsx

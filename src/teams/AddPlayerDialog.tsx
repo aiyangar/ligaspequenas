@@ -35,6 +35,17 @@ export function AddPlayerDialog({ open, categoryId, teamId, onAssign, onMove, on
   const [loadError, setLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [loading, setLoading] = useState(true)
+  const source = `${categoryId}/${teamId}`
+  const [loadedSource, setLoadedSource] = useState(source)
+
+  // Adjusting state during render (not in the effect) so the previous list is not rendered for the new source.
+  if (loadedSource !== source) {
+    setLoadedSource(source)
+    setLoadError(false)
+    setLoading(true)
+    setSearch('')
+    setPending(null)
+  }
 
   // Reset search/pending inside the async callback (not synchronously in the
   // effect body) to satisfy react-hooks/set-state-in-effect.
