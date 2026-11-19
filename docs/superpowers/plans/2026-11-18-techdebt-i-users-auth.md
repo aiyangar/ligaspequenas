@@ -38,9 +38,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/users-auth-polish`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 45 y 449, todo verde).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/users-auth-polish`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 45 y 449, todo verde).
 
 ---
 
@@ -53,7 +53,7 @@
 - Modify: `src/auth/AuthCallbackPage.test.tsx` (l.45–49 y l.78–82 captura del listener)
 - Modify: `src/auth/LoginPage.test.tsx` (l.17–23 `deferred` local)
 
-- [ ] **Step 1.1: Escribir los tests de los helpers (rojo)**
+- [x] **Step 1.1: Escribir los tests de los helpers (rojo)**
 
 Crea `src/test/deferred.test.ts`:
 
@@ -99,7 +99,7 @@ test('emit before any listener registered throws', () => {
 Run: `pnpm exec vitest run src/test`
 Expected: FAIL en los 2 archivos: `Failed to resolve import "./deferred"` y `Failed to resolve import "./authListener"`; `Tests  no tests`.
 
-- [ ] **Step 1.2: Implementar los helpers**
+- [x] **Step 1.2: Implementar los helpers**
 
 Crea `src/test/deferred.ts`:
 
@@ -145,7 +145,7 @@ export function captureAuthListener(onAuthStateChange: Mock): AuthListener {
 Run: `pnpm exec vitest run src/test`
 Expected: 2 archivos, 4 tests PASS.
 
-- [ ] **Step 1.3: Migrar los tests de `src/auth/*`**
+- [x] **Step 1.3: Migrar los tests de `src/auth/*`**
 
 `src/auth/AuthContext.test.tsx`:
 1. Debajo de `import { useAuth } from './AuthContext'` agrega:
@@ -189,7 +189,7 @@ Expected: 7 archivos, 31 tests PASS (los 27 de `src/auth` siguen igual + 4 de lo
 
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint src/auth src/test` → exit 0.
 
-- [ ] **Step 1.4: Commit**
+- [x] **Step 1.4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-i-users-auth.md src/test/deferred.ts src/test/deferred.test.ts src/test/authListener.ts src/test/authListener.test.ts src/auth/AuthContext.test.tsx src/auth/AuthCallbackPage.test.tsx src/auth/LoginPage.test.tsx
