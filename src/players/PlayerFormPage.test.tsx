@@ -90,6 +90,10 @@ function seededDocs(): DocumentRow[] {
   }))
 }
 
+function follows(first: Element, second: Element): boolean {
+  return Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Admin', tenantId: 'tenant-1' })
@@ -357,19 +361,6 @@ test('create mode has no payments section', async () => {
   expect(mocks.fetchPlayerPayments).not.toHaveBeenCalled()
 })
 
-test('registering a payment never submits the player form', async () => {
-  const user = userEvent.setup()
-  renderAt('/jugadores/p1')
-  await user.click(await screen.findByRole('button', { name: 'Registrar pago' }))
-  const dialog = await screen.findByRole('dialog', { name: 'Registrar pago' })
-  await user.type(within(dialog).getByLabelText('Monto'), '200{Enter}')
-  await user.click(within(dialog).getByRole('button', { name: 'Guardar' }))
-  await waitFor(() => expect(mocks.createPayment).toHaveBeenCalledTimes(1))
-  expect(mocks.createPayment).toHaveBeenCalledWith('p1', 'tenant-1', expect.objectContaining({ amount: '200' }))
-  expect(await screen.findByText('Pago registrado')).toBeInTheDocument()
-  expect(mocks.updatePlayer).not.toHaveBeenCalled()
-})
-
 test('a failed photo upload reloads the documents so a stale consent is corrected', async () => {
   mocks.fetchPlayerDocuments.mockResolvedValueOnce(
     seededDocs().map((d) => (d.doc_type === 'image_consent' || d.doc_type === 'privacy_notice' ? { ...d, status: 'fisico' as const } : d)),
@@ -384,4 +375,20 @@ test('a failed photo upload reloads the documents so a stale consent is correcte
   await waitFor(() => expect(mocks.fetchPlayerDocuments).toHaveBeenCalledTimes(2))
   await waitFor(() => expect(screen.getByLabelText('Subir foto', { selector: 'input' })).toBeDisabled())
   expect(screen.getByText('Requiere consentimiento de imagen y aviso de privacidad')).toBeInTheDocument()
+})
+
+test('the form and its Guardar come first; Equipo, Foto, Documentos and Pagos follow outside the form', async () => {
+  renderAt('/jugadores/p1')
+  const documentsHeading = await screen.findByRole('heading', { name: 'Documentos' })
+  const save = screen.getByRole('button', { name: 'Guardar' })
+  const photoHeading = screen.getByRole('heading', { name: 'Foto' })
+  const paymentsHeading = screen.getByRole('heading', { name: 'Pagos' })
+  const team = await screen.findByLabelText('Equipo')
+  expect(save.closest('form')).not.toBeNull()
+  for (const el of [team, photoHeading, documentsHeading, paymentsHeading]) expect(el.closest('form')).toBeNull()
+  expect(screen.getByLabelText('Subir foto', { selector: 'input' }).closest('form')).toBeNull()
+  expect(follows(save, team)).toBe(true)
+  expect(follows(team, photoHeading)).toBe(true)
+  expect(follows(photoHeading, documentsHeading)).toBe(true)
+  expect(follows(documentsHeading, paymentsHeading)).toBe(true)
 })

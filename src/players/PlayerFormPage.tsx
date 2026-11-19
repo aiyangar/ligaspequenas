@@ -235,21 +235,26 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
   }
 
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 640, mx: 'auto', mt: 4, px: 2 }}>
-      <Stack spacing={2}>
-        <Typography variant="h4" component="h1" gutterBottom>
+    <Box sx={{ maxWidth: 640, mx: 'auto', mt: 4, px: 2 }}>
+      <Stack spacing={3}>
+        <Typography variant="h4" component="h1">
           {editing ? 'Jugador' : 'Nuevo jugador'}
         </Typography>
-        {editing && row && (
-          <PlayerPhoto
-            player={row}
-            canEdit={canEdit}
-            consentGranted={documents !== null && consentGranted(documents)}
-            onChanged={handlePhotoChanged}
-            onReload={refreshDocuments}
-          />
-        )}
-        <PlayerForm values={values} onChange={setValues} disabled={!canEdit} categoryText={categoryText} />
+        <Box component="form" onSubmit={handleSubmit}>
+          <Stack spacing={2}>
+            <PlayerForm values={values} onChange={setValues} disabled={!canEdit} categoryText={categoryText} />
+            {message && (
+              <Alert role="alert" severity={message.startsWith('Error') ? 'error' : 'success'} sx={{ mt: 1 }}>
+                {message}
+              </Alert>
+            )}
+            {canEdit && (
+              <Button type="submit" variant="contained" disabled={submitting}>
+                Guardar
+              </Button>
+            )}
+          </Stack>
+        </Box>
         {editing && row && (teamsLoadError ? (
           <LoadError message="No se pudieron cargar los equipos." onRetry={handleTeamsRetry} />
         ) : (
@@ -283,6 +288,20 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
             ))}
           </TextField>
         ))}
+        {editing && row && (
+          <Box component="section" aria-labelledby="photo-heading">
+            <Typography id="photo-heading" variant="h6" component="h2" gutterBottom>
+              Foto
+            </Typography>
+            <PlayerPhoto
+              player={row}
+              canEdit={canEdit}
+              consentGranted={documents !== null && consentGranted(documents)}
+              onChanged={handlePhotoChanged}
+              onReload={refreshDocuments}
+            />
+          </Box>
+        )}
         {editing && row && (docsLoadError ? (
           <LoadError message="No se pudieron cargar los documentos." onRetry={retryDocuments} />
         ) : documents && (
@@ -303,16 +322,6 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
             canEdit={canEdit}
             onChanged={showToast}
           />
-        )}
-        {message && (
-          <Alert role="alert" severity={message.startsWith('Error') ? 'error' : 'success'} sx={{ mt: 1 }}>
-            {message}
-          </Alert>
-        )}
-        {canEdit && (
-          <Button type="submit" variant="contained" disabled={submitting}>
-            Guardar
-          </Button>
         )}
       </Stack>
       <Snackbar

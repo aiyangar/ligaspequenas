@@ -314,7 +314,7 @@ git -C $WT commit -m "fix: reload the documents after a failed photo change (#50
 - Modify: `src/players/PlayerFormPage.test.tsx`
 - Modify: `src/players/PlayerFormPage.tsx`
 
-- [ ] **Step 1: Test (rojo)**
+- [x] **Step 1: Test (rojo)**
 
 Después de `seededDocs()` agrega el helper:
 
@@ -346,7 +346,7 @@ test('the form and its Guardar come first; Equipo, Foto, Documentos and Pagos fo
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx -t "come first"` → FAIL (no hay heading "Foto").
 
-- [ ] **Step 2: Reestructurar el JSX**
+- [x] **Step 2: Reestructurar el JSX**
 
 Reemplaza el `return (` final de `PlayerFormContent` (desde `<Box component="form" …>` hasta el cierre `</Box>` que va antes de los Snackbars) para que quede así; **los Snackbars no cambian en esta tarea** (siguen después del `</Stack>` y antes del `</Box>` exterior, como hoy):
 
@@ -393,7 +393,7 @@ Borra el test `registering a payment never submits the player form`: con Pagos f
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx` → todo PASS. (Verificado al planear: el test de cambio de equipo existente y el de #35 de Task 7 siguen pasando con Equipo fuera del form.)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerFormPage.tsx src/players/PlayerFormPage.test.tsx
