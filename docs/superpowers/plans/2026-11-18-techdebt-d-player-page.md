@@ -50,8 +50,8 @@ El `Alert` de mensaje se queda en el form, encima de Guardar: también muestra l
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 1:** `git -C $WT branch --show-current` → `fix/player-page-polish`; `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 2:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests`.
+- [x] **Step 1:** `git -C $WT branch --show-current` → `fix/player-page-polish`; `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 2:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests`.
 
 ---
 
@@ -61,7 +61,7 @@ El `Alert` de mensaje se queda en el form, encima de Guardar: también muestra l
 - Modify: `src/players/PlayerPhoto.test.tsx`
 - Modify: `src/players/players.test.ts`
 
-- [ ] **Step 1: Agregar los tests de `PlayerPhoto`**
+- [x] **Step 1: Agregar los tests de `PlayerPhoto`**
 
 Cambia el import a `import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'`. Al final del archivo agrega:
 
@@ -92,7 +92,7 @@ test('a replaced photo (same path, new updated_at) is signed again', async () =>
 })
 ```
 
-- [ ] **Step 2: Agregar el test de `uploadPlayerPhoto`**
+- [x] **Step 2: Agregar el test de `uploadPlayerPhoto`**
 
 Al final de `src/players/players.test.ts` agrega:
 
@@ -105,18 +105,18 @@ test('uploadPlayerPhoto maps a Storage RLS rejection to the consent message when
 })
 ```
 
-- [ ] **Step 3: Verificar que pasan**
+- [x] **Step 3: Verificar que pasan**
 
 Run: `pnpm exec vitest run src/players/PlayerPhoto.test.tsx src/players/players.test.ts` → todo PASS (3 tests más; cobertura, sin rojo).
 
-- [ ] **Step 4: Mutaciones** (cada una: aplicar → correr → ver FAIL → restaurar con `git -C $WT checkout -- <archivo>`)
+- [x] **Step 4: Mutaciones** (cada una: aplicar → correr → ver FAIL → restaurar con `git -C $WT checkout -- <archivo>`)
 
 1. `src/players/PlayerPhoto.tsx`: borra `    if (inFlight.current) return`. Run `pnpm exec vitest run src/players/PlayerPhoto.test.tsx -t "second photo"` → FAIL.
 2. `src/players/PlayerPhoto.tsx`: cambia `await onChanged('Foto actualizada')` por `void onChanged('Foto actualizada')`. Mismo comando → FAIL (el tercer `change` sube otra vez).
 3. `src/players/PlayerPhoto.tsx`: cambia `` `${player.photo_path}@${player.updated_at}` `` por `player.photo_path`. Run `… -t "signed again"` → FAIL.
 4. `src/players/players.ts`: en `uploadPlayerPhoto`, cambia `documentErrorMessage(uploaded.error.message, { consentGranted })` por `documentErrorMessage(uploaded.error.message)`. Run `pnpm exec vitest run src/players/players.test.ts -t "Storage RLS"` → FAIL.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerPhoto.test.tsx src/players/players.test.ts

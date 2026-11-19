@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, vi } from 'vitest'
 import { PlayerPhoto } from './PlayerPhoto'
@@ -94,4 +94,29 @@ test('Quitar asks for confirmation and removes on confirm', async () => {
   await user.click(screen.getByRole('button', { name: 'Quitar foto' }))
   await waitFor(() => expect(mocks.removePlayerPhoto).toHaveBeenCalledWith(player))
   expect(onChanged).toHaveBeenCalledWith('Foto actualizada')
+})
+
+test('a second photo while the first is still saving or reloading is ignored', async () => {
+  let finishReload!: () => void
+  const onChanged = vi.fn(() => new Promise<void>((r) => { finishReload = r }))
+  render(<PlayerPhoto player={base} canEdit consentGranted onChanged={onChanged} />)
+  const input = screen.getByLabelText('Subir foto', { selector: 'input' })
+  const f = new File(['x'], 'a.jpg', { type: 'image/jpeg' })
+  // fireEvent, not user.upload: user-event skips a disabled input, which would hide a missing guard
+  fireEvent.change(input, { target: { files: [f] } })
+  fireEvent.change(input, { target: { files: [f] } })
+  await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1))
+  fireEvent.change(input, { target: { files: [f] } })
+  expect(mocks.uploadPlayerPhoto).toHaveBeenCalledTimes(1)
+  await act(async () => finishReload())
+})
+
+test('a replaced photo (same path, new updated_at) is signed again', async () => {
+  mocks.getSignedFileUrl.mockResolvedValueOnce('https://signed/v1').mockResolvedValueOnce('https://signed/v2')
+  const player = { ...base, photo_path: 't1/p1/photo', updated_at: 'u1' }
+  const { rerender } = render(<PlayerPhoto player={player} canEdit consentGranted onChanged={vi.fn()} />)
+  expect(await screen.findByRole('img', { name: 'Foto de Ana Ruiz' })).toHaveAttribute('src', 'https://signed/v1')
+  rerender(<PlayerPhoto player={{ ...player, updated_at: 'u2' }} canEdit consentGranted onChanged={vi.fn()} />)
+  await waitFor(() => expect(screen.getByRole('img', { name: 'Foto de Ana Ruiz' })).toHaveAttribute('src', 'https://signed/v2'))
+  expect(mocks.getSignedFileUrl).toHaveBeenCalledTimes(2)
 })
