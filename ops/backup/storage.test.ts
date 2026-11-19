@@ -70,15 +70,16 @@ function fakeFetch(opts: {
 function memFs(files: Record<string, Uint8Array> = {}, symlinks: string[] = []) {
   const written = new Map<string, Uint8Array | string>()
   const dirs: string[] = []
-  const kind = (file: boolean, dir: boolean, link: boolean) => ({
+  const kind = (file: boolean, dir: boolean, link: boolean, size = 0) => ({
     isFile: () => file,
     isDirectory: () => dir,
     isSymbolicLink: () => link,
+    size,
   })
   const fs: FsLike = {
     async lstat(path) {
       if (symlinks.includes(path)) return kind(false, false, true)
-      if (path in files) return kind(true, false, false)
+      if (path in files) return kind(true, false, false, files[path].length)
       if (Object.keys(files).some((f) => f.startsWith(path + '/'))) return kind(false, true, false)
       throw Object.assign(new Error(`ENOENT: no such file, lstat '${path}'`), { code: 'ENOENT' })
     },
@@ -282,6 +283,25 @@ describe('restore', () => {
     expect(calls).toHaveLength(0)
   })
 
+  test.each(['/r/storage', '/r/storage/player-files'])(
+    'a symlinked %s folder is refused before any upload',
+    async (link) => {
+      const { calls, api } = fakeFetch({ folders: {} })
+      const err = await restoreAll(api, '/r', index, memFs(files, [link]).fs).catch((e: unknown) => e)
+      expect(errorLine(err)).toBe('error: filetype')
+      expect(calls).toHaveLength(0)
+    },
+  )
+
+  test('a size mismatch in a later file stops the restore before the first upload', async () => {
+    const { calls, api } = fakeFetch({ folders: {} })
+    const two: StorageObject[] = [...index, { path: 't1/p2/curp.pdf', size: 4, mimetype: 'application/pdf' }]
+    const fs = memFs({ ...files, '/r/storage/player-files/t1/p2/curp.pdf': bytes(2) }).fs
+    const err = await restoreAll(api, '/r', two, fs).catch((e: unknown) => e)
+    expect(errorLine(err)).toBe('error: size index=2')
+    expect(calls).toHaveLength(0)
+  })
+
   test.each(['../etc/passwd', 't1/../../x', '/abs', 't1//x', 't1/./x', 'a\\b'])(
     'the index rejects the traversal path %j',
     (path) => {
@@ -423,6 +443,25 @@ describe('entry points', () => {
       expect(uploads[0].headers['x-upsert']).toBe('true')
       expect(uploads[0].headers.authorization).toBeUndefined()
     })
+
+    test.each(['storage', 'storage/player-files'])(
+      'a symlinked %s folder that points outside the backup is refused before any upload',
+      async (link) => {
+        const outside = mkdtempSync(join(tmpdir(), 'outside-'))
+        try {
+          const bucket = link === 'storage' ? join(outside, 'player-files') : outside
+          mkdirSync(join(bucket, 't1', 'p1'), { recursive: true })
+          writeFileSync(join(bucket, 't1', 'p1', 'curp.pdf'), 'pdf')
+          if (link === 'storage/player-files') mkdirSync(join(dir, 'storage'))
+          symlinkSync(outside, join(dir, ...link.split('/')))
+          writeFileSync(join(dir, 'storage-index.json'), JSON.stringify([curp]))
+          expect(await runAsync([dir, target])).toEqual({ status: 1, out: 'error: filetype\n' })
+          expect(uploads).toHaveLength(0)
+        } finally {
+          rmSync(outside, { recursive: true, force: true })
+        }
+      },
+    )
 
     test('a symlink in the backup is refused before it is uploaded', async () => {
       writeBackup([placeholder, curp, { path: 't1/p1/acta.pdf', size: 3, mimetype: 'application/pdf' }], 't1/p1/acta.pdf')

@@ -27,6 +27,7 @@ export interface FileKind {
   isFile(): boolean
   isDirectory(): boolean
   isSymbolicLink(): boolean
+  size: number
 }
 
 export interface FsLike {
@@ -174,13 +175,19 @@ export function parseIndex(text: string): StorageObject[] {
 }
 
 // Like the manifest walk: every parent must be a real directory and the leaf a regular file, never a symlink.
-async function assertRegularFile(fs: FsLike, root: string, path: string, index: number): Promise<void> {
-  const segments = path.split('/')
+async function assertRegularFile(fs: FsLike, root: string, object: StorageObject, index: number): Promise<void> {
+  const segments = object.path.split('/')
   for (let depth = 1; depth <= segments.length; depth++) {
     const kind = await fs.lstat(join(root, ...segments.slice(0, depth)))
     const leaf = depth === segments.length
     if (kind.isSymbolicLink() || (leaf ? !kind.isFile() : !kind.isDirectory())) throw new CodedError('filetype', index)
+    if (leaf && kind.size !== object.size) throw new CodedError('size', index)
   }
+}
+
+async function assertRealDirectory(fs: FsLike, path: string): Promise<void> {
+  const kind = await fs.lstat(path)
+  if (kind.isSymbolicLink() || !kind.isDirectory()) throw new CodedError('filetype')
 }
 
 export const PRODUCTION_REF = 'eksbaugyypadtanyjcje'
@@ -203,14 +210,18 @@ export async function restoreAll(
   index: StorageObject[],
   fs: FsLike,
 ): Promise<{ restored: number; skipped: number }> {
-  const root = bucketDir(join(backupRoot, 'storage'))
+  const storageDir = join(backupRoot, 'storage')
+  const root = bucketDir(storageDir)
+  // The walk starts at the backup root: a symlinked storage/ or bucket folder would lead outside it.
+  await assertRealDirectory(fs, storageDir)
+  await assertRealDirectory(fs, root)
   const pending: [number, StorageObject][] = []
-  // Check every path and file type before the first upload, so a bad entry never leaves a half restore.
+  // Check every path, file type and size before the first upload, so a bad entry never leaves a half restore.
   for (const [i, object] of index.entries()) {
     assertSafePath(object.path)
     if (isFolderPlaceholder(object)) continue
     insideRoot(root, object.path)
-    await assertRegularFile(fs, root, object.path, i)
+    await assertRegularFile(fs, root, object, i)
     pending.push([i, object])
   }
   let restored = 0

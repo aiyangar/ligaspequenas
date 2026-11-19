@@ -57,7 +57,23 @@ test('a code that looks like a secret key is never printed', () => {
   expect(errorLine({ code: 'usage' })).toBe('error: unknown')
 })
 
-test.each(['ENOENT', 'EACCES', 'ECONNREFUSED', 'ERR_INVALID_URL', 'UND_ERR_SOCKET', 'UND_ERR_CONNECT_TIMEOUT'])(
+test('an uppercase code that is not a Node errno is never printed', () => {
+  expect(errorLine({ code: 'ESECRETKEY1QQQ' })).toBe('error: unknown')
+  expect(errorLine({ code: 'EAGESECRETKEY' })).toBe('error: unknown')
+})
+
+test.each([
+  'ENOENT',
+  'EACCES',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'ERR_INVALID_URL',
+  'UND_ERR_SOCKET',
+  'UND_ERR_CONNECT_TIMEOUT',
+])(
   'the system code %s passes through',
   (code) => {
     expect(errorLine({ code })).toBe(`error: ${code}`)
