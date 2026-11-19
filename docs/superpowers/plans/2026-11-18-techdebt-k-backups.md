@@ -136,7 +136,7 @@ git -C $WT commit -m "fix: print only Node errno codes from backup errors (#97)"
 - `FileKind` gana `size: number` (lo trae `fs.Stats`, así que `nodeFs` en `lib/node-fs.ts` no cambia).
 - `restoreAll(api, backupRoot, index, fs)` mantiene firma y resultado. Nuevos errores, todos antes de cualquier subida: `CodedError('filetype')` (sin índice) si `<backupRoot>/storage` o `<backupRoot>/storage/player-files` no son carpetas reales; `CodedError('size', i)` si el `lstat().size` del archivo `i` no coincide con el índice.
 
-- [ ] **Step 1: Escribir los tests (rojo)**
+- [x] **Step 1: Escribir los tests (rojo)**
 
 En `ops/backup/storage.test.ts`:
 
@@ -205,7 +205,7 @@ En `ops/backup/storage.test.ts`:
 
 (`mkdtempSync`, `mkdirSync`, `writeFileSync`, `symlinkSync`, `rmSync`, `tmpdir` y `join` ya están importados en el archivo; `dir`, `target`, `uploads`, `runAsync` y `curp` ya existen en ese `describe`.)
 
-- [ ] **Step 2: Verificar que fallan**
+- [x] **Step 2: Verificar que fallan**
 
 Run: `pnpm exec vitest run ops/backup/storage.test.ts`
 Expected: 5 FAIL, todo lo demás PASS:
@@ -213,7 +213,7 @@ Expected: 5 FAIL, todo lo demás PASS:
 - `a size mismatch in a later file stops the restore before the first upload` → `expected [ { method: 'POST', …(3) } ] to have a length of +0 but got 1` (hoy sube el primer archivo antes de ver el tamaño del segundo).
 - `a symlinked storage folder that points outside the backup …` y `a symlinked storage/player-files folder …` → `expected { status: +0, …(1) } to deeply equal { status: 1, out: 'error: filetype\n' }` (hoy sube el archivo de fuera del respaldo; es la reproducción del revisor).
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 En `ops/backup/lib/storage.ts`:
 
@@ -269,12 +269,12 @@ async function assertRealDirectory(fs: FsLike, path: string): Promise<void> {
 
 El ciclo de subida que sigue (con su `if (data.length !== object.size) throw new CodedError('size', i)`) no cambia.
 
-- [ ] **Step 4: Verificar que pasan**
+- [x] **Step 4: Verificar que pasan**
 
 Run: `pnpm exec vitest run ops/backup`
 Expected: `Test Files 5 passed (5)`, `Tests 113 passed (113)` (103 + 10). Los tests existentes `a missing file reports the fs code only` (`error: ENOENT`) y `a file whose size differs from the index is not uploaded` (`error: size index=1`, 0 llamadas) siguen pasando sin cambios.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-k-backups.md ops/backup/lib/storage.ts ops/backup/storage.test.ts
