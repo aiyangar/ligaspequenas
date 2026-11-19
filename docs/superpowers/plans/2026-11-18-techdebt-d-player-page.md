@@ -658,11 +658,11 @@ Run: `pnpm exec vitest run` → `B_files` archivos, `B_tests + 12` tests (Task 1
 **Interfaces:**
 - Consumes: `PlayerDocumentsSectionProps.onReload?: () => Promise<void> | void` (lote C, Task 5).
 
-- [ ] **Step 1: Traer el lote C**
+- [x] **Step 1: Traer el lote C**
 
 `git -C $WT fetch origin`; `git -C $WT log origin/develop --oneline --grep "#50"` debe mostrar `fix: let the documents section reload its rows after a failed change (#50)`. Si no, **detente y reporta**. Si está: `git -C $WT rebase origin/develop` (tus commits no tocan archivos de C: no hay conflictos). Si el hook de git bloquea el rebase, detente y reporta. Después: `pnpm exec vitest run` y anota `B2_files`/`B2_tests`. Usa **siempre los conteos medidos**: si solo entró C, el esperado es 45 / 469 (461 + 8 de C); si E (u otro lote) se mergeó antes, la base sube (E suma +1 archivo y +7 tests) y los números absolutos de este plan ya no aplican: vale `B2_tests + 1` en el Step 3.
 
-- [ ] **Step 2: Test (rojo)**
+- [x] **Step 2: Test (rojo)**
 
 ```ts
 test('a failed document change reloads the documents without a success toast', async () => {
@@ -679,13 +679,13 @@ test('a failed document change reloads the documents without a success toast', a
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx -t "failed document change"` → FAIL (`fetchPlayerDocuments` una sola vez).
 
-- [ ] **Step 3: Conectar**
+- [x] **Step 3: Conectar**
 
 En `<PlayerDocumentsSection … />` agrega `onReload={refreshDocuments}` después del `onChanged`.
 
 Run: `pnpm exec vitest run` → `B2_files` archivos, `B2_tests + 1` tests, todo verde (con solo C en la base, 45 / 470). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerFormPage.tsx src/players/PlayerFormPage.test.tsx

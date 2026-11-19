@@ -319,6 +319,7 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
               showToast(text)
               await refreshDocuments()
             }}
+            onReload={refreshDocuments}
           />
         ))}
         {editing && row && (

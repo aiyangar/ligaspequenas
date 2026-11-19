@@ -484,3 +484,14 @@ test("an in-flight team change from one player never lands on the next player's 
   expect(screen.getByDisplayValue('Beto Gómez')).toBeInTheDocument()
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 })
+
+test('a failed document change reloads the documents without a success toast', async () => {
+  mocks.setDocumentStatus.mockResolvedValueOnce({ ok: false, error: 'No se pudo eliminar el archivo.' })
+  const user = userEvent.setup()
+  renderAt('/jugadores/p1')
+  const curp = await screen.findByRole('listitem', { name: 'CURP' })
+  await user.selectOptions(within(curp).getByRole('combobox'), 'fisico')
+  expect(await screen.findByText('No se pudo eliminar el archivo.')).toBeInTheDocument()
+  await waitFor(() => expect(mocks.fetchPlayerDocuments).toHaveBeenCalledTimes(2))
+  expect(screen.queryByText('Documento actualizado')).not.toBeInTheDocument()
+})
