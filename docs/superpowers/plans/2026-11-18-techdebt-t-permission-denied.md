@@ -34,9 +34,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/permission-denied-message`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 566, todo verde).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/permission-denied-message`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 566, todo verde).
 
 ---
 
@@ -51,7 +51,7 @@
 **Interfaces:**
 - Produces: sin cambios de firma: `paymentErrorMessage(message: string): string`, `documentErrorMessage(message: string, opts?: { consentGranted?: boolean }): string`.
 
-- [ ] **Step 1.1: Escribir los tests (rojo)**
+- [x] **Step 1.1: Escribir los tests (rojo)**
 
 En `src/payments/payments.test.ts`, después del test `paymentErrorMessage reads 403 only as a whole word`:
 
@@ -77,7 +77,7 @@ test('documentErrorMessage translates a Postgres 42501 permission denied like an
 Run: `pnpm exec vitest run src/payments/payments.test.ts src/documents/documents.test.ts`
 Expected (verificado por el planner): FAIL en los 2 tests nuevos — `expected 'permission denied for table payments' to be 'No tienes permiso para esta acción.'` y `expected 'permission denied for table player_do…' to be 'No tienes permiso para esta acción.'`; 65 pasan.
 
-- [ ] **Step 1.2: Implementar**
+- [x] **Step 1.2: Implementar**
 
 En los dos archivos, cambia la regex `/row-level security|unauthorized|\b403\b/i` por `/row-level security|permission denied|unauthorized|\b403\b/i`. Nada más cambia: en `payments.ts` la línea sigue devolviendo `'No tienes permiso para esta acción.'`; en `documents.ts` la rama sigue eligiendo entre `CONSENT_REQUIRED_MESSAGE` y `NO_PERMISSION_MESSAGE`.
 
@@ -85,11 +85,11 @@ Comprobación: `grep -n "permission denied" $WT/src/payments/payments.ts $WT/src
 
 Run: `pnpm exec vitest run src/payments src/documents src/players` → todo PASS.
 
-- [ ] **Step 1.3: Suite completa, tipos y lint**
+- [x] **Step 1.3: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `B_tests + 2` tests, todo verde (planner: 48 y 568). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 1.4: Commit**
+- [x] **Step 1.4: Commit**
 
 `git -C $WT status -s` → solo los 4 archivos de la lista y este plan.
 
