@@ -39,6 +39,14 @@ function renderPage() {
   return render(<RouterProvider router={router} />)
 }
 
+function roster(): PlayerRow[] {
+  return [
+    player({ id: 'p1', full_name: 'Ana Ruiz', category_name: 'Infantil Mayor', category_year: 1, team_id: 'team9', team_name: 'MTY AC Rojo', payment_state: 'con_adeudo', docs_delivered: DOCUMENT_TOTAL, affiliation_status: 'autoriza' }),
+    player({ id: 'p2', full_name: 'Beto Gómez', status: 'baja', category_id: null, category_name: null, category_year: null, edad_liga: 25, team_id: null, team_name: null, payment_state: 'sin_pagos', docs_delivered: 2, affiliation_status: 'no_autoriza' }),
+    player({ id: 'p3', full_name: 'Carla Paz', category_id: 'cat2', category_name: 'Infantil Menor', category_year: 2, payment_state: 'al_corriente', docs_delivered: DOCUMENT_TOTAL - 1 }),
+  ]
+}
+
 // Chip texts also appear as filter <option>s, so look them up inside the list only.
 function chip(text: string) {
   return within(screen.getByRole('list')).getByText(text).closest('.MuiChip-root')
@@ -47,11 +55,7 @@ function chip(text: string) {
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Admin', tenantId: 't1' })
-  mocks.fetchPlayers.mockResolvedValue([
-    player({ id: 'p1', full_name: 'Ana Ruiz', category_name: 'Infantil Mayor', category_year: 1, team_id: 'team9', team_name: 'MTY AC Rojo', payment_state: 'con_adeudo', docs_delivered: DOCUMENT_TOTAL, affiliation_status: 'autoriza' }),
-    player({ id: 'p2', full_name: 'Beto Gómez', status: 'baja', category_id: null, category_name: null, category_year: null, edad_liga: 25, team_id: null, team_name: null, payment_state: 'sin_pagos', docs_delivered: 2, affiliation_status: 'no_autoriza' }),
-    player({ id: 'p3', full_name: 'Carla Paz', category_id: 'cat2', category_name: 'Infantil Menor', category_year: 2, payment_state: 'al_corriente', docs_delivered: DOCUMENT_TOTAL - 1 }),
-  ])
+  mocks.fetchPlayers.mockResolvedValue(roster())
   mocks.exportPlayersToExcel.mockResolvedValue(undefined)
 })
 
@@ -253,12 +257,18 @@ test('Documentos filter splits Completos from Incompletos and Todos restores eve
 })
 
 test('Pago Con adeudo plus Documentos Completos leaves only the player matching both', async () => {
+  mocks.fetchPlayers.mockResolvedValue([
+    ...roster(),
+    player({ id: 'p4', full_name: 'Dani Sol', payment_state: 'con_adeudo', docs_delivered: 1 }),
+  ])
   const user = userEvent.setup()
   renderPage()
-  await screen.findByText('Ana Ruiz')
+  await screen.findByText('Dani Sol')
   await user.selectOptions(screen.getByLabelText('Pago'), 'con_adeudo')
-  await user.selectOptions(screen.getByLabelText('Documentos'), 'completos')
   await waitFor(() => expect(screen.queryByText('Carla Paz')).not.toBeInTheDocument())
+  expect(screen.getByText('Dani Sol')).toBeInTheDocument()
+  await user.selectOptions(screen.getByLabelText('Documentos'), 'completos')
+  await waitFor(() => expect(screen.queryByText('Dani Sol')).not.toBeInTheDocument())
   expect(screen.getByText('Ana Ruiz')).toBeInTheDocument()
   expect(screen.queryByText('Beto Gómez')).not.toBeInTheDocument()
 })

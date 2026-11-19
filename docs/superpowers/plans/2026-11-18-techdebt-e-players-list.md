@@ -206,7 +206,7 @@ git -C $WT commit -m "test: check formula injection on the serialized players wo
 **Files:**
 - Modify: `src/players/PlayersPage.test.tsx`
 
-- [ ] **Step 1: Sacar el fixture a una función**
+- [x] **Step 1: Sacar el fixture a una función**
 
 Antes del comentario `// Chip texts also appear as filter <option>s…` agrega:
 
@@ -222,7 +222,7 @@ function roster(): PlayerRow[] {
 
 y en `beforeEach` reemplaza el `mocks.fetchPlayers.mockResolvedValue([ …tres jugadores… ])` por `mocks.fetchPlayers.mockResolvedValue(roster())`.
 
-- [ ] **Step 2: Reescribir el test**
+- [x] **Step 2: Reescribir el test**
 
 Reemplaza `Pago Con adeudo plus Documentos Completos leaves only the player matching both` completo por:
 
@@ -245,12 +245,12 @@ test('Pago Con adeudo plus Documentos Completos leaves only the player matching 
 })
 ```
 
-- [ ] **Step 3: Verificar y mutar**
+- [x] **Step 3: Verificar y mutar**
 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx` → todo PASS (mismo número de tests).
 Mutación: en `PlayersPage.tsx` borra la línea `    if (docsFilter === 'completos' && !docsComplete(p)) return false`. Run `pnpm exec vitest run src/players/PlayersPage.test.tsx -t "Pago Con adeudo plus"` → FAIL (Dani sigue visible). (Con el test viejo esta mutación pasaba.) Restaura con `git -C $WT checkout -- src/players/PlayersPage.tsx`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-e-players-list.md src/players/PlayersPage.test.tsx
