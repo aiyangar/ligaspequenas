@@ -244,6 +244,8 @@ select * from extensions.finish();
 rollback;
 ```
 
+> **Superseded by 0019 (#48, PR #148):** the B3 assertion on `private.player_consent_granted(uuid)` in call 2 above now expects `false`, because 0019 revoked EXECUTE from `authenticated`; the current file is `supabase/tests/0016_revoke_anon_privileges.test.sql`.
+
 - [ ] **Step 2: Write the migration**
 
 Create `supabase/migrations/0016_revoke_anon_privileges.sql` with exactly (spec §4.2):
