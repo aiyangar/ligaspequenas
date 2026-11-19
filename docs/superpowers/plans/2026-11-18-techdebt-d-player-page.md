@@ -131,7 +131,7 @@ git -C $WT commit -m "test: pin the photo in-flight guard, re-signing and Storag
 - Modify: `src/players/PlayerPhoto.test.tsx`
 - Modify: `src/players/PlayerPhoto.tsx`
 
-- [ ] **Step 1: Test (rojo)**
+- [x] **Step 1: Test (rojo)**
 
 ```ts
 test('a spinner shows while the photo is saving', async () => {
@@ -150,13 +150,13 @@ test('a spinner shows while the photo is saving', async () => {
 
 Run: `pnpm exec vitest run src/players/PlayerPhoto.test.tsx -t spinner` → FAIL (no hay "Guardando").
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 En `PlayerPhoto.tsx` importa `import CircularProgress from '@mui/material/CircularProgress'`. En el `Stack direction="row" spacing={1}` de los botones agrega `sx={{ alignItems: 'center' }}` y, como último hijo (después del botón Quitar), `{busy && <CircularProgress size={20} aria-label="Guardando" />}` (mismo texto que el spinner de las filas de documentos).
 
 Run: `pnpm exec vitest run src/players/PlayerPhoto.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerPhoto.tsx src/players/PlayerPhoto.test.tsx

@@ -120,3 +120,16 @@ test('a replaced photo (same path, new updated_at) is signed again', async () =>
   await waitFor(() => expect(screen.getByRole('img', { name: 'Foto de Ana Ruiz' })).toHaveAttribute('src', 'https://signed/v2'))
   expect(mocks.getSignedFileUrl).toHaveBeenCalledTimes(2)
 })
+
+test('a spinner shows while the photo is saving', async () => {
+  let resolve!: (v: { ok: boolean }) => void
+  mocks.uploadPlayerPhoto.mockReturnValueOnce(new Promise((r) => { resolve = r }))
+  renderPhoto()
+  expect(screen.queryByLabelText('Guardando')).not.toBeInTheDocument()
+  fireEvent.change(screen.getByLabelText('Subir foto', { selector: 'input' }), {
+    target: { files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })] },
+  })
+  expect(screen.getByLabelText('Guardando')).toBeInTheDocument()
+  await act(async () => resolve({ ok: true }))
+  expect(screen.queryByLabelText('Guardando')).not.toBeInTheDocument()
+})

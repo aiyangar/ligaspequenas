@@ -3,6 +3,7 @@ import type { ChangeEvent } from 'react'
 import Alert from '@mui/material/Alert'
 import Avatar from '@mui/material/Avatar'
 import Button from '@mui/material/Button'
+import CircularProgress from '@mui/material/CircularProgress'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
@@ -93,7 +94,7 @@ export function PlayerPhoto({ player, canEdit, consentGranted, onChanged }: Play
       </Avatar>
       {canEdit && (
         <Stack spacing={0.5}>
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
             <Button component="label" variant="outlined" size="small" disabled={busy || !consentGranted}>
               {uploadLabel}
               <input
@@ -110,6 +111,7 @@ export function PlayerPhoto({ player, canEdit, consentGranted, onChanged }: Play
                 Quitar
               </Button>
             )}
+            {busy && <CircularProgress size={20} aria-label="Guardando" />}
           </Stack>
           {!consentGranted && (
             <Typography variant="caption" color="text.secondary">
