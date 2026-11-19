@@ -96,3 +96,19 @@ test.each([...NODE_ERROR_CODES])('the known Node code %s has the Node shape and 
   expect(code).toMatch(/^(ERR|UND_ERR)_[A-Z0-9_]+$/)
   expect(errorLine({ code })).toBe(`error: ${code}`)
 })
+
+test('an AbortSignal timeout prints the fixed code timeout, on the error or on its cause', async () => {
+  const signal = AbortSignal.timeout(1)
+  await new Promise((resolve) => signal.addEventListener('abort', resolve))
+  expect(signal.reason).toMatchObject({ name: 'TimeoutError', code: 23 })
+  expect(errorLine(signal.reason)).toBe('error: timeout')
+  expect(errorLine(new TypeError('fetch failed', { cause: signal.reason }))).toBe('error: timeout')
+})
+
+test('a timeout never prints its message', () => {
+  expect(errorLine(new DOMException('https://abc.supabase.co/storage/v1/object/x sb_secret_ABC', 'TimeoutError'))).toBe('error: timeout')
+})
+
+test('a manual abort is not a timeout', () => {
+  expect(errorLine(new DOMException('aborted', 'AbortError'))).toBe('error: unknown')
+})

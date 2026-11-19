@@ -48,9 +48,9 @@ Es decir, `fetch` rechaza con `signal.reason` tal cual, así que el test puede u
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/backup-timeout-code`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile`, `pnpm exec vitest run` (anota `B_files`, `B_tests`; esperado 48 y 566) y `pnpm exec vitest run ops/backup` (5 archivos, 120 tests).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/backup-timeout-code`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile`, `pnpm exec vitest run` (anota `B_files`, `B_tests`; esperado 48 y 566) y `pnpm exec vitest run ops/backup` (5 archivos, 120 tests).
 
 ---
 
@@ -63,7 +63,7 @@ Es decir, `fetch` rechaza con `signal.reason` tal cual, así que el test puede u
 **Interfaces:**
 - Produces: `INTERNAL_CODES` incluye `'timeout'` (y por tanto `InternalCode`); `errorLine` sin cambio de firma.
 
-- [ ] **Step 1.1: Escribir los tests (rojo)**
+- [x] **Step 1.1: Escribir los tests (rojo)**
 
 Al final de `ops/backup/safe-error.test.ts`:
 
@@ -88,7 +88,7 @@ test('a manual abort is not a timeout', () => {
 Run: `pnpm exec vitest run ops/backup/safe-error.test.ts`
 Expected (verificado por el planner): FAIL en 2 tests — `an AbortSignal timeout prints the fixed code timeout…` y `a timeout never prints its message`, ambos `expected 'error: unknown' to be 'error: timeout'`. 40 pasan, incluido `a manual abort is not a timeout` (pin: hoy ya es `unknown` y debe seguirlo).
 
-- [ ] **Step 1.2: Implementar**
+- [x] **Step 1.2: Implementar**
 
 En `ops/backup/lib/safe-error.ts`:
 
@@ -104,7 +104,7 @@ Nada más cambia (`errorLine`, `NODE_ERROR_CODES`, `ERRNO_CODES` quedan igual).
 
 Run: `pnpm exec vitest run ops/backup/safe-error.test.ts` → 43 tests PASS (los 3 nuevos + `the internal code timeout passes through`, que `test.each([...INTERNAL_CODES])` genera solo).
 
-- [ ] **Step 1.3: Commit**
+- [x] **Step 1.3: Commit**
 
 `git -C $WT status -s` → solo `safe-error.ts`, `safe-error.test.ts` y este plan.
 

@@ -38,6 +38,7 @@ export const INTERNAL_CODES = [
   'recipients',
   'size',
   'target',
+  'timeout',
 ] as const
 
 export type InternalCode = (typeof INTERNAL_CODES)[number]
@@ -88,6 +89,8 @@ const NODE_CODE_SHAPE = /^(ERR|UND_ERR)_[A-Z0-9_]+$/
 
 function codeOf(value: unknown): string | undefined {
   if (!isObject(value)) return undefined
+  // AbortSignal.timeout rejects with a DOMException whose code is the number 23
+  if (value.name === 'TimeoutError') return 'timeout'
   const code = value.code
   if (typeof code !== 'string') return undefined
   const nodeCode = NODE_CODE_SHAPE.test(code) && NODE_ERROR_CODES.includes(code)
