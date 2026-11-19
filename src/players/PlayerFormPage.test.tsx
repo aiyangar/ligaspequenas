@@ -125,7 +125,7 @@ beforeEach(() => {
 })
 
 test('create mode submits createPlayer with the tenant id', async () => {
-  const user = userEvent.setup()
+  const user = userEvent.setup({ delay: null })
   renderAt('/jugadores/nuevo')
   await user.type(screen.getByLabelText(/Nombre completo/), 'Nuevo Jugador')
   await user.type(screen.getByLabelText(/Fecha de nacimiento/), '2015-06-10')
@@ -167,7 +167,7 @@ test('a failed save surfaces the error', async () => {
 })
 
 test('creating shows an in-app success confirmation', async () => {
-  const user = userEvent.setup()
+  const user = userEvent.setup({ delay: null })
   renderAt('/jugadores/nuevo')
   await user.type(screen.getByLabelText(/Nombre completo/), 'Nuevo Jugador')
   await user.type(screen.getByLabelText(/Fecha de nacimiento/), '2015-06-10')
@@ -299,7 +299,7 @@ test('saving an edit keeps the same page instance and shows the toast', async ()
 test('saving an edit refetches the player so the category and the team selector follow the saved row', async () => {
   const refreshed = deferred<PlayerRow>()
   mocks.fetchPlayer.mockResolvedValueOnce(ana).mockReturnValueOnce(refreshed.promise)
-  const user = userEvent.setup()
+  const user = userEvent.setup({ delay: null })
   renderAt('/jugadores/p1')
   await screen.findByDisplayValue('Ana Ruiz')
   await waitFor(() => expect(screen.getByLabelText('Equipo')).toBeEnabled())

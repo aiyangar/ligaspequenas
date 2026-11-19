@@ -71,15 +71,15 @@ Con 5 corridas en paralelo (sobrecarga extrema, 50 workers en 10 núcleos) falla
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/form-test-timeouts`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3: Confirmar que todos los lotes están en la base.** Para cada rama (olas 1 y 2: `fix/documents-section-hardening`, `fix/player-page-polish`, `fix/players-list-export-polish`, `fix/payments-a11y-tests`, `fix/teams-tests-dialog`, `fix/lists-a11y-loading`, `fix/users-auth-polish`; ola 3: `fix/users-invite-edge-cases`, `fix/team-form-flash`, `fix/player-photo-zero-rows-and-refresh`, `fix/payments-403-match`, `fix/backups-node-code`):
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/form-test-timeouts`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3: Confirmar que todos los lotes están en la base.** Para cada rama (olas 1 y 2: `fix/documents-section-hardening`, `fix/player-page-polish`, `fix/players-list-export-polish`, `fix/payments-a11y-tests`, `fix/teams-tests-dialog`, `fix/lists-a11y-loading`, `fix/users-auth-polish`; ola 3: `fix/users-invite-edge-cases`, `fix/team-form-flash`, `fix/player-photo-zero-rows-and-refresh`, `fix/payments-403-match`, `fix/backups-node-code`):
   1. `gh pr list --repo aiyangar/ligaspequenas --state merged --base develop --head <rama> --json number,mergeCommit` → un PR con `mergeCommit`.
   2. `git -C $WT merge-base --is-ancestor <mergeCommit.oid> origin/develop` → exit 0.
 
   Si falta alguno, **detente** y avisa al orquestador.
-- [ ] **Step 0.4:** `ls $WT/src/test/` muestra `deferred.ts` y `authListener.ts` (lote I). En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`; anota `B_files` y `B_tests` (todo verde, sin carga).
-- [ ] **Step 0.5:** `LOGS=$(mktemp -d)` y anota la ruta en el reporte. Anota `sysctl -n hw.ncpu`.
+- [x] **Step 0.4:** `ls $WT/src/test/` muestra `deferred.ts` y `authListener.ts` (lote I). En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`; anota `B_files` y `B_tests` (todo verde, sin carga).
+- [x] **Step 0.5:** `LOGS=$(mktemp -d)` y anota la ruta en el reporte. Anota `sysctl -n hw.ncpu`.
 
 ---
 
@@ -87,12 +87,12 @@ Con 5 corridas en paralelo (sobrecarga extrema, 50 workers en 10 núcleos) falla
 
 El rojo de este lote no es un test nuevo. Es la evidencia de que ciertos tests revientan o rozan el timeout bajo una carga reproducible.
 
-- [ ] **Step 1.1: Corrida sin carga**
+- [x] **Step 1.1: Corrida sin carga**
 
 Run (en `$WT`): `pnpm exec vitest run --reporter verbose > "$LOGS/idle.txt" 2>&1`
 Expected: `Tests  B_tests passed (B_tests)`.
 
-- [ ] **Step 1.2: Protocolo de carga (dos rondas de 3 corridas en paralelo)**
+- [x] **Step 1.2: Protocolo de carga (dos rondas de 3 corridas en paralelo)**
 
 Ronda 1 (en `$WT`, un solo comando; espera a que terminen las tres):
 
@@ -102,7 +102,7 @@ for i in 1 2 3; do pnpm exec vitest run --reporter verbose > "$LOGS/load-a-$i.tx
 
 Ronda 2: el mismo comando con `load-b-$i.txt`.
 
-- [ ] **Step 1.3: Extraer tiempos y timeouts**
+- [x] **Step 1.3: Extraer tiempos y timeouts**
 
 Peor duración por test bajo carga (el planner verificó este comando sobre sus logs):
 
@@ -128,7 +128,7 @@ Fallos de espera de Testing Library (#120), por mensaje:
 grep -hE "Unable to find|Timed out in waitFor" "$LOGS"/load-*.txt | cut -c1-120 | sort | uniq -c | sort -rn
 ```
 
-- [ ] **Step 1.4: Aplicar la regla de selección**
+- [x] **Step 1.4: Aplicar la regla de selección**
 
 Un test se selecciona si cumple **(A o B) y C**:
 
@@ -142,7 +142,7 @@ Escribe en el reporte la tabla con estas columnas: archivo › nombre, sin carga
 
 Si **ningún** test cumple A ni B, no hay palancas 1–2: anótalo (el #34 se cerraría con esa evidencia, sin cambio de código) y sigue con el Step 1.5 y, según su resultado, con el Task 4 o directo al Task 5.
 
-- [ ] **Step 1.5: Regla F, esperas de Testing Library (#120)**
+- [x] **Step 1.5: Regla F, esperas de Testing Library (#120)**
 
 Un **fallo de espera** es un test `×` en las 6 corridas de carga cuyo error es `Unable to find …` (de un `findBy*`) o `Timed out in waitFor`, y que **no** tiene `Test timed out in` en esa misma corrida (si tiene los dos, cuenta como timeout de test y lo atienden las palancas 1–2). Para cada uno, localiza la llamada que falló (la línea `❯ archivo:línea` del log) y confirma leyendo el test que pasa sin carga (`idle.txt`).
 
@@ -161,7 +161,7 @@ Un fallo de espera que **también** falla sin carga no es de carga: **detente** 
 **Files:**
 - Modify: cada `*.test.tsx` con tests seleccionados en el Step 1.4 (solo la línea `userEvent.setup()` de esos tests)
 
-- [ ] **Step 2.1: Aplicar `delay: null`**
+- [x] **Step 2.1: Aplicar `delay: null`**
 
 En cada test seleccionado, cambia su línea:
 
@@ -183,13 +183,13 @@ Comprobaciones:
 
 Run (en `$WT`): `pnpm exec vitest run` sin carga → `Tests  B_tests passed (B_tests)`.
 
-- [ ] **Step 2.2: Volver a medir con la palanca 1**
+- [x] **Step 2.2: Volver a medir con la palanca 1**
 
 Repite el Step 1.2 con logs `delay-a-$i.txt` y `delay-b-$i.txt`, y el Step 1.3 sobre `delay-*`. Para cada test seleccionado, anota en la tabla su peor duración y sus timeouts con `delay: null`.
 
 Un test pasa a la palanca 2 si **después** de `delay: null` sigue cumpliendo A o B. Si ninguno cumple, salta el Task 3 y sigue con el Task 4 (si la regla F lo pidió) o con el Task 5.
 
-- [ ] **Step 2.3: Commit**
+- [x] **Step 2.3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-j-test-timeouts.md <cada archivo de test modificado>
