@@ -335,7 +335,7 @@ git -C $WT commit -m "fix: clear a stale export error when the players filters c
 - Modify: `src/players/PlayersPage.test.tsx`
 - Modify: `src/players/PlayersPage.tsx`
 
-- [ ] **Step 1: Tests**
+- [x] **Step 1: Tests**
 
 ```ts
 test('a filter combination that matches nobody says so', async () => {
@@ -364,7 +364,7 @@ test('with no players at all there is no filters message', async () => {
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx`
 Expected: FAIL solo en `a filter combination that matches nobody says so`; `with no players at all…` pasa (es la guarda de que el mensaje no salga sin datos).
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 Envuelve la `<List sx={{ mt: 2 }}>…</List>` de jugadores en un ternario (la lista por dentro no cambia):
 
@@ -384,7 +384,7 @@ Envuelve la `<List sx={{ mt: 2 }}>…</List>` de jugadores en un ternario (la li
 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-e-players-list.md src/players/PlayersPage.tsx src/players/PlayersPage.test.tsx

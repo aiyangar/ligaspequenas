@@ -528,3 +528,25 @@ test('typing in the search box also clears a stale export error', async () => {
   await user.type(screen.getByLabelText('Buscar por nombre'), 'a')
   await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
 })
+
+test('a filter combination that matches nobody says so', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  expect(screen.queryByText('Sin jugadores con estos filtros.')).not.toBeInTheDocument()
+  await user.selectOptions(screen.getByLabelText('Pago'), 'al_corriente')
+  await user.selectOptions(screen.getByLabelText('Documentos'), 'completos')
+  expect(await screen.findByRole('status')).toHaveTextContent('Sin jugadores con estos filtros.')
+  expect(screen.queryByRole('list')).not.toBeInTheDocument()
+  await user.selectOptions(screen.getByLabelText('Documentos'), 'Todos')
+  expect(await screen.findByText('Carla Paz')).toBeInTheDocument()
+  expect(screen.queryByText('Sin jugadores con estos filtros.')).not.toBeInTheDocument()
+})
+
+test('with no players at all there is no filters message', async () => {
+  mocks.fetchPlayers.mockResolvedValue([])
+  renderPage()
+  await waitFor(() => expect(mocks.fetchPlayers).toHaveBeenCalled())
+  await waitFor(() => expect(exportButton()).toBeDisabled())
+  expect(screen.queryByText('Sin jugadores con estos filtros.')).not.toBeInTheDocument()
+})
