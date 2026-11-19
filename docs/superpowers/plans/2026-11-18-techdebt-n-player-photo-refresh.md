@@ -37,9 +37,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/player-photo-zero-rows-and-refresh`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/player-photo-zero-rows-and-refresh`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde).
 
 ---
 
@@ -54,7 +54,7 @@
 - Consumes: `NO_PERMISSION_MESSAGE` (`'No tienes permiso para esta acción.'`), ahora exportado por `src/documents/documents.ts`.
 - Produces: sin cambios de firma: `uploadPlayerPhoto(player, file, consentGranted): Promise<UpdatePlayerResult>` y `removePlayerPhoto(player): Promise<UpdatePlayerResult>`.
 
-- [ ] **Step 1.1: Ajustar los mocks y escribir los tests (rojo)**
+- [x] **Step 1.1: Ajustar los mocks y escribir los tests (rojo)**
 
 En `src/players/players.test.ts`:
 
@@ -117,7 +117,7 @@ test('removePlayerPhoto reports zero updated rows as a permission error', async 
 Run: `pnpm exec vitest run src/players/players.test.ts`
 Expected: FAIL en 6 tests (verificado por el planner): `uploadPlayerPhoto upserts…` y `removePlayerPhoto removes the object first…` (`updateSelect` no llamado), `uploadPlayerPhoto rolls back a new photo when the update fails` (hoy el error viaja en `updateEq`, que ya no lo trae), y los 3 nuevos (hoy cero filas da `{ ok: true }`). 22 pasan, incluido `updatePlayer updates by id and returns ok`.
 
-- [ ] **Step 1.2: Implementar**
+- [x] **Step 1.2: Implementar**
 
 1. En `src/documents/documents.ts` l.61, cambia `const NO_PERMISSION_MESSAGE = 'No tienes permiso para esta acción.'` por `export const NO_PERMISSION_MESSAGE = 'No tienes permiso para esta acción.'`. Nada más en ese archivo.
 2. En `src/players/players.ts`, agrega `NO_PERMISSION_MESSAGE` al import de `'../documents/documents'`:
@@ -184,7 +184,7 @@ Expected: todo PASS (`players.test.ts`: 28 tests).
 
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint src/players src/documents` → exit 0.
 
-- [ ] **Step 1.3: Commit**
+- [x] **Step 1.3: Commit**
 
 `git -C $WT status -s` → solo `players.ts`, `players.test.ts`, `documents.ts` y este plan.
 
