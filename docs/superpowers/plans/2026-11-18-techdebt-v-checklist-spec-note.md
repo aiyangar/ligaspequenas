@@ -34,9 +34,9 @@
 
 ## Task 0: Preparar
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `update/checklist-spec-0019-note`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** `grep -c "Obsolete since 0019" $WT/docs/superpowers/plans/2026-10-16-pre-real-data-checklist.md` → `1` (el PR #151 está en la base). Si da `0`, **detente** y avisa al orquestador.
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `update/checklist-spec-0019-note`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** `grep -c "Obsolete since 0019" $WT/docs/superpowers/plans/2026-10-16-pre-real-data-checklist.md` → `1` (el PR #151 está en la base). Si da `0`, **detente** y avisa al orquestador.
 
 ---
 
@@ -48,13 +48,13 @@
 
 En este Task, `$S` = `$WT/docs/superpowers/specs/2026-10-16-pre-real-data-checklist-design.md` y `$P` = `$WT/docs/superpowers/plans/2026-10-16-pre-real-data-checklist.md`.
 
-- [ ] **Step 1.1: Rojo**
+- [x] **Step 1.1: Rojo**
 
 Run: `grep -c "Superseded by 0019 (#48, PR #148)" "$S"` → `0`.
 Run: `grep -c "cannot be pasted as they are" "$P"` → `1`.
 (Verificado por el planner.)
 
-- [ ] **Step 1.2: Editar (cada ancla aparece una sola vez; búscala tal cual)**
+- [x] **Step 1.2: Editar (cada ancla aparece una sola vez; búscala tal cual)**
 
 En `$S`, **agrega** el texto en cursiva justo después del ancla, en la misma línea (con un espacio delante):
 
@@ -79,7 +79,7 @@ The canonical files keep the `begin; plan; …; finish; rollback;` form. At the 
 
 El resto del párrafo (`Each R-call below is **one** \`execute_sql\` …`) no cambia.
 
-- [ ] **Step 1.3: Verde y comprobaciones**
+- [x] **Step 1.3: Verde y comprobaciones**
 
 - `grep -c "Superseded by 0019 (#48, PR #148)" "$S"` → `4`; `grep -n "Superseded by 0019" "$S" | cut -d: -f1` → `26`, `156`, `282`, `390`.
 - `git -C $WT diff --word-diff=porcelain -- docs/superpowers/specs/2026-10-16-pre-real-data-checklist-design.md | grep -c '^-[^-]'` → `0` (nada borrado en el spec).
@@ -87,7 +87,7 @@ El resto del párrafo (`Each R-call below is **one** \`execute_sql\` …`) no ca
 - `grep -c "cannot be pasted as they are" "$P"` → `0`; `grep -c "At the time of this plan they could not be pasted as they were" "$P"` → `1`.
 - `git -C $WT diff --stat` → `2 files changed, 5 insertions(+), 5 deletions(-)` (planner: spec `8 ++++----`, plan `2 +-`).
 
-- [ ] **Step 1.4: Commit**
+- [x] **Step 1.4: Commit**
 
 `git -C $WT status -s` → solo los dos `.md` de 2026-10-16 y este plan.
 
