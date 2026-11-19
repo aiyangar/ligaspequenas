@@ -104,7 +104,7 @@ git -C $WT commit -m "test: cover the missing documents data-layer cases (#53)" 
 - Modify: `src/documents/documents.test.ts`
 - Modify: `src/documents/documents.ts`
 
-- [ ] **Step 1: Cambiar el mock de update a `update().eq().select()`**
+- [x] **Step 1: Cambiar el mock de update a `update().eq().select()`**
 
 En `mocks` agrega `updateSelect: vi.fn(),` (después de `updateEq: vi.fn(),`). En `beforeEach` reemplaza:
 
@@ -129,7 +129,7 @@ por:
 
 En los tests `a rejected consent revocation keeps the file`, `uploadDocument rolls back the object when the update fails on a new upload` y `uploadDocument does not roll back a replacement`, cambia `mocks.updateEq.mockResolvedValueOnce({ error: X })` por `mocks.updateSelect.mockResolvedValueOnce({ data: null, error: X })` (mismo `X` en cada uno).
 
-- [ ] **Step 2: Agregar los tests nuevos**
+- [x] **Step 2: Agregar los tests nuevos**
 
 En `setDocumentStatus on a non-digital row only updates`, después de `expect(mocks.updateEq).toHaveBeenCalledWith('id', 'd1')` agrega `expect(mocks.updateSelect).toHaveBeenCalledWith('id')`. Después de ese test agrega:
 
@@ -160,12 +160,12 @@ test('documentErrorMessage does not read 403 inside a longer number or id', () =
 })
 ```
 
-- [ ] **Step 3: Verificar el rojo**
+- [x] **Step 3: Verificar el rojo**
 
 Run: `pnpm exec vitest run src/documents/documents.test.ts`
 Expected: FAIL en 10 tests (verificado al planear: 10 failed / 19 passed): `does not read 403 inside…` (devuelve "No tienes permiso…"), los dos de cero filas, y 7 que pasan por `updateDocument` (`non-digital row only updates`, `digital non-consent row…`, `digital consent row…`, `a rejected consent revocation…`, `upserts to the fixed path…`, `rolls back the object…`, `does not roll back a replacement`) porque el código actual espera que `eq()` resuelva y recibe `{ select }`. `a consent row whose file removal fails…` sigue pasando (su resultado lo decide el `remove`). El resto pasa.
 
-- [ ] **Step 4: Implementar en `src/documents/documents.ts`**
+- [x] **Step 4: Implementar en `src/documents/documents.ts`**
 
 Después de `CONSENT_REQUIRED_MESSAGE` agrega:
 
@@ -227,12 +227,12 @@ En `uploadDocument` reemplaza desde `const { error } = await updateDocument(...)
   return { ok: true }
 ```
 
-- [ ] **Step 5: Verificar el verde**
+- [x] **Step 5: Verificar el verde**
 
 Run: `pnpm exec vitest run src/documents/documents.test.ts` → todo PASS (3 tests más que al cerrar Task 1).
 Run: `pnpm exec vitest run src/players/players.test.ts` → todo PASS (usa `documentErrorMessage` real; "row-level security" sigue mapeando igual).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-c-documents.md src/documents/documents.ts src/documents/documents.test.ts
