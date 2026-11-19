@@ -33,8 +33,8 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 1:** `git -C $WT branch --show-current` → `fix/documents-section-hardening`; `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 2:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado 45 / 449).
+- [x] **Step 1:** `git -C $WT branch --show-current` → `fix/documents-section-hardening`; `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 2:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado 45 / 449).
 
 ---
 
@@ -43,7 +43,7 @@
 **Files:**
 - Modify: `src/documents/documents.test.ts`
 
-- [ ] **Step 1: Agregar los tres tests**
+- [x] **Step 1: Agregar los tres tests**
 
 Después del test `documentErrorMessage translates by prefix` agrega:
 
@@ -78,18 +78,18 @@ test('a consent row whose file removal fails after the update reports the failur
 })
 ```
 
-- [ ] **Step 2: Verificar que pasan**
+- [x] **Step 2: Verificar que pasan**
 
 Run: `pnpm exec vitest run src/documents/documents.test.ts`
 Expected: PASS, 3 tests más que antes (cobertura sobre código existente, sin rojo).
 
-- [ ] **Step 3: Mutación del test de `list()`**
+- [x] **Step 3: Mutación del test de `list()`**
 
 En `src/documents/documents.ts` (`removeFile`) cambia `if (listed.error) return { ok: false, error: documentErrorMessage(listed.error.message) }` por `if (listed.error) return { ok: true }`.
 Run: `pnpm exec vitest run src/documents/documents.test.ts -t "reports a list error"` → FAIL.
 Restaura: `git -C $WT checkout -- src/documents/documents.ts`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-c-documents.md src/documents/documents.test.ts
@@ -104,7 +104,7 @@ git -C $WT commit -m "test: cover the missing documents data-layer cases (#53)" 
 - Modify: `src/documents/documents.test.ts`
 - Modify: `src/documents/documents.ts`
 
-- [ ] **Step 1: Cambiar el mock de update a `update().eq().select()`**
+- [x] **Step 1: Cambiar el mock de update a `update().eq().select()`**
 
 En `mocks` agrega `updateSelect: vi.fn(),` (después de `updateEq: vi.fn(),`). En `beforeEach` reemplaza:
 
@@ -129,7 +129,7 @@ por:
 
 En los tests `a rejected consent revocation keeps the file`, `uploadDocument rolls back the object when the update fails on a new upload` y `uploadDocument does not roll back a replacement`, cambia `mocks.updateEq.mockResolvedValueOnce({ error: X })` por `mocks.updateSelect.mockResolvedValueOnce({ data: null, error: X })` (mismo `X` en cada uno).
 
-- [ ] **Step 2: Agregar los tests nuevos**
+- [x] **Step 2: Agregar los tests nuevos**
 
 En `setDocumentStatus on a non-digital row only updates`, después de `expect(mocks.updateEq).toHaveBeenCalledWith('id', 'd1')` agrega `expect(mocks.updateSelect).toHaveBeenCalledWith('id')`. Después de ese test agrega:
 
@@ -160,12 +160,12 @@ test('documentErrorMessage does not read 403 inside a longer number or id', () =
 })
 ```
 
-- [ ] **Step 3: Verificar el rojo**
+- [x] **Step 3: Verificar el rojo**
 
 Run: `pnpm exec vitest run src/documents/documents.test.ts`
 Expected: FAIL en 10 tests (verificado al planear: 10 failed / 19 passed): `does not read 403 inside…` (devuelve "No tienes permiso…"), los dos de cero filas, y 7 que pasan por `updateDocument` (`non-digital row only updates`, `digital non-consent row…`, `digital consent row…`, `a rejected consent revocation…`, `upserts to the fixed path…`, `rolls back the object…`, `does not roll back a replacement`) porque el código actual espera que `eq()` resuelva y recibe `{ select }`. `a consent row whose file removal fails…` sigue pasando (su resultado lo decide el `remove`). El resto pasa.
 
-- [ ] **Step 4: Implementar en `src/documents/documents.ts`**
+- [x] **Step 4: Implementar en `src/documents/documents.ts`**
 
 Después de `CONSENT_REQUIRED_MESSAGE` agrega:
 
@@ -227,12 +227,12 @@ En `uploadDocument` reemplaza desde `const { error } = await updateDocument(...)
   return { ok: true }
 ```
 
-- [ ] **Step 5: Verificar el verde**
+- [x] **Step 5: Verificar el verde**
 
 Run: `pnpm exec vitest run src/documents/documents.test.ts` → todo PASS (3 tests más que al cerrar Task 1).
 Run: `pnpm exec vitest run src/players/players.test.ts` → todo PASS (usa `documentErrorMessage` real; "row-level security" sigue mapeando igual).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-c-documents.md src/documents/documents.ts src/documents/documents.test.ts
@@ -246,7 +246,7 @@ git -C $WT commit -m "fix: detect RLS-filtered document updates and stop matchin
 **Files:**
 - Modify: `src/documents/PlayerDocumentsSection.test.tsx`
 
-- [ ] **Step 1: Reescribir los dos tests**
+- [x] **Step 1: Reescribir los dos tests**
 
 En el import de Testing Library agrega `act`: `import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'`.
 
@@ -288,17 +288,17 @@ test('Ver opens the tab synchronously, drops the opener and assigns the signed U
 })
 ```
 
-- [ ] **Step 2: Verificar que pasan**
+- [x] **Step 2: Verificar que pasan**
 
 Run: `pnpm exec vitest run src/documents/PlayerDocumentsSection.test.tsx` → todo PASS (mismo número de tests).
 
-- [ ] **Step 3: Mutación (a) — quitar la guardia**
+- [x] **Step 3: Mutación (a) — quitar la guardia**
 
 En `src/documents/PlayerDocumentsSection.tsx` borra la línea `    if (inFlight.current) return`.
 Run: `pnpm exec vitest run src/documents/PlayerDocumentsSection.test.tsx -t "second upload"` → FAIL (`uploadDocument` llamado 2 veces). (Verificado al planear: el test viejo con `user.upload` seguía pasando con esta mutación.)
 Restaura: `git -C $WT checkout -- src/documents/PlayerDocumentsSection.tsx`.
 
-- [ ] **Step 4: Mutación (b) — abrir la pestaña después del `await`**
+- [x] **Step 4: Mutación (b) — abrir la pestaña después del `await`**
 
 En `handleView`, mueve la firma antes de abrir: reemplaza
 
@@ -317,7 +317,7 @@ y `w.location.href = await getSignedFileUrl(doc.file_path)` por `w.location.href
 Run: `pnpm exec vitest run src/documents/PlayerDocumentsSection.test.tsx -t "Ver opens"` → FAIL (`window.open` no se llamó). (El test viejo pasaba con esta mutación.)
 Restaura: `git -C $WT checkout -- src/documents/PlayerDocumentsSection.tsx`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-c-documents.md src/documents/PlayerDocumentsSection.test.tsx
@@ -332,7 +332,7 @@ git -C $WT commit -m "test: make the documents in-flight guard and Ver tests fai
 - Modify: `src/documents/PlayerDocumentsSection.test.tsx`
 - Modify: `src/documents/PlayerDocumentsSection.tsx`
 
-- [ ] **Step 1: Test (rojo)**
+- [x] **Step 1: Test (rojo)**
 
 Al final del archivo de tests agrega:
 
@@ -358,13 +358,13 @@ test('while one row saves, every row is disabled, then all come back', async () 
 Run: `pnpm exec vitest run src/documents/PlayerDocumentsSection.test.tsx -t "every row is disabled"`
 Expected: FAIL — la subida de "Acta de nacimiento" sigue habilitada.
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 En `PlayerDocumentsSection.tsx`, antes de `const granted = consentGranted(documents)` agrega `const anyBusy = busyId !== null`. En la fila: el `TextField` de Estatus pasa de `disabled={busy}` a `disabled={anyBusy}`; el `Button component="label"` y su `<input>` pasan de `disabled={busy || uploadLocked}` a `disabled={anyBusy || uploadLocked}`. El spinner sigue con `busy` (solo en la fila que guarda). `Ver` no cambia (no escribe nada).
 
 Run: `pnpm exec vitest run src/documents/PlayerDocumentsSection.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-c-documents.md src/documents/PlayerDocumentsSection.tsx src/documents/PlayerDocumentsSection.test.tsx
@@ -382,7 +382,7 @@ git -C $WT commit -m "fix: disable every document row while one is saving (#51)"
 **Interfaces:**
 - Produces: `PlayerDocumentsSectionProps.onReload?: () => Promise<void> | void`. Opcional a propósito: `PlayerFormPage` compila igual sin pasarla, y el lote D la conecta (`onReload={refreshDocuments}`) en su Task 8, después del merge de este lote. `onChanged` no cambia de firma.
 
-- [ ] **Step 1: Test (rojo)**
+- [x] **Step 1: Test (rojo)**
 
 Al final del archivo de tests agrega:
 
@@ -409,7 +409,7 @@ test('a failed change reloads the rows without a success toast and stays busy un
 Run: `pnpm exec vitest run src/documents/PlayerDocumentsSection.test.tsx -t "reloads the rows"`
 Expected: FAIL — `onReload` nunca se llama.
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 En `PlayerDocumentsSectionProps` agrega `onReload?: () => Promise<void> | void` después de `onChanged`, y desestructúralo en la firma del componente (`{ documents, canEdit, hasPhoto, onChanged, onReload }`). En `run`, reemplaza:
 
@@ -432,11 +432,11 @@ por:
 
 Run: `pnpm exec vitest run src/documents/PlayerDocumentsSection.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Suite completa, tipos y lint**
+- [x] **Step 3: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `B_tests + 8` tests (Task 1: 3; Task 2: 3; Task 4: 1; Task 5: 1), todo verde (esperado 45 / 457). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-c-documents.md src/documents/PlayerDocumentsSection.tsx src/documents/PlayerDocumentsSection.test.tsx
