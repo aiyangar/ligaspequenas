@@ -33,8 +33,8 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 1:** `git -C $WT branch --show-current` → `fix/players-list-export-polish`; `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 2:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests`.
+- [x] **Step 1:** `git -C $WT branch --show-current` → `fix/players-list-export-polish`; `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 2:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests`.
 
 ---
 
@@ -44,7 +44,7 @@
 - Modify: `src/lib/fetchAllRows.test.ts`
 - Modify: `src/lib/fetchAllRows.ts`
 
-- [ ] **Step 1: Tests**
+- [x] **Step 1: Tests**
 
 Al final de `src/lib/fetchAllRows.test.ts`:
 
@@ -66,12 +66,12 @@ test('a response that ignores the range throws instead of paging forever', async
 
 (El segundo mock corta solo a partir de `from > 100` para que el rojo sea un fallo y no un bucle infinito: con el código actual, un mock que siempre responde `[0, 1]` agota la memoria del worker.)
 
-- [ ] **Step 2: Verificar el rojo**
+- [x] **Step 2: Verificar el rojo**
 
 Run: `pnpm exec vitest run src/lib/fetchAllRows.test.ts`
 Expected: FAIL solo en `a response that ignores the range…` con `expected … to throw error including 'the server ignored the requested range' but got 'runaway paging'`. El de "tolerated" pasa (es la guarda de que el arreglo no corte de más).
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 En `fetchAllRows`, después de `let offset = 0` agrega `let staleBlocks = 0`, y reemplaza el bloque desde `offset += data.length` hasta el cierre del `for (;;)` por:
 
@@ -90,11 +90,11 @@ En `fetchAllRows`, después de `let offset = 0` agrega `let staleBlocks = 0`, y 
   }
 ```
 
-- [ ] **Step 4: Verificar el verde**
+- [x] **Step 4: Verificar el verde**
 
 Run: `pnpm exec vitest run src/lib/fetchAllRows.test.ts src/players/players.test.ts src/payments/payments.test.ts` → todo PASS (los tests de dedupe de jugadores y pagos siguen pasando).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-e-players-list.md src/lib/fetchAllRows.ts src/lib/fetchAllRows.test.ts
@@ -110,7 +110,7 @@ git -C $WT commit -m "fix: stop paging when the server keeps ignoring the reques
 
 **Interfaces (verificadas en `node_modules/write-excel-file` 4.1.1):** `write-excel-file/browser` exporta `default(sheetData, sheetOptions?)` que devuelve `{ toBlob(): Promise<Blob>; toFile(name): Promise<void> }`. `write-excel-file/node` devuelve `toBuffer()`, pero sus tipos importan `node:stream`, y `tsconfig.app.json` no incluye los tipos de Node (`"types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]`): por eso el test usa la entrada `browser`, que además es la que usa producción (`src/players/exportPlayers.ts`).
 
-- [ ] **Step 1: Crear el test**
+- [x] **Step 1: Crear el test**
 
 ```ts
 import { expect } from 'vitest'
@@ -178,21 +178,21 @@ test('the written workbook stores formula-like values as shared strings, never a
 
 (`Blob.stream()` no existe en el `Blob` de jsdom; `arrayBuffer()` sí. `ReadableStream`, `DecompressionStream` y `Response` vienen de Node 24 y siguen disponibles en el entorno jsdom de Vitest. Verificado al planear.)
 
-- [ ] **Step 2: Verificar que pasa**
+- [x] **Step 2: Verificar que pasa**
 
 Run: `pnpm exec vitest run src/players/playersSheet.xlsx.test.ts` → 1 test PASS (cobertura, sin rojo).
 
-- [ ] **Step 3: Mutación**
+- [x] **Step 3: Mutación**
 
 En `src/players/playersSheet.ts` (`playerRow`), cambia la primera celda `p.full_name,` por `{ value: p.full_name.slice(1), type: 'Formula' },`.
 Run: `pnpm exec vitest run src/players/playersSheet.xlsx.test.ts` → FAIL (`expected '<?xml … not to match /<f[\s>]/`).
 Restaura: `git -C $WT checkout -- src/players/playersSheet.ts`.
 
-- [ ] **Step 4: Tipos y lint del archivo nuevo**
+- [x] **Step 4: Tipos y lint del archivo nuevo**
 
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint src/players/playersSheet.xlsx.test.ts` → exit 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-e-players-list.md src/players/playersSheet.xlsx.test.ts
@@ -206,7 +206,7 @@ git -C $WT commit -m "test: check formula injection on the serialized players wo
 **Files:**
 - Modify: `src/players/PlayersPage.test.tsx`
 
-- [ ] **Step 1: Sacar el fixture a una función**
+- [x] **Step 1: Sacar el fixture a una función**
 
 Antes del comentario `// Chip texts also appear as filter <option>s…` agrega:
 
@@ -222,7 +222,7 @@ function roster(): PlayerRow[] {
 
 y en `beforeEach` reemplaza el `mocks.fetchPlayers.mockResolvedValue([ …tres jugadores… ])` por `mocks.fetchPlayers.mockResolvedValue(roster())`.
 
-- [ ] **Step 2: Reescribir el test**
+- [x] **Step 2: Reescribir el test**
 
 Reemplaza `Pago Con adeudo plus Documentos Completos leaves only the player matching both` completo por:
 
@@ -245,12 +245,12 @@ test('Pago Con adeudo plus Documentos Completos leaves only the player matching 
 })
 ```
 
-- [ ] **Step 3: Verificar y mutar**
+- [x] **Step 3: Verificar y mutar**
 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx` → todo PASS (mismo número de tests).
 Mutación: en `PlayersPage.tsx` borra la línea `    if (docsFilter === 'completos' && !docsComplete(p)) return false`. Run `pnpm exec vitest run src/players/PlayersPage.test.tsx -t "Pago Con adeudo plus"` → FAIL (Dani sigue visible). (Con el test viejo esta mutación pasaba.) Restaura con `git -C $WT checkout -- src/players/PlayersPage.tsx`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-e-players-list.md src/players/PlayersPage.test.tsx
@@ -265,7 +265,7 @@ git -C $WT commit -m "test: make the Pago plus Documentos test depend on the Doc
 - Modify: `src/players/PlayersPage.test.tsx`
 - Modify: `src/players/PlayersPage.tsx`
 
-- [ ] **Step 1: Tests (rojo)**
+- [x] **Step 1: Tests (rojo)**
 
 Al final del archivo:
 
@@ -296,7 +296,7 @@ test('typing in the search box also clears a stale export error', async () => {
 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx` → FAIL en estos 2 (el `Alert` sigue).
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 Después de `handleRetry` agrega:
 
@@ -320,7 +320,7 @@ y en los 7 `onChange` de los filtros reemplaza el setter por su `change…` (mis
 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-e-players-list.md src/players/PlayersPage.tsx src/players/PlayersPage.test.tsx
@@ -335,7 +335,7 @@ git -C $WT commit -m "fix: clear a stale export error when the players filters c
 - Modify: `src/players/PlayersPage.test.tsx`
 - Modify: `src/players/PlayersPage.tsx`
 
-- [ ] **Step 1: Tests**
+- [x] **Step 1: Tests**
 
 ```ts
 test('a filter combination that matches nobody says so', async () => {
@@ -364,7 +364,7 @@ test('with no players at all there is no filters message', async () => {
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx`
 Expected: FAIL solo en `a filter combination that matches nobody says so`; `with no players at all…` pasa (es la guarda de que el mensaje no salga sin datos).
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 Envuelve la `<List sx={{ mt: 2 }}>…</List>` de jugadores en un ternario (la lista por dentro no cambia):
 
@@ -384,7 +384,7 @@ Envuelve la `<List sx={{ mt: 2 }}>…</List>` de jugadores en un ternario (la li
 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-e-players-list.md src/players/PlayersPage.tsx src/players/PlayersPage.test.tsx
@@ -401,7 +401,7 @@ git -C $WT commit -m "feat: say when the players filters match nobody (#76)" -m 
 
 **Causa (issue #85, confirmada al planear):** el `finally` de `handleExport` llama `focus()` justo después de `setExporting(false)`, antes del re-render, así que el botón sigue `disabled` y Chrome ignora el `focus()`. jsdom lo acepta porque MUI pone `tabindex` al botón, y por eso el test actual pasa.
 
-- [ ] **Step 1: Test que simula al navegador (rojo)**
+- [x] **Step 1: Test que simula al navegador (rojo)**
 
 En el import de Vitest agrega `onTestFinished`: `import { beforeEach, expect, onTestFinished, vi } from 'vitest'`. Reemplaza el test `focus returns to the export button when the file is ready` completo por:
 
@@ -432,7 +432,7 @@ test('focus returns to the export button once it is enabled again', async () => 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx -t "focus"`
 Expected: FAIL en `focus returns to the export button once it is enabled again` (el foco queda en `body`); `focus stays where the user moved it…` pasa.
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 Después de `const exportButtonRef = useRef<HTMLButtonElement>(null)` agrega `const restoreExportFocus = useRef(false)`. En el `finally` de `handleExport` reemplaza:
 
@@ -465,11 +465,11 @@ y después de `handleExport` agrega:
 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Suite completa, tipos y lint**
+- [x] **Step 3: Suite completa, tipos y lint**
 
 Run: `pnpm exec vitest run` → `B_files + 1` archivos, `B_tests + 7` tests (Task 1: 2; Task 2: 1; Task 4: 2; Task 5: 2; Tasks 3 y 6 reemplazan), todo verde (esperado 46 / 456). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-e-players-list.md src/players/PlayersPage.tsx src/players/PlayersPage.test.tsx

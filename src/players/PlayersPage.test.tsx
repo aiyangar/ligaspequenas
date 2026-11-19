@@ -1,6 +1,6 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, expect, vi } from 'vitest'
+import { beforeEach, expect, onTestFinished, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { PlayersPage } from './PlayersPage'
 import type { PlayerRow } from './players'
@@ -39,6 +39,14 @@ function renderPage() {
   return render(<RouterProvider router={router} />)
 }
 
+function roster(): PlayerRow[] {
+  return [
+    player({ id: 'p1', full_name: 'Ana Ruiz', category_name: 'Infantil Mayor', category_year: 1, team_id: 'team9', team_name: 'MTY AC Rojo', payment_state: 'con_adeudo', docs_delivered: DOCUMENT_TOTAL, affiliation_status: 'autoriza' }),
+    player({ id: 'p2', full_name: 'Beto Gómez', status: 'baja', category_id: null, category_name: null, category_year: null, edad_liga: 25, team_id: null, team_name: null, payment_state: 'sin_pagos', docs_delivered: 2, affiliation_status: 'no_autoriza' }),
+    player({ id: 'p3', full_name: 'Carla Paz', category_id: 'cat2', category_name: 'Infantil Menor', category_year: 2, payment_state: 'al_corriente', docs_delivered: DOCUMENT_TOTAL - 1 }),
+  ]
+}
+
 // Chip texts also appear as filter <option>s, so look them up inside the list only.
 function chip(text: string) {
   return within(screen.getByRole('list')).getByText(text).closest('.MuiChip-root')
@@ -47,11 +55,7 @@ function chip(text: string) {
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Admin', tenantId: 't1' })
-  mocks.fetchPlayers.mockResolvedValue([
-    player({ id: 'p1', full_name: 'Ana Ruiz', category_name: 'Infantil Mayor', category_year: 1, team_id: 'team9', team_name: 'MTY AC Rojo', payment_state: 'con_adeudo', docs_delivered: DOCUMENT_TOTAL, affiliation_status: 'autoriza' }),
-    player({ id: 'p2', full_name: 'Beto Gómez', status: 'baja', category_id: null, category_name: null, category_year: null, edad_liga: 25, team_id: null, team_name: null, payment_state: 'sin_pagos', docs_delivered: 2, affiliation_status: 'no_autoriza' }),
-    player({ id: 'p3', full_name: 'Carla Paz', category_id: 'cat2', category_name: 'Infantil Menor', category_year: 2, payment_state: 'al_corriente', docs_delivered: DOCUMENT_TOTAL - 1 }),
-  ])
+  mocks.fetchPlayers.mockResolvedValue(roster())
   mocks.exportPlayersToExcel.mockResolvedValue(undefined)
 })
 
@@ -253,12 +257,18 @@ test('Documentos filter splits Completos from Incompletos and Todos restores eve
 })
 
 test('Pago Con adeudo plus Documentos Completos leaves only the player matching both', async () => {
+  mocks.fetchPlayers.mockResolvedValue([
+    ...roster(),
+    player({ id: 'p4', full_name: 'Dani Sol', payment_state: 'con_adeudo', docs_delivered: 1 }),
+  ])
   const user = userEvent.setup()
   renderPage()
-  await screen.findByText('Ana Ruiz')
+  await screen.findByText('Dani Sol')
   await user.selectOptions(screen.getByLabelText('Pago'), 'con_adeudo')
-  await user.selectOptions(screen.getByLabelText('Documentos'), 'completos')
   await waitFor(() => expect(screen.queryByText('Carla Paz')).not.toBeInTheDocument())
+  expect(screen.getByText('Dani Sol')).toBeInTheDocument()
+  await user.selectOptions(screen.getByLabelText('Documentos'), 'completos')
+  await waitFor(() => expect(screen.queryByText('Dani Sol')).not.toBeInTheDocument())
   expect(screen.getByText('Ana Ruiz')).toBeInTheDocument()
   expect(screen.queryByText('Beto Gómez')).not.toBeInTheDocument()
 })
@@ -361,6 +371,16 @@ function exportButton() {
   return screen.getByRole('button', { name: 'Exportar a Excel' })
 }
 
+// Browsers ignore focus() on a disabled button; jsdom honors it because MUI sets tabindex.
+function ignoreFocusOnDisabledButtons() {
+  const realFocus = HTMLElement.prototype.focus
+  const focus = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement, options) {
+    if (this instanceof HTMLButtonElement && this.disabled) return
+    realFocus.call(this, options)
+  })
+  onTestFinished(() => focus.mockRestore())
+}
+
 function deferred() {
   let resolve!: () => void
   let reject!: (error: Error) => void
@@ -454,9 +474,10 @@ test('two clicks in the same tick export once', async () => {
   await act(async () => run.resolve())
 })
 
-test('focus returns to the export button when the file is ready', async () => {
+test('focus returns to the export button once it is enabled again', async () => {
   const run = deferred()
   mocks.exportPlayersToExcel.mockReturnValue(run.promise)
+  ignoreFocusOnDisabledButtons()
   const user = userEvent.setup()
   renderPage()
   await screen.findByText('Ana Ruiz')
@@ -465,6 +486,27 @@ test('focus returns to the export button when the file is ready', async () => {
   act(() => exportButton().blur())
   expect(document.body).toHaveFocus()
   await act(async () => run.resolve())
+  await waitFor(() => expect(exportButton()).toBeEnabled())
+  expect(exportButton()).toHaveFocus()
+})
+
+test('focus waits for the export button when the filters keep it disabled after the export', async () => {
+  const run = deferred()
+  mocks.exportPlayersToExcel.mockReturnValue(run.promise)
+  ignoreFocusOnDisabledButtons()
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  await user.click(exportButton())
+  await user.selectOptions(screen.getByLabelText('Pago'), 'al_corriente')
+  await user.selectOptions(screen.getByLabelText('Documentos'), 'completos')
+  act(() => (document.activeElement as HTMLElement).blur())
+  expect(document.body).toHaveFocus()
+  await act(async () => run.resolve())
+  await waitFor(() => expect(exportButton()).toHaveAttribute('aria-busy', 'false'))
+  expect(exportButton()).toBeDisabled()
+  expect(document.body).toHaveFocus()
+  fireEvent.change(screen.getByLabelText('Documentos'), { target: { value: '' } })
   await waitFor(() => expect(exportButton()).toBeEnabled())
   expect(exportButton()).toHaveFocus()
 })
@@ -494,4 +536,56 @@ test('a failed export shows an error, re-enables the button, and a later success
   await user.click(exportButton())
   await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
   expect(mocks.exportPlayersToExcel).toHaveBeenCalledTimes(2)
+})
+
+test.each([
+  ['Categoría', 'cat2'],
+  ['Estatus', 'activo'],
+  ['Equipo', 'team9'],
+  ['Pago', 'con_adeudo'],
+  ['Documentos', 'completos'],
+  ['Afiliación', 'autoriza'],
+])('changing the %s filter clears a stale export error', async (label, value) => {
+  mocks.exportPlayersToExcel.mockRejectedValueOnce(new Error('chunk failed'))
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  await user.click(exportButton())
+  expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo generar el archivo de Excel. Intenta de nuevo.')
+  await user.selectOptions(screen.getByLabelText(label), value)
+  await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+  expect(mocks.exportPlayersToExcel).toHaveBeenCalledTimes(1)
+})
+
+test('typing in the search box also clears a stale export error', async () => {
+  mocks.exportPlayersToExcel.mockRejectedValueOnce(new Error('chunk failed'))
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  await user.click(exportButton())
+  expect(await screen.findByRole('alert')).toBeInTheDocument()
+  await user.type(screen.getByLabelText('Buscar por nombre'), 'a')
+  await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+})
+
+test('a filter combination that matches nobody says so', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  expect(screen.queryByText('Sin jugadores con estos filtros.')).not.toBeInTheDocument()
+  await user.selectOptions(screen.getByLabelText('Pago'), 'al_corriente')
+  await user.selectOptions(screen.getByLabelText('Documentos'), 'completos')
+  expect(await screen.findByRole('status')).toHaveTextContent('Sin jugadores con estos filtros.')
+  expect(screen.queryByRole('list')).not.toBeInTheDocument()
+  await user.selectOptions(screen.getByLabelText('Documentos'), 'Todos')
+  expect(await screen.findByText('Carla Paz')).toBeInTheDocument()
+  expect(screen.queryByText('Sin jugadores con estos filtros.')).not.toBeInTheDocument()
+})
+
+test('with no players at all there is no filters message', async () => {
+  mocks.fetchPlayers.mockResolvedValue([])
+  renderPage()
+  await waitFor(() => expect(mocks.fetchPlayers).toHaveBeenCalled())
+  await waitFor(() => expect(exportButton()).toBeDisabled())
+  expect(screen.queryByText('Sin jugadores con estos filtros.')).not.toBeInTheDocument()
 })
