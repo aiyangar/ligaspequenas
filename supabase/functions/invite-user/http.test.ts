@@ -35,6 +35,12 @@ test('isOriginAllowed lets a missing Origin through and matches present ones exa
   expect(isOriginAllowed('https://app.example.com', [])).toBe(false)
 })
 
+test('isOriginAllowed does not normalize the incoming Origin', () => {
+  expect(isOriginAllowed('HTTPS://APP.EXAMPLE.COM', ALLOWED)).toBe(false)
+  expect(isOriginAllowed('https://app.example.com/', ALLOWED)).toBe(false)
+  expect(corsHeaders('HTTPS://APP.EXAMPLE.COM', ALLOWED)).not.toHaveProperty('Access-Control-Allow-Origin')
+})
+
 test('corsHeaders echoes only an allowed origin and never a wildcard', () => {
   const allowed = corsHeaders('https://app.example.com', ALLOWED)
   expect(allowed['Access-Control-Allow-Origin']).toBe('https://app.example.com')

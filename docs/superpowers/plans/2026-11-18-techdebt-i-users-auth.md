@@ -888,7 +888,7 @@ git -C $WT commit -m "fix: surface Usuarios load and role-change errors and deco
 
 Test de caracterización (el código ya compara exacto, `http.ts:20`); el rojo se demuestra con la mutación que cita el issue.
 
-- [ ] **Step 4.1: Escribir el test**
+- [x] **Step 4.1: Escribir el test**
 
 En `supabase/functions/invite-user/http.test.ts`, justo después del test `isOriginAllowed lets a missing Origin through and matches present ones exactly`, agrega:
 
@@ -903,7 +903,7 @@ test('isOriginAllowed does not normalize the incoming Origin', () => {
 Run: `pnpm exec vitest run supabase/functions/invite-user`
 Expected: 3 archivos, 10 tests PASS.
 
-- [ ] **Step 4.2: Mutación (rojo demostrado)**
+- [x] **Step 4.2: Mutación (rojo demostrado)**
 
 En `supabase/functions/invite-user/http.ts`, cambia temporalmente `  return allowed.includes(origin)` (en `isOriginAllowed`) por `  return allowed.includes(origin.toLowerCase())`.
 
@@ -912,7 +912,7 @@ Expected: FAIL solo en `isOriginAllowed does not normalize the incoming Origin`.
 
 Restaura: `git -C $WT checkout -- supabase/functions/invite-user/http.ts`; `git -C $WT diff --stat -- supabase/functions/invite-user/http.ts` → vacío. Vuelve a correr → 10 PASS.
 
-- [ ] **Step 4.3: Commit**
+- [x] **Step 4.3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-i-users-auth.md supabase/functions/invite-user/http.test.ts
