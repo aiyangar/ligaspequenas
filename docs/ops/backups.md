@@ -171,13 +171,17 @@ cd -
 
 ```bash
 psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0012_player_files_storage.sql
+psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0018_lock_player_on_file_write.sql
+psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0019_harden_player_file_helpers.sql
 psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0016_revoke_anon_privileges.sql
 ```
 
    - `0012`: la fila del bucket (idempotente) y las policies de `storage.objects`, porque el dump de schema no incluye `storage`.
+   - `0018`: 0012 deja `private.player_file_path_allowed` con su cuerpo original; 0018 le vuelve a poner el `for share` sobre el jugador.
+   - `0019`: 0012 le vuelve a dar a `authenticated` el `EXECUTE` sobre `private.player_consent_granted`; 0019 lo quita y deja `player_file_path_allowed` con la búsqueda por uuid. Va después de 0018 porque redefine la misma función.
    - `0016`: pg_dump escribe los permisos relativos a los defaults de Postgres, y un proyecto nuevo de Supabase da ALL a `anon` sobre lo que se crea en `public`. Sin 0016, el proyecto restaurado le devuelve privilegios a `anon` (checklist B en rojo). Son solo revokes, así que correrla dos veces es seguro.
 
-   **Regla:** toda migración que toque `auth`/`storage` **o que revoque privilegios** se agrega a esta lista. Si una migración posterior redefine una función de 0012, aplicar de 0012 solo las policies.
+   **Regla:** toda migración que toque `auth`/`storage` **o que revoque privilegios** se agrega a esta lista. Si una migración posterior redefine una función o un grant de 0012, se agrega a esta lista después de 0012 (como 0018 y 0019), en orden.
 
 3. Verificar privilegios. El bloque B del checklist (`docs/security/pre-real-data-checklist.md`) debe dar verde sobre el proyecto nuevo, **y** `authenticated` debe tener los mismos grants en los dos proyectos. Se corre esta query en producción (por MCP o `psql`) y en el restaurado, y se comparan:
 
@@ -227,7 +231,7 @@ Imprime solo `restored=<n> skipped=<n>`, y `restored + skipped` debe coincidir c
 
 Ante corrupción o borrado, **nunca** se restaura encima del proyecto vivo. Siempre:
 
-1. Proyecto nuevo, y las secciones anteriores completas (base, 0012 y 0016, privilegios, checklist A–D, Storage).
+1. Proyecto nuevo, y las secciones anteriores completas (base, 0012, 0018, 0019 y 0016, privilegios, checklist A–D, Storage).
 2. Reconfigurar a mano lo que no va en el respaldo: Auth (Site URL, redirect URLs, plantillas de correo), SMTP y los secrets de la Edge Function.
 3. Desplegar la Edge Function: `supabase functions deploy invite-user --project-ref <ref-nuevo>`.
 4. En Vercel, cambiar `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` al proyecto nuevo y redesplegar. Las sesiones viejas dejan de valer: los usuarios vuelven a entrar con su enlace.

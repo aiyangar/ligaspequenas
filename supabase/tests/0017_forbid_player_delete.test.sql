@@ -76,7 +76,7 @@ select extensions.is(
     $q$with w as (update public.players set status = 'baja' where id = 'ffffffff-2222-0000-0000-000000000001' returning 1) select count(*)::text from w$q$),
   '1', 'an admin can still set a player to baja');
 
--- cleanup runs before finish() so the MCP form executes it; under rollback it is a no-op
+-- cleanup runs before finish() so the MCP form executes it
 delete from public.players where id = 'ffffffff-2222-0000-0000-000000000001';
 delete from public.profiles where id = 'ffffffff-1111-0000-0000-000000000001';
 delete from auth.users where id = 'ffffffff-1111-0000-0000-000000000001';
