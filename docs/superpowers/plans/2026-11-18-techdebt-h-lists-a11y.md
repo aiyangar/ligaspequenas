@@ -35,9 +35,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 1:** `git -C $WT branch --show-current` → `fix/lists-a11y-loading`; `git -C $WT log --oneline origin/develop..HEAD` → vacío. Confirma que E, F y G están en la base: `git -C $WT log origin/develop --oneline --grep "#85"`, `--grep "#72"` y `--grep "#3[16]"` muestran cada uno al menos un commit. Si falta alguno, **detente y reporta**.
-- [ ] **Step 2:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests`.
-- [ ] **Step 3:** Lee completos `src/players/PlayersPage.tsx`, `src/teams/TeamsPage.tsx`, `src/payments/DebtorsPage.tsx` y sus tres tests. Ubica en cada uno las anclas que usan las tareas: el `List` que mapea jugadores/equipos/deudores, cada `ListItemButton component={RouterLink}`, el bloque `loadError ? <LoadError …/> : …` y, en Jugadores, el ternario de E con "Sin jugadores con estos filtros.".
+- [x] **Step 1:** `git -C $WT branch --show-current` → `fix/lists-a11y-loading`; `git -C $WT log --oneline origin/develop..HEAD` → vacío. Confirma que E, F y G están en la base: `git -C $WT log origin/develop --oneline --grep "#85"`, `--grep "#72"` y `--grep "#3[16]"` muestran cada uno al menos un commit. Si falta alguno, **detente y reporta**.
+- [x] **Step 2:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests`.
+- [x] **Step 3:** Lee completos `src/players/PlayersPage.tsx`, `src/teams/TeamsPage.tsx`, `src/payments/DebtorsPage.tsx` y sus tres tests. Ubica en cada uno las anclas que usan las tareas: el `List` que mapea jugadores/equipos/deudores, cada `ListItemButton component={RouterLink}`, el bloque `loadError ? <LoadError …/> : …` y, en Jugadores, el ternario de E con "Sin jugadores con estos filtros.".
 
 ---
 
@@ -47,7 +47,7 @@
 - Modify: `src/players/PlayersPage.test.tsx`
 - Modify: `src/players/PlayersPage.tsx`
 
-- [ ] **Step 1: Test (rojo)**
+- [x] **Step 1: Test (rojo)**
 
 Al final del archivo:
 
@@ -67,7 +67,7 @@ test('each player is a list item that holds its link', async () => {
 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx -t "list item that holds"` → FAIL (`Unable to find an accessible element with the role "listitem"`).
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 Importa `import ListItem from '@mui/material/ListItem'`. En el `visible.map(…)` de la lista de jugadores, la `key` pasa al `ListItem` y el `ListItemButton` queda dentro, sin otros cambios:
 
@@ -93,7 +93,7 @@ Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx` → todo PASS (los 
 - Modify: `src/teams/TeamsPage.test.tsx`
 - Modify: `src/teams/TeamsPage.tsx`
 
-- [ ] **Step 1: Test (rojo)**
+- [x] **Step 1: Test (rojo)**
 
 Cambia el import de Testing Library a `import { act, render, screen, within } from '@testing-library/react'` (`act` lo usa Task 5). Al final del archivo:
 
@@ -113,7 +113,7 @@ test('each team is a list item that holds its link', async () => {
 
 Run: `pnpm exec vitest run src/teams/TeamsPage.test.tsx -t "list item that holds"` → FAIL (`link.closest('li')` es `null`).
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 Importa `ListItem` y, en el `list.map((t) => …)`, envuelve el `ListItemButton` igual que en Task 1:
 
@@ -140,7 +140,7 @@ Run: `pnpm exec vitest run src/teams/TeamsPage.test.tsx` → todo PASS.
 - Modify: `src/payments/DebtorsPage.test.tsx`
 - Modify: `src/payments/DebtorsPage.tsx`
 
-- [ ] **Step 1: Test (rojo)**
+- [x] **Step 1: Test (rojo)**
 
 Al final del archivo:
 
@@ -160,7 +160,7 @@ test('each player in a group is a list item that holds its link', async () => {
 
 Run: `pnpm exec vitest run src/payments/DebtorsPage.test.tsx -t "list item that holds"` → FAIL (no hay `listitem`).
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 Importa `ListItem`. En el componente que renderiza el link de cada jugador (`PlayerLink` en `24c14a4`), envuelve el `ListItemButton` completo —con todas las props que tenga después de F (`divider`, `sx`, `aria-label`, `aria-describedby`, …) y sus hijos— en `<ListItem disablePadding>…</ListItem>`. Forma en `24c14a4`:
 
@@ -177,7 +177,7 @@ Si F dejó un elemento con `id` para `aria-describedby` **fuera** del `ListItemB
 
 Run: `pnpm exec vitest run src/payments/DebtorsPage.test.tsx` → todo PASS (incluye `admin and readonly see the same read-only page`, que exige cero `button`: `ListItem` no agrega ninguno).
 
-- [ ] **Step 3: Commit de las tres listas**
+- [x] **Step 3: Commit de las tres listas**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-h-lists-a11y.md src/players/PlayersPage.tsx src/players/PlayersPage.test.tsx src/teams/TeamsPage.tsx src/teams/TeamsPage.test.tsx src/payments/DebtorsPage.tsx src/payments/DebtorsPage.test.tsx

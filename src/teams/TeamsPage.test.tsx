@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
@@ -70,4 +70,14 @@ test('a failed load offers Reintentar instead of the empty state', async () => {
   await user.click(screen.getByRole('button', { name: 'Reintentar' }))
   expect(await screen.findByText('MTY AC Rojo')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument()
+})
+
+test('each team is a list item that holds its link', async () => {
+  renderPage()
+  await screen.findByText('MTY AC Rojo')
+  const list = screen.getByRole('list')
+  const links = within(list).getAllByRole('link')
+  expect(links).toHaveLength(2)
+  for (const link of links) expect(link.closest('li')).not.toBeNull()
+  expect(list.querySelectorAll(':scope > a')).toHaveLength(0)
 })

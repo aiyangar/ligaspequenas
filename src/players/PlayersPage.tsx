@@ -6,6 +6,7 @@ import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
 import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import Chip from '@mui/material/Chip'
@@ -295,31 +296,33 @@ export function PlayersPage() {
           ) : (
             <List sx={{ mt: 2 }}>
               {visible.map((p) => (
-                <ListItemButton key={p.id} component={RouterLink} to={`/jugadores/${p.id}`}>
-                  <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <ListItemText
-                      primary={p.full_name}
-                      secondary={`${playerCategoryText(p)} · ${p.status}${p.team_name ? ` · ${p.team_name}` : ''}`}
-                    />
-                    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
-                      <Chip
-                        size="small"
-                        label={PAYMENT_STATE_LABELS[p.payment_state]}
-                        color={PAYMENT_STATE_COLOR[p.payment_state]}
+                <ListItem key={p.id} disablePadding>
+                  <ListItemButton component={RouterLink} to={`/jugadores/${p.id}`}>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <ListItemText
+                        primary={p.full_name}
+                        secondary={`${playerCategoryText(p)} · ${p.status}${p.team_name ? ` · ${p.team_name}` : ''}`}
                       />
-                      <Chip
-                        size="small"
-                        label={`Docs ${p.docs_delivered}/${DOCUMENT_TOTAL}`}
-                        color={docsComplete(p) ? 'success' : 'warning'}
-                      />
-                      <Chip
-                        size="small"
-                        label={`Afiliación: ${AFFILIATION_STATUS_LABELS[p.affiliation_status]}`}
-                        color={AFFILIATION_COLOR[p.affiliation_status]}
-                      />
-                    </Stack>
-                  </Box>
-                </ListItemButton>
+                      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
+                        <Chip
+                          size="small"
+                          label={PAYMENT_STATE_LABELS[p.payment_state]}
+                          color={PAYMENT_STATE_COLOR[p.payment_state]}
+                        />
+                        <Chip
+                          size="small"
+                          label={`Docs ${p.docs_delivered}/${DOCUMENT_TOTAL}`}
+                          color={docsComplete(p) ? 'success' : 'warning'}
+                        />
+                        <Chip
+                          size="small"
+                          label={`Afiliación: ${AFFILIATION_STATUS_LABELS[p.affiliation_status]}`}
+                          color={AFFILIATION_COLOR[p.affiliation_status]}
+                        />
+                      </Stack>
+                    </Box>
+                  </ListItemButton>
+                </ListItem>
               ))}
             </List>
           )}

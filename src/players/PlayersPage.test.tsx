@@ -589,3 +589,13 @@ test('with no players at all there is no filters message', async () => {
   await waitFor(() => expect(exportButton()).toBeDisabled())
   expect(screen.queryByText('Sin jugadores con estos filtros.')).not.toBeInTheDocument()
 })
+
+test('each player is a list item that holds its link', async () => {
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  const list = screen.getByRole('list')
+  const items = within(list).getAllByRole('listitem')
+  expect(items).toHaveLength(3)
+  expect(within(items[0]).getByRole('link')).toHaveAttribute('href', '/jugadores/p1')
+  expect(list.querySelectorAll(':scope > a')).toHaveLength(0)
+})

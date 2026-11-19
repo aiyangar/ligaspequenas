@@ -176,3 +176,13 @@ test('shows Cargando… while the three reads are pending', async () => {
   expect(await screen.findByText('Cargando…')).toBeInTheDocument()
   expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
 })
+
+test('each player in a group is a list item that holds its link', async () => {
+  renderPage()
+  const region = await screen.findByRole('region', { name: 'Con adeudo (1)' })
+  const list = within(region).getByRole('list')
+  const items = within(list).getAllByRole('listitem')
+  expect(items).toHaveLength(1)
+  expect(within(items[0]).getByRole('link')).toHaveAttribute('href', '/jugadores/p1')
+  expect(document.querySelectorAll('ul > a')).toHaveLength(0)
+})
