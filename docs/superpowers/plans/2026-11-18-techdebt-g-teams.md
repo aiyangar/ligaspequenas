@@ -31,9 +31,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/teams-tests-dialog`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 45 y 449, todo verde).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/teams-tests-dialog`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 45 y 449, todo verde).
 
 ---
 
@@ -45,7 +45,7 @@
 
 Los dos tests son de caracterización (el código ya es correcto desde #21/PR #30), así que pasan al primer intento. El rojo se demuestra con dos mutaciones temporales, exactamente la regresión que el issue dice que hoy pasaría desapercibida.
 
-- [ ] **Step 1.1: Escribir los tests**
+- [x] **Step 1.1: Escribir los tests**
 
 Agrega al final de `src/teams/TeamDetailPage.test.tsx`:
 
@@ -86,7 +86,7 @@ test('a failed move keeps its error when the reload also fails', async () => {
 Run: `pnpm exec vitest run src/teams/TeamDetailPage.test.tsx`
 Expected: 12 tests PASS.
 
-- [ ] **Step 1.2: Mutación de `handleMove` (rojo demostrado)**
+- [x] **Step 1.2: Mutación de `handleMove` (rojo demostrado)**
 
 En `src/teams/TeamDetailPage.tsx`, dentro de `handleMove`, borra temporalmente estas dos líneas del bloque `if (!res.ok) { … }`:
 
@@ -100,7 +100,7 @@ Expected: FAIL solo en `a failed move keeps its error when the reload also fails
 
 Restaura: `git -C $WT checkout -- src/teams/TeamDetailPage.tsx`.
 
-- [ ] **Step 1.3: Mutación de `handleAssign` (rojo demostrado)**
+- [x] **Step 1.3: Mutación de `handleAssign` (rojo demostrado)**
 
 Igual que 1.2 pero dentro de `handleAssign`: borra temporalmente `      await bestEffortRefresh()` y `      return` de su bloque `if (!res.ok) { … }`.
 
@@ -109,7 +109,7 @@ Expected: FAIL solo en `a failed assign keeps its error when the reload also fai
 
 Restaura: `git -C $WT checkout -- src/teams/TeamDetailPage.tsx`; `git -C $WT diff --stat -- src/teams/TeamDetailPage.tsx` → vacío. Vuelve a correr el archivo → 12 PASS.
 
-- [ ] **Step 1.4: Commit**
+- [x] **Step 1.4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-g-teams.md src/teams/TeamDetailPage.test.tsx
