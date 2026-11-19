@@ -64,6 +64,7 @@ export function PlayersPage() {
   const [exportError, setExportError] = useState<string | null>(null)
   const exportingRef = useRef(false)
   const exportButtonRef = useRef<HTMLButtonElement>(null)
+  const restoreExportFocus = useRef(false)
 
   const load = useCallback(async (): Promise<PlayerRow[]> => fetchPlayers(), [])
 
@@ -136,10 +137,17 @@ export function PlayersPage() {
       setExportError('No se pudo generar el archivo de Excel. Intenta de nuevo.')
     } finally {
       exportingRef.current = false
+      restoreExportFocus.current = true
       setExporting(false)
-      if (document.activeElement === document.body) exportButtonRef.current?.focus()
     }
   }
+
+  // focus() on the still-disabled button is a no-op in browsers, so wait for the render that enables it
+  useEffect(() => {
+    if (exporting || !restoreExportFocus.current) return
+    restoreExportFocus.current = false
+    if (document.activeElement === document.body) exportButtonRef.current?.focus()
+  }, [exporting])
 
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto', mt: 4, px: 2 }}>

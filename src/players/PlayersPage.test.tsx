@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, expect, vi } from 'vitest'
+import { beforeEach, expect, onTestFinished, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { PlayersPage } from './PlayersPage'
 import type { PlayerRow } from './players'
@@ -464,9 +464,16 @@ test('two clicks in the same tick export once', async () => {
   await act(async () => run.resolve())
 })
 
-test('focus returns to the export button when the file is ready', async () => {
+test('focus returns to the export button once it is enabled again', async () => {
   const run = deferred()
   mocks.exportPlayersToExcel.mockReturnValue(run.promise)
+  // Browsers ignore focus() on a disabled button; jsdom honors it because MUI sets tabindex.
+  const realFocus = HTMLElement.prototype.focus
+  const focus = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement, options) {
+    if (this instanceof HTMLButtonElement && this.disabled) return
+    realFocus.call(this, options)
+  })
+  onTestFinished(() => focus.mockRestore())
   const user = userEvent.setup()
   renderPage()
   await screen.findByText('Ana Ruiz')

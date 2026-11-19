@@ -401,7 +401,7 @@ git -C $WT commit -m "feat: say when the players filters match nobody (#76)" -m 
 
 **Causa (issue #85, confirmada al planear):** el `finally` de `handleExport` llama `focus()` justo después de `setExporting(false)`, antes del re-render, así que el botón sigue `disabled` y Chrome ignora el `focus()`. jsdom lo acepta porque MUI pone `tabindex` al botón, y por eso el test actual pasa.
 
-- [ ] **Step 1: Test que simula al navegador (rojo)**
+- [x] **Step 1: Test que simula al navegador (rojo)**
 
 En el import de Vitest agrega `onTestFinished`: `import { beforeEach, expect, onTestFinished, vi } from 'vitest'`. Reemplaza el test `focus returns to the export button when the file is ready` completo por:
 
@@ -432,7 +432,7 @@ test('focus returns to the export button once it is enabled again', async () => 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx -t "focus"`
 Expected: FAIL en `focus returns to the export button once it is enabled again` (el foco queda en `body`); `focus stays where the user moved it…` pasa.
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 Después de `const exportButtonRef = useRef<HTMLButtonElement>(null)` agrega `const restoreExportFocus = useRef(false)`. En el `finally` de `handleExport` reemplaza:
 
@@ -465,11 +465,11 @@ y después de `handleExport` agrega:
 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Suite completa, tipos y lint**
+- [x] **Step 3: Suite completa, tipos y lint**
 
 Run: `pnpm exec vitest run` → `B_files + 1` archivos, `B_tests + 7` tests (Task 1: 2; Task 2: 1; Task 4: 2; Task 5: 2; Tasks 3 y 6 reemplazan), todo verde (esperado 46 / 456). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-e-players-list.md src/players/PlayersPage.tsx src/players/PlayersPage.test.tsx
