@@ -31,9 +31,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/teams-tests-dialog`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 45 y 449, todo verde).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/teams-tests-dialog`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 45 y 449, todo verde).
 
 ---
 
@@ -45,7 +45,7 @@
 
 Los dos tests son de caracterización (el código ya es correcto desde #21/PR #30), así que pasan al primer intento. El rojo se demuestra con dos mutaciones temporales, exactamente la regresión que el issue dice que hoy pasaría desapercibida.
 
-- [ ] **Step 1.1: Escribir los tests**
+- [x] **Step 1.1: Escribir los tests**
 
 Agrega al final de `src/teams/TeamDetailPage.test.tsx`:
 
@@ -86,7 +86,7 @@ test('a failed move keeps its error when the reload also fails', async () => {
 Run: `pnpm exec vitest run src/teams/TeamDetailPage.test.tsx`
 Expected: 12 tests PASS.
 
-- [ ] **Step 1.2: Mutación de `handleMove` (rojo demostrado)**
+- [x] **Step 1.2: Mutación de `handleMove` (rojo demostrado)**
 
 En `src/teams/TeamDetailPage.tsx`, dentro de `handleMove`, borra temporalmente estas dos líneas del bloque `if (!res.ok) { … }`:
 
@@ -100,7 +100,7 @@ Expected: FAIL solo en `a failed move keeps its error when the reload also fails
 
 Restaura: `git -C $WT checkout -- src/teams/TeamDetailPage.tsx`.
 
-- [ ] **Step 1.3: Mutación de `handleAssign` (rojo demostrado)**
+- [x] **Step 1.3: Mutación de `handleAssign` (rojo demostrado)**
 
 Igual que 1.2 pero dentro de `handleAssign`: borra temporalmente `      await bestEffortRefresh()` y `      return` de su bloque `if (!res.ok) { … }`.
 
@@ -109,7 +109,7 @@ Expected: FAIL solo en `a failed assign keeps its error when the reload also fai
 
 Restaura: `git -C $WT checkout -- src/teams/TeamDetailPage.tsx`; `git -C $WT diff --stat -- src/teams/TeamDetailPage.tsx` → vacío. Vuelve a correr el archivo → 12 PASS.
 
-- [ ] **Step 1.4: Commit**
+- [x] **Step 1.4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-g-teams.md src/teams/TeamDetailPage.test.tsx
@@ -129,7 +129,7 @@ git -C $WT commit -m "test: pin failed move and failed assign keeping their erro
 
 Spec §3 permite "el `key` sugerido o el 'Cargando…' al re-ejecutar el efecto". Este plan usa el segundo, dentro del componente: cubre a cualquier llamador (no depende de que el padre recuerde el `key`) y se prueba directo con `rerender`. Va en el render y no en el efecto porque `react-hooks/set-state-in-effect` prohíbe el `setState` síncrono en el cuerpo del efecto (ver el comentario existente en l.39–40) y porque así la lista vieja no llega a pintarse.
 
-- [ ] **Step 2.1: Escribir el test (rojo)**
+- [x] **Step 2.1: Escribir el test (rojo)**
 
 Agrega al final de `src/teams/AddPlayerDialog.test.tsx` (usa el `deferred` local del archivo):
 
@@ -179,7 +179,7 @@ test('a late response for the previous source does not replace Cargando… for t
 Run: `pnpm exec vitest run src/teams/AddPlayerDialog.test.tsx`
 Expected: FAIL solo en `switching team or category while open shows Cargando…` con `Unable to find an element with the text: Cargando…` (la lista anterior sigue visible); 9 pasan. `a late response for the previous source…` pasa ya: el flag `active` del efecto existente descarta la respuesta vieja. Es una guarda de regresión; su rojo se demuestra en el Step 2.3.
 
-- [ ] **Step 2.2: Implementar**
+- [x] **Step 2.2: Implementar**
 
 En `src/teams/AddPlayerDialog.tsx`, justo después de `  const [loading, setLoading] = useState(true)` y antes del comentario `// Reset search/pending inside the async callback …`, agrega:
 
@@ -205,7 +205,7 @@ Expected: 10 tests PASS.
 Run: `pnpm exec eslint src/teams`
 Expected: exit 0 (el planner lo verificó con `eslint-plugin-react-hooks` 7: el patrón no dispara `set-state-in-effect` ni otra regla).
 
-- [ ] **Step 2.3: Mutación del flag `active` (rojo demostrado)**
+- [x] **Step 2.3: Mutación del flag `active` (rojo demostrado)**
 
 En el efecto de carga de `src/teams/AddPlayerDialog.tsx`, borra temporalmente la línea `        if (!active) return` del `.then((rows) => {`.
 
@@ -214,7 +214,7 @@ Expected: FAIL en `a late response for the previous source does not replace Carg
 
 Restaura la línea; `git -C $WT diff -- src/teams/AddPlayerDialog.tsx` muestra solo el bloque del Step 2.2. Vuelve a correr → 10 PASS.
 
-- [ ] **Step 2.4: Commit**
+- [x] **Step 2.4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-g-teams.md src/teams/AddPlayerDialog.tsx src/teams/AddPlayerDialog.test.tsx
@@ -234,7 +234,7 @@ git -C $WT commit -m "fix: show Cargando… when AddPlayerDialog's team or categ
 
 `AddPlayerDialog.tsx:113-127` renderiza `ListItemButton` (un `<div role="button">`) directo dentro de `<List>` (`<ul>`), el mismo markup inválido que #71 describe para `PlayersPage`/`TeamsPage`/`DebtorsPage` (esos tres los arregla el lote H). Este archivo es de G, así que se arregla aquí con el mismo patrón que propone #71: `<ListItem disablePadding>` alrededor.
 
-- [ ] **Step 3.1: Escribir el test (rojo)**
+- [x] **Step 3.1: Escribir el test (rojo)**
 
 Agrega al final de `src/teams/AddPlayerDialog.test.tsx`:
 
@@ -253,7 +253,7 @@ test('each eligible player button sits inside its own list item', async () => {
 Run: `pnpm exec vitest run src/teams/AddPlayerDialog.test.tsx`
 Expected: FAIL solo en el test nuevo (`Expected: "LI"` / `Received: "UL"`); 10 pasan.
 
-- [ ] **Step 3.2: Implementar**
+- [x] **Step 3.2: Implementar**
 
 En `src/teams/AddPlayerDialog.tsx`:
 
@@ -296,11 +296,11 @@ por:
 Run: `pnpm exec vitest run src/teams`
 Expected: todo PASS (incluidos `free agents assign directly on click`, `clicking a player in another team asks for confirmation before moving` y los tests de assign/move de `TeamDetailPage`).
 
-- [ ] **Step 3.3: Suite completa, tipos y lint**
+- [x] **Step 3.3: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `B_tests + 5` tests (Task 1: 2; Task 2: 2; Task 3: 1), todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 3.4: Commit**
+- [x] **Step 3.4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-g-teams.md src/teams/AddPlayerDialog.tsx src/teams/AddPlayerDialog.test.tsx

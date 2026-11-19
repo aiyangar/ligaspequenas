@@ -135,3 +135,89 @@ test('the first load shows Cargando… instead of the empty-list message', async
   })
   expect(await screen.findByText('Free Agent')).toBeInTheDocument()
 })
+
+test('switching team or category while open shows Cargando… instead of the previous list', async () => {
+  const props = { onAssign: vi.fn(), onMove: vi.fn(), onClose: vi.fn() }
+  const { rerender } = render(<AddPlayerDialog open categoryId="cat1" teamId="A" {...props} />)
+  await screen.findByText('Free Agent')
+  const rows = deferred<PlayerRow[]>()
+  mocks.fetchEligiblePlayers.mockReturnValue(rows.promise)
+  rerender(<AddPlayerDialog open categoryId="cat2" teamId="B" {...props} />)
+  expect(await screen.findByText('Cargando…')).toBeInTheDocument()
+  expect(screen.queryByText('Free Agent')).not.toBeInTheDocument()
+  expect(mocks.fetchEligiblePlayers).toHaveBeenLastCalledWith('cat2', 'B')
+  await act(async () => {
+    rows.resolve([p({ id: 'other', full_name: 'Carla Nueva', team_id: null, team_name: null, category_id: 'cat2' })])
+  })
+  expect(await screen.findByText('Carla Nueva')).toBeInTheDocument()
+  expect(screen.queryByText('Free Agent')).not.toBeInTheDocument()
+})
+
+test('a late response for the previous source does not replace Cargando… for the new one', async () => {
+  const first = deferred<PlayerRow[]>()
+  const second = deferred<PlayerRow[]>()
+  mocks.fetchEligiblePlayers.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+  const props = { onAssign: vi.fn(), onMove: vi.fn(), onClose: vi.fn() }
+  const { rerender } = render(<AddPlayerDialog open categoryId="cat1" teamId="A" {...props} />)
+  expect(await screen.findByText('Cargando…')).toBeInTheDocument()
+  rerender(<AddPlayerDialog open categoryId="cat2" teamId="B" {...props} />)
+  await act(async () => {
+    first.resolve([p({ id: 'old', full_name: 'Viejo Agente', team_id: null, team_name: null })])
+  })
+  expect(screen.getByText('Cargando…')).toBeInTheDocument()
+  expect(screen.queryByText('Viejo Agente')).not.toBeInTheDocument()
+  await act(async () => {
+    second.resolve([p({ id: 'new', full_name: 'Nuevo Agente', team_id: null, team_name: null, category_id: 'cat2' })])
+  })
+  expect(await screen.findByText('Nuevo Agente')).toBeInTheDocument()
+  expect(screen.queryByText('Viejo Agente')).not.toBeInTheDocument()
+})
+
+test('each eligible player button sits inside its own list item', async () => {
+  render(<AddPlayerDialog open categoryId="cat1" teamId="A" onAssign={vi.fn()} onMove={vi.fn()} onClose={vi.fn()} />)
+  await screen.findByText('Free Agent')
+  for (const name of [/Free Agent/, /Otro Equipo/]) {
+    const button = screen.getByRole('button', { name })
+    expect(button.parentElement?.tagName).toBe('LI')
+    expect(button.parentElement?.parentElement?.tagName).toBe('UL')
+  }
+})
+
+test('switching source while a move confirmation is open dismisses it', async () => {
+  const user = userEvent.setup()
+  const props = { onAssign: vi.fn(), onMove: vi.fn(), onClose: vi.fn() }
+  const { rerender } = render(<AddPlayerDialog open categoryId="cat1" teamId="A" {...props} />)
+  await user.click(await screen.findByText('Otro Equipo'))
+  expect(await screen.findByText(/Se moverá de MTY AC Azul/)).toBeInTheDocument()
+  mocks.fetchEligiblePlayers.mockReturnValue(deferred<PlayerRow[]>().promise)
+  rerender(<AddPlayerDialog open categoryId="cat2" teamId="B" {...props} />)
+  await waitFor(() => expect(screen.queryByText(/Se moverá de/)).not.toBeInTheDocument())
+  expect(props.onMove).not.toHaveBeenCalled()
+})
+
+test('switching source clears the search', async () => {
+  const user = userEvent.setup()
+  const props = { onAssign: vi.fn(), onMove: vi.fn(), onClose: vi.fn() }
+  const { rerender } = render(<AddPlayerDialog open categoryId="cat1" teamId="A" {...props} />)
+  await screen.findByText('Free Agent')
+  await user.type(screen.getByLabelText(/Buscar/), 'otro')
+  const rows = deferred<PlayerRow[]>()
+  mocks.fetchEligiblePlayers.mockReturnValue(rows.promise)
+  rerender(<AddPlayerDialog open categoryId="cat2" teamId="B" {...props} />)
+  await act(async () => {
+    rows.resolve([p({ id: 'other', full_name: 'Carla Nueva', team_id: null, team_name: null, category_id: 'cat2' })])
+  })
+  expect(await screen.findByText('Carla Nueva')).toBeInTheDocument()
+  expect(screen.getByLabelText(/Buscar/)).toHaveValue('')
+})
+
+test('switching source after a failed load shows Cargando… without the stale error', async () => {
+  mocks.fetchEligiblePlayers.mockRejectedValue(new Error('boom'))
+  const props = { onAssign: vi.fn(), onMove: vi.fn(), onClose: vi.fn() }
+  const { rerender } = render(<AddPlayerDialog open categoryId="cat1" teamId="A" {...props} />)
+  expect(await screen.findByText('No se pudo cargar la información.')).toBeInTheDocument()
+  mocks.fetchEligiblePlayers.mockReturnValue(deferred<PlayerRow[]>().promise)
+  rerender(<AddPlayerDialog open categoryId="cat2" teamId="B" {...props} />)
+  expect(await screen.findByText('Cargando…')).toBeInTheDocument()
+  expect(screen.queryByText('No se pudo cargar la información.')).not.toBeInTheDocument()
+})
