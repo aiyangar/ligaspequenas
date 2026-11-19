@@ -112,3 +112,9 @@ test.each(['/', '/jugadores/p1'])('Jugadores is the current section on %s', (ent
   expect(players).toHaveStyle({ boxShadow: ACTIVE_UNDERLINE, fontWeight: '700' })
   expect(screen.getByRole('link', { name: 'Equipos' })).not.toHaveAttribute('aria-current')
 })
+
+test('the Principal nav does not box its links, so they wrap together with Salir', () => {
+  mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Ana' })
+  renderLayout()
+  expect(screen.getByRole('navigation', { name: 'Principal' })).toHaveStyle({ display: 'contents' })
+})

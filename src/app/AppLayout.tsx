@@ -55,7 +55,8 @@ export function AppLayout() {
           <Typography variant="h6" noWrap sx={{ flexGrow: 1, flexBasis: { xs: '100%', sm: 0 }, minWidth: 0 }}>
             {fullName}
           </Typography>
-          <Box component="nav" aria-label="Principal" sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          {/* contents keeps the links as Toolbar flex items, so they wrap together with Salir */}
+          <Box component="nav" aria-label="Principal" sx={{ display: 'contents' }}>
             {/* Jugadores also covers the player pages under /jugadores/, which NavLink to="/" never matches */}
             <Button
               color="inherit"
