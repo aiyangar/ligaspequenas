@@ -115,18 +115,19 @@ gh run view <run-id> --json headBranch,event,headSha
 Los datos descifrados van a un **disco en RAM** (la misma receta que para las llaves), nunca al disco interno. 4194304 sectores son 2 GB; se ajusta si el respaldo crece. Si ya hay un volumen montado como `/Volumes/backupsdata` (uno viejo que no se desmontó), el nuevo se montaría como `backupsdata 1`, `$dir` apuntaría al viejo y el `hdiutil detach "$ram"` del final desmontaría el equivocado; por eso el primer bloque no crea nada en ese caso. Spotlight se apaga en el disco para que no indexe los documentos:
 
 ```bash
+unset dir ram
 if [ -e /Volumes/backupsdata ]; then
   echo 'ALTO: /Volumes/backupsdata ya existe; desmontarlo (hdiutil detach /Volumes/backupsdata) y repetir'
-else
-  ram=$(hdiutil attach -nomount ram://4194304 | tr -d '[:space:]')
-  diskutil erasevolume APFS backupsdata "$ram"
-  dir=/Volumes/backupsdata
+elif ram=$(hdiutil attach -nomount ram://4194304 | tr -d '[:space:]') && [ -n "$ram" ] \
+  && diskutil erasevolume APFS backupsdata "$ram" && dir=/Volumes/backupsdata; then
   sudo mdutil -i off "$dir"
   mdutil -s "$dir"
+else
+  echo 'ALTO: no se pudo crear el disco en RAM; si quedó un dispositivo adjunto, desmontarlo (hdiutil detach "$ram") y repetir'
 fi
 ```
 
-Verde: no imprime `ALTO` y la salida de `mdutil -s` no dice `enabled` (en macOS actuales suele decir `Indexing disabled.`, pero el texto exacto varía por versión). Si imprime `ALTO` o dice `enabled`, no seguir. El segundo bloque solo corre si el primero definió `$dir` y `$ram` (por ejemplo, no tras un `ALTO`); si no, imprime `ALTO: corre primero el bloque anterior` y no ejecuta nada, aunque se pegue entero en un shell interactivo.
+Verde: no imprime `ALTO` y la salida de `mdutil -s` no dice `enabled` (en macOS actuales suele decir `Indexing disabled.`, pero el texto exacto varía por versión). Si imprime `ALTO` o dice `enabled`, no seguir. El primer bloque empieza con `unset dir ram` y solo define `$dir` si el disco se creó bien, así que valores de una corrida anterior en la misma terminal no cuentan. El segundo bloque solo corre si el primero definió `$dir` y `$ram` en esta corrida (por ejemplo, no tras un `ALTO`); si no, imprime `ALTO: corre primero el bloque anterior` y no ejecuta nada, aunque se pegue entero en un shell interactivo.
 
 ```bash
 if [ -n "$dir" ] && [ -n "$ram" ]; then
@@ -143,7 +144,7 @@ fi
 
 Verde: todas las líneas en `OK`, y el `commit` que imprime la última línea es igual al `headSha` de `gh run view`. Si difiere, se descarta el artifact. Con la llave de recuperación es igual: teclear o copiar su línea `AGE-SECRET-KEY-…` al portapapeles y usar el mismo `<(pbpaste)`.
 
-`$dir` tiene datos de menores en claro. En cuanto termine la restauración o el simulacro se desmonta el disco en RAM, y con eso desaparece todo: `hdiutil detach "$ram"`.
+`$dir` tiene datos de menores en claro. En cuanto termine la restauración o el simulacro se desmonta el disco en RAM, y con eso desaparece todo: `hdiutil detach "$ram" && unset dir ram`.
 
 ## Restaurar la base
 
@@ -258,7 +259,7 @@ select count(*) as objetos from storage.objects where bucket_id = 'player-files'
 7. **Solo en el primer simulacro**, confirmar y anotar: (a) que el proyecto nuevo da el bloque B del checklist en verde **solo después** de volver a aplicar 0016 (correr B antes y después del paso 2 de "Restaurar la base"); y (b) si el `data.sql` del CLI termina con la línea `-- PostgreSQL database dump complete` de pg_dump (`tail -n 5 "$dir/db/data.sql"`). Si la trae, una rama posterior puede agregar ese chequeo al workflow; hoy no se agrega porque nadie lo ha verificado.
 8. Confirmar en healthchecks.io que el check sigue activo y recibió el último ping (riesgo R5).
 9. Anotar la fila en la tabla de abajo.
-10. Borrar el proyecto temporal y desmontar el disco en RAM (`hdiutil detach "$ram"`).
+10. Borrar el proyecto temporal y desmontar el disco en RAM (`hdiutil detach "$ram" && unset dir ram`).
 
 | Fecha | Commit | Artifact | Filas `public` (prod vs restaurado) | `auth.users` | Objetos | `sha256` | Checklist A–D | healthchecks activo | Resultado | Quién |
 |---|---|---|---|---|---|---|---|---|---|---|
