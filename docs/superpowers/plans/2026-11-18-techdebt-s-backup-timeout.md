@@ -123,7 +123,7 @@ git -C $WT commit -m "fix: print a fixed timeout code when a backup request hits
 **Files:**
 - Modify: `ops/backup/safe-error.test.ts` (1 test nuevo al final)
 
-- [ ] **Step 2.1: Escribir el test**
+- [x] **Step 2.1: Escribir el test**
 
 Al final del archivo:
 
@@ -135,17 +135,17 @@ test('an unknown Node-shaped code falls back to the code of its cause', () => {
 
 Run: `pnpm exec vitest run ops/backup/safe-error.test.ts` → 44 PASS (es un pin: el comportamiento ya existe).
 
-- [ ] **Step 2.2: Mutación (rojo demostrado)**
+- [x] **Step 2.2: Mutación (rojo demostrado)**
 
 Aparta la versión verde: `G=$(mktemp)` y `cp $WT/ops/backup/lib/safe-error.ts "$G"`. En `errorLine`, cambia temporalmente `const code = codeOf(err) ?? codeOf(isObject(err) ? err.cause : undefined)` por `const code = codeOf(err)`. Run → FAIL en exactamente 3 tests (verificado por el planner): `a fetch failure prints the code of its cause`, `an AbortSignal timeout prints the fixed code timeout, on the error or on its cause` y `an unknown Node-shaped code falls back to the code of its cause`. Restaura con `cp "$G" $WT/ops/backup/lib/safe-error.ts` y `rm "$G"`; `git -C $WT diff --stat -- ops/backup/lib/safe-error.ts` → vacío (Task 1 ya está commiteado). Run → 44 PASS.
 
-- [ ] **Step 2.3: `ops/backup`, suite completa, tipos y lint**
+- [x] **Step 2.3: `ops/backup`, suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run ops/backup` → 5 archivos, 125 tests PASS. `pnpm exec vitest run` → `B_files` archivos, `B_tests + 5` tests, todo verde (planner: 48 y 571). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
 Run: `node ops/backup/crosscheck.ts` (sin argumentos) → stderr `error: args` y exit 1 (el script sigue arrancando con type stripping).
 
-- [ ] **Step 2.4: Commit**
+- [x] **Step 2.4: Commit**
 
 `git -C $WT status -s` → solo `safe-error.test.ts` y este plan.
 

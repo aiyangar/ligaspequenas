@@ -112,3 +112,7 @@ test('a timeout never prints its message', () => {
 test('a manual abort is not a timeout', () => {
   expect(errorLine(new DOMException('aborted', 'AbortError'))).toBe('error: unknown')
 })
+
+test('an unknown Node-shaped code falls back to the code of its cause', () => {
+  expect(errorLine({ code: 'ERR_FAKE', cause: { code: 'UND_ERR_SOCKET' } })).toBe('error: UND_ERR_SOCKET')
+})
