@@ -27,7 +27,7 @@ import {
 import type { MutationResult, PaymentFormValues, PaymentRow } from './payments'
 
 function paymentLabel(p: PaymentRow): string {
-  return `${paymentText(p)} · ${formatPaymentDate(p.payment_date)} · ${formatMoney(p.amount)}`
+  return `${paymentText(p)} · ${formatMoney(p.amount)} · ${formatPaymentDate(p.payment_date)}`
 }
 
 export interface PlayerPaymentsSectionProps {

@@ -79,11 +79,11 @@ test('admin sees Registrar pago and per-row Editar and Borrar named after the pa
   renderSection()
   const item = await screen.findByRole('listitem', { name: 'Mensualidad — Octubre' })
   expect(screen.getByRole('button', { name: 'Registrar pago' })).toBeInTheDocument()
-  expect(within(item).getByRole('button', { name: 'Editar Mensualidad — Octubre · 04/10/2026 · $150.50' })).toHaveTextContent('Editar')
-  expect(within(item).getByRole('button', { name: 'Borrar Mensualidad — Octubre · 04/10/2026 · $150.50' })).toHaveTextContent('Borrar')
+  expect(within(item).getByRole('button', { name: 'Editar Mensualidad — Octubre · $150.50 · 04/10/2026' })).toHaveTextContent('Editar')
+  expect(within(item).getByRole('button', { name: 'Borrar Mensualidad — Octubre · $150.50 · 04/10/2026' })).toHaveTextContent('Borrar')
   const other = screen.getByRole('listitem', { name: 'Inscripción' })
-  expect(within(other).getByRole('button', { name: 'Editar Inscripción · 01/09/2026 · $1,500.00' })).toBeInTheDocument()
-  expect(within(other).getByRole('button', { name: 'Borrar Inscripción · 01/09/2026 · $1,500.00' })).toBeInTheDocument()
+  expect(within(other).getByRole('button', { name: 'Editar Inscripción · $1,500.00 · 01/09/2026' })).toBeInTheDocument()
+  expect(within(other).getByRole('button', { name: 'Borrar Inscripción · $1,500.00 · 01/09/2026' })).toBeInTheDocument()
 })
 
 test('a failed load shows LoadError and Reintentar reloads', async () => {
@@ -114,7 +114,7 @@ test('editing settles a partial payment', async () => {
   const user = userEvent.setup()
   const { onChanged } = renderSection()
   const item = await screen.findByRole('listitem', { name: 'Mensualidad — Octubre' })
-  await user.click(within(item).getByRole('button', { name: 'Editar Mensualidad — Octubre · 04/10/2026 · $150.50' }))
+  await user.click(within(item).getByRole('button', { name: 'Editar Mensualidad — Octubre · $150.50 · 04/10/2026' }))
   const dialog = await screen.findByRole('dialog', { name: 'Editar pago' })
   const amount = within(dialog).getByLabelText('Monto')
   expect(amount).toHaveValue('150.5')
@@ -133,7 +133,7 @@ test('Cancelar in the delete confirmation deletes nothing', async () => {
   const user = userEvent.setup()
   renderSection()
   const item = await screen.findByRole('listitem', { name: 'Mensualidad — Octubre' })
-  await user.click(within(item).getByRole('button', { name: 'Borrar Mensualidad — Octubre · 04/10/2026 · $150.50' }))
+  await user.click(within(item).getByRole('button', { name: 'Borrar Mensualidad — Octubre · $150.50 · 04/10/2026' }))
   const dialog = await screen.findByRole('dialog', { name: '¿Borrar el pago de Mensualidad — Octubre?' })
   await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
   expect(mocks.deletePayment).not.toHaveBeenCalled()
@@ -143,7 +143,7 @@ test('confirming the delete removes it, reloads and reports', async () => {
   const user = userEvent.setup()
   const { onChanged } = renderSection()
   const item = await screen.findByRole('listitem', { name: 'Mensualidad — Octubre' })
-  await user.click(within(item).getByRole('button', { name: 'Borrar Mensualidad — Octubre · 04/10/2026 · $150.50' }))
+  await user.click(within(item).getByRole('button', { name: 'Borrar Mensualidad — Octubre · $150.50 · 04/10/2026' }))
   const dialog = await screen.findByRole('dialog', { name: '¿Borrar el pago de Mensualidad — Octubre?' })
   await user.click(within(dialog).getByRole('button', { name: 'Borrar' }))
   await waitFor(() => expect(mocks.deletePayment).toHaveBeenCalledWith('pay1'))
@@ -156,7 +156,7 @@ test('a failed delete shows an inline alert and closes the confirmation', async 
   const user = userEvent.setup()
   const { onChanged } = renderSection()
   const item = await screen.findByRole('listitem', { name: 'Mensualidad — Octubre' })
-  await user.click(within(item).getByRole('button', { name: 'Borrar Mensualidad — Octubre · 04/10/2026 · $150.50' }))
+  await user.click(within(item).getByRole('button', { name: 'Borrar Mensualidad — Octubre · $150.50 · 04/10/2026' }))
   const dialog = await screen.findByRole('dialog', { name: '¿Borrar el pago de Mensualidad — Octubre?' })
   await user.click(within(dialog).getByRole('button', { name: 'Borrar' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('No se encontró el pago o no tienes permiso.')
@@ -169,7 +169,7 @@ test('a double click on Borrar deletes once', async () => {
   const user = userEvent.setup()
   renderSection()
   const item = await screen.findByRole('listitem', { name: 'Mensualidad — Octubre' })
-  await user.click(within(item).getByRole('button', { name: 'Borrar Mensualidad — Octubre · 04/10/2026 · $150.50' }))
+  await user.click(within(item).getByRole('button', { name: 'Borrar Mensualidad — Octubre · $150.50 · 04/10/2026' }))
   const dialog = await screen.findByRole('dialog', { name: '¿Borrar el pago de Mensualidad — Octubre?' })
   const confirm = within(dialog).getByRole('button', { name: 'Borrar' })
   fireEvent.click(confirm)
@@ -186,8 +186,8 @@ test('two payments with the same concept get different button names', async () =
   renderSection()
   await screen.findAllByRole('listitem', { name: 'Mensualidad — Octubre' })
   expect(screen.getAllByRole('button', { name: /^Editar / }).map((b) => b.getAttribute('aria-label'))).toEqual([
-    'Editar Mensualidad — Octubre · 01/10/2026 · $200.00',
-    'Editar Mensualidad — Octubre · 15/10/2026 · $100.00',
+    'Editar Mensualidad — Octubre · $200.00 · 01/10/2026',
+    'Editar Mensualidad — Octubre · $100.00 · 15/10/2026',
   ])
 })
 
@@ -244,4 +244,19 @@ test('a click during the fade after a successful delete does not delete again', 
   fireEvent.click(confirm)
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   expect(mocks.deletePayment).toHaveBeenCalledTimes(1)
+})
+
+test('closing the delete confirmation with Escape keeps its title and blocks Borrar during the fade', async () => {
+  const user = userEvent.setup()
+  renderSection()
+  const item = await screen.findByRole('listitem', { name: 'Mensualidad — Octubre' })
+  await user.click(within(item).getByRole('button', { name: /^Borrar / }))
+  const dialog = await screen.findByRole('dialog', { name: '¿Borrar el pago de Mensualidad — Octubre?' })
+  const confirm = within(dialog).getByRole('button', { name: 'Borrar' })
+  await user.keyboard('{Escape}')
+  expect(dialog).toBeInTheDocument()
+  expect(dialog).toHaveAccessibleName('¿Borrar el pago de Mensualidad — Octubre?')
+  fireEvent.click(confirm)
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(mocks.deletePayment).not.toHaveBeenCalled()
 })
