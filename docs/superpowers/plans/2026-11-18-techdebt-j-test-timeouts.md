@@ -71,15 +71,15 @@ Con 5 corridas en paralelo (sobrecarga extrema, 50 workers en 10 núcleos) falla
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/form-test-timeouts`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3: Confirmar que todos los lotes están en la base.** Para cada rama (olas 1 y 2: `fix/documents-section-hardening`, `fix/player-page-polish`, `fix/players-list-export-polish`, `fix/payments-a11y-tests`, `fix/teams-tests-dialog`, `fix/lists-a11y-loading`, `fix/users-auth-polish`; ola 3: `fix/users-invite-edge-cases`, `fix/team-form-flash`, `fix/player-photo-zero-rows-and-refresh`, `fix/payments-403-match`, `fix/backups-node-code`):
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/form-test-timeouts`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3: Confirmar que todos los lotes están en la base.** Para cada rama (olas 1 y 2: `fix/documents-section-hardening`, `fix/player-page-polish`, `fix/players-list-export-polish`, `fix/payments-a11y-tests`, `fix/teams-tests-dialog`, `fix/lists-a11y-loading`, `fix/users-auth-polish`; ola 3: `fix/users-invite-edge-cases`, `fix/team-form-flash`, `fix/player-photo-zero-rows-and-refresh`, `fix/payments-403-match`, `fix/backups-node-code`):
   1. `gh pr list --repo aiyangar/ligaspequenas --state merged --base develop --head <rama> --json number,mergeCommit` → un PR con `mergeCommit`.
   2. `git -C $WT merge-base --is-ancestor <mergeCommit.oid> origin/develop` → exit 0.
 
   Si falta alguno, **detente** y avisa al orquestador.
-- [ ] **Step 0.4:** `ls $WT/src/test/` muestra `deferred.ts` y `authListener.ts` (lote I). En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`; anota `B_files` y `B_tests` (todo verde, sin carga).
-- [ ] **Step 0.5:** `LOGS=$(mktemp -d)` y anota la ruta en el reporte. Anota `sysctl -n hw.ncpu`.
+- [x] **Step 0.4:** `ls $WT/src/test/` muestra `deferred.ts` y `authListener.ts` (lote I). En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`; anota `B_files` y `B_tests` (todo verde, sin carga).
+- [x] **Step 0.5:** `LOGS=$(mktemp -d)` y anota la ruta en el reporte. Anota `sysctl -n hw.ncpu`.
 
 ---
 
@@ -87,12 +87,12 @@ Con 5 corridas en paralelo (sobrecarga extrema, 50 workers en 10 núcleos) falla
 
 El rojo de este lote no es un test nuevo. Es la evidencia de que ciertos tests revientan o rozan el timeout bajo una carga reproducible.
 
-- [ ] **Step 1.1: Corrida sin carga**
+- [x] **Step 1.1: Corrida sin carga**
 
 Run (en `$WT`): `pnpm exec vitest run --reporter verbose > "$LOGS/idle.txt" 2>&1`
 Expected: `Tests  B_tests passed (B_tests)`.
 
-- [ ] **Step 1.2: Protocolo de carga (dos rondas de 3 corridas en paralelo)**
+- [x] **Step 1.2: Protocolo de carga (dos rondas de 3 corridas en paralelo)**
 
 Ronda 1 (en `$WT`, un solo comando; espera a que terminen las tres):
 
@@ -102,7 +102,7 @@ for i in 1 2 3; do pnpm exec vitest run --reporter verbose > "$LOGS/load-a-$i.tx
 
 Ronda 2: el mismo comando con `load-b-$i.txt`.
 
-- [ ] **Step 1.3: Extraer tiempos y timeouts**
+- [x] **Step 1.3: Extraer tiempos y timeouts**
 
 Peor duración por test bajo carga (el planner verificó este comando sobre sus logs):
 
@@ -128,7 +128,7 @@ Fallos de espera de Testing Library (#120), por mensaje:
 grep -hE "Unable to find|Timed out in waitFor" "$LOGS"/load-*.txt | cut -c1-120 | sort | uniq -c | sort -rn
 ```
 
-- [ ] **Step 1.4: Aplicar la regla de selección**
+- [x] **Step 1.4: Aplicar la regla de selección**
 
 Un test se selecciona si cumple **(A o B) y C**:
 
@@ -142,7 +142,7 @@ Escribe en el reporte la tabla con estas columnas: archivo › nombre, sin carga
 
 Si **ningún** test cumple A ni B, no hay palancas 1–2: anótalo (el #34 se cerraría con esa evidencia, sin cambio de código) y sigue con el Step 1.5 y, según su resultado, con el Task 4 o directo al Task 5.
 
-- [ ] **Step 1.5: Regla F, esperas de Testing Library (#120)**
+- [x] **Step 1.5: Regla F, esperas de Testing Library (#120)**
 
 Un **fallo de espera** es un test `×` en las 6 corridas de carga cuyo error es `Unable to find …` (de un `findBy*`) o `Timed out in waitFor`, y que **no** tiene `Test timed out in` en esa misma corrida (si tiene los dos, cuenta como timeout de test y lo atienden las palancas 1–2). Para cada uno, localiza la llamada que falló (la línea `❯ archivo:línea` del log) y confirma leyendo el test que pasa sin carga (`idle.txt`).
 
@@ -161,7 +161,7 @@ Un fallo de espera que **también** falla sin carga no es de carga: **detente** 
 **Files:**
 - Modify: cada `*.test.tsx` con tests seleccionados en el Step 1.4 (solo la línea `userEvent.setup()` de esos tests)
 
-- [ ] **Step 2.1: Aplicar `delay: null`**
+- [x] **Step 2.1: Aplicar `delay: null`**
 
 En cada test seleccionado, cambia su línea:
 
@@ -183,13 +183,13 @@ Comprobaciones:
 
 Run (en `$WT`): `pnpm exec vitest run` sin carga → `Tests  B_tests passed (B_tests)`.
 
-- [ ] **Step 2.2: Volver a medir con la palanca 1**
+- [x] **Step 2.2: Volver a medir con la palanca 1**
 
 Repite el Step 1.2 con logs `delay-a-$i.txt` y `delay-b-$i.txt`, y el Step 1.3 sobre `delay-*`. Para cada test seleccionado, anota en la tabla su peor duración y sus timeouts con `delay: null`.
 
 Un test pasa a la palanca 2 si **después** de `delay: null` sigue cumpliendo A o B. Si ninguno cumple, salta el Task 3 y sigue con el Task 4 (si la regla F lo pidió) o con el Task 5.
 
-- [ ] **Step 2.3: Commit**
+- [x] **Step 2.3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-j-test-timeouts.md <cada archivo de test modificado>
@@ -207,7 +207,7 @@ git -C $WT commit -m "test: type without per-key delays in form tests that time 
 - Create: `src/test/timeouts.ts`
 - Modify: cada `*.test.tsx` con tests que el Step 2.2 mandó a la palanca 2 (la línea `test(` y el import)
 
-- [ ] **Step 3.1: Crear la constante**
+- [x] **Step 3.1: Crear la constante**
 
 Crea `src/test/timeouts.ts`:
 
@@ -216,7 +216,7 @@ Crea `src/test/timeouts.ts`:
 export const TYPING_TEST_TIMEOUT = 15_000
 ```
 
-- [ ] **Step 3.2: Aplicarla a cada test de la palanca 2**
+- [x] **Step 3.2: Aplicarla a cada test de la palanca 2**
 
 1. Agrega el import junto a los imports locales del archivo (después de los de paquetes), con la ruta relativa correcta. Desde `src/players/`, `src/teams/`, `src/users/`, `src/payments/` o `src/documents/`:
 
@@ -242,7 +242,7 @@ Comprobaciones:
 - `grep -rn "{ timeout: TYPING_TEST_TIMEOUT }" src --include=*.test.tsx | wc -l` = número de tests de la palanca 2.
 - `grep -rn "testTimeout\|setConfig" vite.config.ts src` → sin salida.
 
-- [ ] **Step 3.3: Commit**
+- [x] **Step 3.3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-j-test-timeouts.md src/test/timeouts.ts <cada archivo de test modificado>
@@ -262,7 +262,7 @@ Solo si el Step 1.5 decidió F1 o F2. Con F0, salta al Task 5.
 - F1: Modify `src/test/timeouts.ts` (crear si el Task 3 no lo creó) y los `*.test.tsx` con fallos de espera (solo la llamada que falló y el import).
 - F2: Modify `src/test-setup.ts`.
 
-- [ ] **Step 4.1a (F1): Espera puntual**
+- [ ] **Step 4.1a (F1): Espera puntual** — N/A (F0: no wait failures under the protocol)
 
 En `src/test/timeouts.ts` agrega (o crea el archivo con):
 
@@ -277,7 +277,7 @@ En cada llamada que falló, pasa la opción en su forma de Testing Library e imp
 
 Nada más del test cambia. Comprobación: `grep -rn "FIND_TIMEOUT" src --include=*.test.tsx | grep -v import | wc -l` = número de llamadas de la tabla del Step 1.5.
 
-- [ ] **Step 4.1b (F2): Espera global**
+- [ ] **Step 4.1b (F2): Espera global** — N/A (F0: no wait failures under the protocol)
 
 `src/test-setup.ts` queda:
 
@@ -289,11 +289,11 @@ import { configure } from '@testing-library/react'
 configure({ asyncUtilTimeout: 2000 })
 ```
 
-- [ ] **Step 4.2: Volver a medir**
+- [ ] **Step 4.2: Volver a medir** — N/A (F0: no wait failures under the protocol)
 
 Run (en `$WT`): `pnpm exec vitest run` sin carga → `Tests  B_tests passed (B_tests)`. Repite el Step 1.2 con logs `wait-a-$i.txt`/`wait-b-$i.txt` y los conteos del Step 1.3 sobre `wait-*`. Si todavía hay fallos de espera, sube el valor a **3000** (solo esa constante o esa llamada a `configure`), vuelve a medir con `wait2-*`, y si siguen, **detente** y reporta: más de 3000 ms se acerca al timeout de test de 5 s y ya no es un ajuste de margen.
 
-- [ ] **Step 4.3: Commit**
+- [ ] **Step 4.3: Commit** — N/A (F0: no wait failures under the protocol)
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-j-test-timeouts.md <src/test-setup.ts o src/test/timeouts.ts y los archivos de test modificados>
@@ -309,11 +309,11 @@ git -C $WT commit -m "test: give Testing Library waits the margin measured under
 
 ## Task 5: Verde bajo el mismo protocolo
 
-- [ ] **Step 5.1: Sin carga**
+- [x] **Step 5.1: Sin carga**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `Tests  B_tests passed (B_tests)`.
 
-- [ ] **Step 5.2: Con carga (dos rondas, logs `green-a-$i.txt` y `green-b-$i.txt`)**
+- [x] **Step 5.2: Con carga (dos rondas, logs `green-a-$i.txt` y `green-b-$i.txt`)**
 
 Repite el Step 1.2. Criterio de verde, **todo** a la vez:
 - Cada una de las 6 corridas termina con `Tests  B_tests passed (B_tests)`:
@@ -342,11 +342,11 @@ Repite el Step 1.2. Criterio de verde, **todo** a la vez:
 
 Si aparece un fallo de espera nuevo, aplica la regla F del Step 1.5 a ese test (Task 4) y reporta por qué no salió en la primera medición. Si aparece un timeout en un test no seleccionado que cumple la regla, vuelve a la palanca 1 para ese test (Task 2), luego a la palanca 2 si hace falta, y reporta por qué no salió en la primera medición. Si la corrida falla por otra causa, repórtalo y no lo toques.
 
-- [ ] **Step 5.3: Tipos y lint**
+- [x] **Step 5.3: Tipos y lint**
 
 `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 5.4:** Si el Step 5.2 obligó a tocar más tests, haz un commit adicional con el mismo formato que el Task 2, el Task 3 o el Task 4, según la palanca.
+- [x] **Step 5.4:** Si el Step 5.2 obligó a tocar más tests, haz un commit adicional con el mismo formato que el Task 2, el Task 3 o el Task 4, según la palanca.
 
 **Reporte al orquestador:**
 - Los SHAs.

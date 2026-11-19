@@ -6,6 +6,7 @@ import { PlayerFormPage } from './PlayerFormPage'
 import type { PlayerRow } from './players'
 import { DOCUMENT_TYPES } from '../documents/documents'
 import type { DocumentRow } from '../documents/documents'
+import { TYPING_TEST_TIMEOUT } from '../test/timeouts'
 
 const mocks = vi.hoisted(() => ({
   fetchPlayer: vi.fn(),
@@ -124,8 +125,8 @@ beforeEach(() => {
   mocks.createPayment.mockResolvedValue({ ok: true })
 })
 
-test('create mode submits createPlayer with the tenant id', async () => {
-  const user = userEvent.setup()
+test('create mode submits createPlayer with the tenant id', { timeout: TYPING_TEST_TIMEOUT }, async () => {
+  const user = userEvent.setup({ delay: null })
   renderAt('/jugadores/nuevo')
   await user.type(screen.getByLabelText(/Nombre completo/), 'Nuevo Jugador')
   await user.type(screen.getByLabelText(/Fecha de nacimiento/), '2015-06-10')
@@ -166,8 +167,8 @@ test('a failed save surfaces the error', async () => {
   expect(await screen.findByRole('alert')).toHaveTextContent('permission denied')
 })
 
-test('creating shows an in-app success confirmation', async () => {
-  const user = userEvent.setup()
+test('creating shows an in-app success confirmation', { timeout: TYPING_TEST_TIMEOUT }, async () => {
+  const user = userEvent.setup({ delay: null })
   renderAt('/jugadores/nuevo')
   await user.type(screen.getByLabelText(/Nombre completo/), 'Nuevo Jugador')
   await user.type(screen.getByLabelText(/Fecha de nacimiento/), '2015-06-10')
@@ -296,10 +297,10 @@ test('saving an edit keeps the same page instance and shows the toast', async ()
   expect(screen.getByDisplayValue('Ana Ruiz')).toBeInTheDocument()
 })
 
-test('saving an edit refetches the player so the category and the team selector follow the saved row', async () => {
+test('saving an edit refetches the player so the category and the team selector follow the saved row', { timeout: TYPING_TEST_TIMEOUT }, async () => {
   const refreshed = deferred<PlayerRow>()
   mocks.fetchPlayer.mockResolvedValueOnce(ana).mockReturnValueOnce(refreshed.promise)
-  const user = userEvent.setup()
+  const user = userEvent.setup({ delay: null })
   renderAt('/jugadores/p1')
   await screen.findByDisplayValue('Ana Ruiz')
   await waitFor(() => expect(screen.getByLabelText('Equipo')).toBeEnabled())
