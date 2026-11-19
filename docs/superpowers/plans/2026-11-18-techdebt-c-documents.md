@@ -382,7 +382,7 @@ git -C $WT commit -m "fix: disable every document row while one is saving (#51)"
 **Interfaces:**
 - Produces: `PlayerDocumentsSectionProps.onReload?: () => Promise<void> | void`. Opcional a propósito: `PlayerFormPage` compila igual sin pasarla, y el lote D la conecta (`onReload={refreshDocuments}`) en su Task 8, después del merge de este lote. `onChanged` no cambia de firma.
 
-- [ ] **Step 1: Test (rojo)**
+- [x] **Step 1: Test (rojo)**
 
 Al final del archivo de tests agrega:
 
@@ -409,7 +409,7 @@ test('a failed change reloads the rows without a success toast and stays busy un
 Run: `pnpm exec vitest run src/documents/PlayerDocumentsSection.test.tsx -t "reloads the rows"`
 Expected: FAIL — `onReload` nunca se llama.
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 En `PlayerDocumentsSectionProps` agrega `onReload?: () => Promise<void> | void` después de `onChanged`, y desestructúralo en la firma del componente (`{ documents, canEdit, hasPhoto, onChanged, onReload }`). En `run`, reemplaza:
 
@@ -432,11 +432,11 @@ por:
 
 Run: `pnpm exec vitest run src/documents/PlayerDocumentsSection.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Suite completa, tipos y lint**
+- [x] **Step 3: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `B_tests + 8` tests (Task 1: 3; Task 2: 3; Task 4: 1; Task 5: 1), todo verde (esperado 45 / 457). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-c-documents.md src/documents/PlayerDocumentsSection.tsx src/documents/PlayerDocumentsSection.test.tsx

@@ -32,6 +32,7 @@ export interface PlayerDocumentsSectionProps {
   canEdit: boolean
   hasPhoto: boolean
   onChanged: (flash: string) => Promise<void> | void
+  onReload?: () => Promise<void> | void
 }
 
 const CHIP_COLOR: Record<DocumentStatus, 'default' | 'info' | 'success'> = {
@@ -42,7 +43,7 @@ const CHIP_COLOR: Record<DocumentStatus, 'default' | 'info' | 'success'> = {
 
 const ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp'
 
-export function PlayerDocumentsSection({ documents, canEdit, hasPhoto, onChanged }: PlayerDocumentsSectionProps) {
+export function PlayerDocumentsSection({ documents, canEdit, hasPhoto, onChanged, onReload }: PlayerDocumentsSectionProps) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<{ doc: DocumentRow; next: 'pendiente' | 'fisico' } | null>(null)
@@ -61,8 +62,13 @@ export function PlayerDocumentsSection({ documents, canEdit, hasPhoto, onChanged
     try {
       const res = await action()
       // stay busy until the parent has reloaded, so no control acts on a stale row
-      if (res.ok) await onChanged('Documento actualizado')
-      else setError(res.error ?? 'No se pudo actualizar el documento.')
+      if (res.ok) {
+        await onChanged('Documento actualizado')
+      } else {
+        setError(res.error ?? 'No se pudo actualizar el documento.')
+        // part of the change may have landed (e.g. consent updated, file not removed), so reload the rows
+        await onReload?.()
+      }
     } finally {
       inFlight.current = false
       setBusyId(null)
