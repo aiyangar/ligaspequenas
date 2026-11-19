@@ -234,7 +234,7 @@ git -C $WT commit -m "fix: show Cargando… when AddPlayerDialog's team or categ
 
 `AddPlayerDialog.tsx:113-127` renderiza `ListItemButton` (un `<div role="button">`) directo dentro de `<List>` (`<ul>`), el mismo markup inválido que #71 describe para `PlayersPage`/`TeamsPage`/`DebtorsPage` (esos tres los arregla el lote H). Este archivo es de G, así que se arregla aquí con el mismo patrón que propone #71: `<ListItem disablePadding>` alrededor.
 
-- [ ] **Step 3.1: Escribir el test (rojo)**
+- [x] **Step 3.1: Escribir el test (rojo)**
 
 Agrega al final de `src/teams/AddPlayerDialog.test.tsx`:
 
@@ -253,7 +253,7 @@ test('each eligible player button sits inside its own list item', async () => {
 Run: `pnpm exec vitest run src/teams/AddPlayerDialog.test.tsx`
 Expected: FAIL solo en el test nuevo (`Expected: "LI"` / `Received: "UL"`); 10 pasan.
 
-- [ ] **Step 3.2: Implementar**
+- [x] **Step 3.2: Implementar**
 
 En `src/teams/AddPlayerDialog.tsx`:
 
@@ -296,11 +296,11 @@ por:
 Run: `pnpm exec vitest run src/teams`
 Expected: todo PASS (incluidos `free agents assign directly on click`, `clicking a player in another team asks for confirmation before moving` y los tests de assign/move de `TeamDetailPage`).
 
-- [ ] **Step 3.3: Suite completa, tipos y lint**
+- [x] **Step 3.3: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `B_tests + 5` tests (Task 1: 2; Task 2: 2; Task 3: 1), todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 3.4: Commit**
+- [x] **Step 3.4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-g-teams.md src/teams/AddPlayerDialog.tsx src/teams/AddPlayerDialog.test.tsx

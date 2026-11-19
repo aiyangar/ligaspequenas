@@ -172,3 +172,13 @@ test('a late response for the previous source does not replace Cargando… for t
   expect(await screen.findByText('Nuevo Agente')).toBeInTheDocument()
   expect(screen.queryByText('Viejo Agente')).not.toBeInTheDocument()
 })
+
+test('each eligible player button sits inside its own list item', async () => {
+  render(<AddPlayerDialog open categoryId="cat1" teamId="A" onAssign={vi.fn()} onMove={vi.fn()} onClose={vi.fn()} />)
+  await screen.findByText('Free Agent')
+  for (const name of [/Free Agent/, /Otro Equipo/]) {
+    const button = screen.getByRole('button', { name })
+    expect(button.parentElement?.tagName).toBe('LI')
+    expect(button.parentElement?.parentElement?.tagName).toBe('UL')
+  }
+})

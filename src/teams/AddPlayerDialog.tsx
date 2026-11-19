@@ -6,6 +6,7 @@ import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
 import ListSubheader from '@mui/material/ListSubheader'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
@@ -126,16 +127,17 @@ export function AddPlayerDialog({ open, categoryId, teamId, onAssign, onMove, on
                 subheader={<ListSubheader>{g.teamId ? `En ${g.teamName}` : 'Sin equipo'}</ListSubheader>}
               >
                 {g.players.map((p) => (
-                  <ListItemButton
-                    key={p.id}
-                    onClick={() =>
-                      g.teamId
-                        ? setPending({ player: p, fromTeamName: g.teamName ?? '' })
-                        : onAssign(p.id)
-                    }
-                  >
-                    <ListItemText primary={p.full_name} secondary={`edad ${p.edad_liga ?? '—'}`} />
-                  </ListItemButton>
+                  <ListItem key={p.id} disablePadding>
+                    <ListItemButton
+                      onClick={() =>
+                        g.teamId
+                          ? setPending({ player: p, fromTeamName: g.teamName ?? '' })
+                          : onAssign(p.id)
+                      }
+                    >
+                      <ListItemText primary={p.full_name} secondary={`edad ${p.edad_liga ?? '—'}`} />
+                    </ListItemButton>
+                  </ListItem>
                 ))}
               </List>
             ))}
