@@ -34,8 +34,8 @@
 
 ## Task 0: Preparar
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `update/b3-sql-0019-note`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `update/b3-sql-0019-note`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
 
 ---
 
@@ -46,14 +46,14 @@
 
 En este Task, `$P` = `$WT/docs/superpowers/plans/2026-10-16-pre-real-data-checklist.md`.
 
-- [ ] **Step 1.1: Rojo**
+- [x] **Step 1.1: Rojo**
 
 Run: `grep -c "Superseded by 0019" "$P"` → `0`.
 Run: `grep -c '^```' "$P"` → `76`.
 Run: `sed -n 243,247p "$P"` → `select * from extensions.finish();`, `rollback;`, ```` ``` ````, línea vacía, `- [ ] **Step 2: Write the migration**`.
 (Verificado por el planner.) Si la l.245 no es la valla de cierre, ubícala por contenido: es la ```` ``` ```` que sigue a `rollback;` después de `-- MCP call 2 ends here`.
 
-- [ ] **Step 1.2: Insertar la nota**
+- [x] **Step 1.2: Insertar la nota**
 
 Después de la valla de cierre (l.245) y antes de la línea vacía que precede a `- [ ] **Step 2: Write the migration**`, inserta una línea vacía y esta línea, tal cual:
 
@@ -63,7 +63,7 @@ Después de la valla de cierre (l.245) y antes de la línea vacía que precede a
 
 Resultado: l.245 ```` ``` ````, l.246 vacía, l.247 la nota, l.248 vacía, l.249 `- [ ] **Step 2: Write the migration**`.
 
-- [ ] **Step 1.3: Verde y comprobaciones**
+- [x] **Step 1.3: Verde y comprobaciones**
 
 - `grep -c "Superseded by 0019" "$P"` → `1`; `grep -n 'the current file is `supabase/tests/0016_revoke_anon_privileges.test.sql`' "$P" | cut -d: -f1` → `247`.
 - `grep -c '^```' "$P"` → `76` (la nota no abre ni cierra un bloque).
@@ -71,7 +71,7 @@ Resultado: l.245 ```` ``` ````, l.246 vacía, l.247 la nota, l.248 vacía, l.249
 - `sed -n 209,212p "$P" | grep -c "), true, 'B3 "` → `4` (el SQL histórico intacto).
 - `git -C $WT diff --stat` → `1 file changed, 2 insertions(+)`.
 
-- [ ] **Step 1.4: Commit**
+- [x] **Step 1.4: Commit**
 
 `git -C $WT status -s` → solo el `.md` de 2026-10-16 y este plan.
 
