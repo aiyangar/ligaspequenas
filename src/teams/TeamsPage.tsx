@@ -6,6 +6,7 @@ import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
 import List from '@mui/material/List'
 import ListSubheader from '@mui/material/ListSubheader'
+import ListItem from '@mui/material/ListItem'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import { useTenant } from '../tenant/TenantContext'
@@ -75,6 +76,8 @@ export function TeamsPage() {
 
       {loadError && <LoadError onRetry={handleRetry} />}
 
+      {!loaded && !loadError && <Typography sx={{ mt: 2 }}>Cargando…</Typography>}
+
       {loaded && !loadError && teams.length === 0 && (
         <Typography sx={{ mt: 3, color: 'text.secondary' }}>
           No hay equipos en la temporada activa (o no hay temporada activa).
@@ -88,12 +91,14 @@ export function TeamsPage() {
           sx={{ mt: 1 }}
         >
           {list.map((t) => (
-            <ListItemButton key={t.id} component={RouterLink} to={`/equipos/${t.id}`}>
-              <ListItemText
-                primary={t.name}
-                secondary={`${t.color ?? 'Sin color'} · ${t.coach ?? 'Sin coach'} · ${t.player_count} jugadores`}
-              />
-            </ListItemButton>
+            <ListItem key={t.id} disablePadding>
+              <ListItemButton component={RouterLink} to={`/equipos/${t.id}`}>
+                <ListItemText
+                  primary={t.name}
+                  secondary={`${t.color ?? 'Sin color'} · ${t.coach ?? 'Sin coach'} · ${t.player_count} jugadores`}
+                />
+              </ListItemButton>
+            </ListItem>
           ))}
         </List>
       ))}

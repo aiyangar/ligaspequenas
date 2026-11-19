@@ -589,3 +589,31 @@ test('with no players at all there is no filters message', async () => {
   await waitFor(() => expect(exportButton()).toBeDisabled())
   expect(screen.queryByText('Sin jugadores con estos filtros.')).not.toBeInTheDocument()
 })
+
+test('each player is a list item that holds its link', async () => {
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  const list = screen.getByRole('list')
+  const items = within(list).getAllByRole('listitem')
+  expect(items).toHaveLength(3)
+  expect(within(items[0]).getByRole('link')).toHaveAttribute('href', '/jugadores/p1')
+  expect(list.querySelectorAll(':scope > a')).toHaveLength(0)
+})
+
+test('the first load and a retry show Cargando… until the players arrive', async () => {
+  let finishRetry!: (rows: PlayerRow[]) => void
+  mocks.fetchPlayers
+    .mockRejectedValueOnce(new Error('boom'))
+    .mockReturnValueOnce(new Promise<PlayerRow[]>((r) => { finishRetry = r }))
+  const user = userEvent.setup()
+  renderPage()
+  expect(screen.getByText('Cargando…')).toBeInTheDocument()
+  const retry = await screen.findByRole('button', { name: 'Reintentar' })
+  expect(screen.queryByText('Cargando…')).not.toBeInTheDocument()
+  await user.click(retry)
+  expect(screen.getByText('Cargando…')).toBeInTheDocument()
+  expect(screen.queryByLabelText('Buscar por nombre')).not.toBeInTheDocument()
+  await act(async () => finishRetry([player({ id: 'p1', full_name: 'Ana Ruiz' })]))
+  expect(await screen.findByText('Ana Ruiz')).toBeInTheDocument()
+  expect(screen.queryByText('Cargando…')).not.toBeInTheDocument()
+})

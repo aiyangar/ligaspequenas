@@ -4,6 +4,7 @@ import { Link as RouterLink } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
@@ -46,21 +47,23 @@ function PlayerLink({ player, children }: { player: PlayerRow; children?: ReactN
   const categoryId = `${id}-category`
   const chargesId = `${id}-charges`
   return (
-    <ListItemButton
-      component={RouterLink}
-      to={`/jugadores/${player.id}`}
-      divider
-      sx={{ display: 'block' }}
-      aria-label={player.full_name}
-      aria-describedby={children ? `${categoryId} ${chargesId}` : categoryId}
-    >
-      <ListItemText
-        primary={player.full_name}
-        secondary={playerCategoryText(player)}
-        slotProps={{ secondary: { id: categoryId } }}
-      />
-      {children && <div id={chargesId}>{children}</div>}
-    </ListItemButton>
+    <ListItem disablePadding>
+      <ListItemButton
+        component={RouterLink}
+        to={`/jugadores/${player.id}`}
+        divider
+        sx={{ display: 'block' }}
+        aria-label={player.full_name}
+        aria-describedby={children ? `${categoryId} ${chargesId}` : categoryId}
+      >
+        <ListItemText
+          primary={player.full_name}
+          secondary={playerCategoryText(player)}
+          slotProps={{ secondary: { id: categoryId } }}
+        />
+        {children && <div id={chargesId}>{children}</div>}
+      </ListItemButton>
+    </ListItem>
   )
 }
 
