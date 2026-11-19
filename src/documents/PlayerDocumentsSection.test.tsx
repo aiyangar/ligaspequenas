@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, vi } from 'vitest'
 import { PlayerDocumentsSection } from './PlayerDocumentsSection'
@@ -178,25 +178,29 @@ test('a digital row offers Reemplazar instead of Subir archivo', () => {
 test('a second upload while one is in flight is ignored', async () => {
   let resolve!: (v: { ok: boolean }) => void
   mocks.uploadDocument.mockReturnValueOnce(new Promise((r) => { resolve = r }))
-  const user = userEvent.setup()
   renderSection({ documents: docs(granted) })
   const input = within(row('CURP')).getByLabelText('Subir archivo')
   const f = new File(['x'], 'a.pdf', { type: 'application/pdf' })
-  await user.upload(input, f)
-  await user.upload(input, f)
+  // fireEvent, not user.upload: user-event skips a disabled input, which would hide a missing guard
+  fireEvent.change(input, { target: { files: [f] } })
+  fireEvent.change(input, { target: { files: [f] } })
   expect(mocks.uploadDocument).toHaveBeenCalledTimes(1)
-  resolve({ ok: true })
+  await act(async () => resolve({ ok: true }))
 })
 
 test('Ver opens the tab synchronously, drops the opener and assigns the signed URL', async () => {
   const fakeWin = { opener: {} as unknown, location: { href: '' }, close: vi.fn() }
   const open = vi.spyOn(window, 'open').mockReturnValue(fakeWin as unknown as Window)
+  let sign!: (url: string) => void
+  mocks.getSignedFileUrl.mockReturnValueOnce(new Promise<string>((r) => { sign = r }))
   const user = userEvent.setup()
   renderSection({ documents: docs({ ...granted, curp: 'digital' }) })
   await user.click(within(row('CURP')).getByRole('button', { name: 'Ver' }))
   expect(open).toHaveBeenCalledWith('', '_blank')
-  await waitFor(() => expect(fakeWin.location.href).toBe('https://signed/url'))
   expect(fakeWin.opener).toBeNull()
+  expect(fakeWin.location.href).toBe('')
+  await act(async () => sign('https://signed/url'))
+  expect(fakeWin.location.href).toBe('https://signed/url')
   expect(mocks.getSignedFileUrl).toHaveBeenCalledWith('t1/p1/curp')
   open.mockRestore()
 })

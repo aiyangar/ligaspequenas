@@ -246,7 +246,7 @@ git -C $WT commit -m "fix: detect RLS-filtered document updates and stop matchin
 **Files:**
 - Modify: `src/documents/PlayerDocumentsSection.test.tsx`
 
-- [ ] **Step 1: Reescribir los dos tests**
+- [x] **Step 1: Reescribir los dos tests**
 
 En el import de Testing Library agrega `act`: `import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'`.
 
@@ -288,17 +288,17 @@ test('Ver opens the tab synchronously, drops the opener and assigns the signed U
 })
 ```
 
-- [ ] **Step 2: Verificar que pasan**
+- [x] **Step 2: Verificar que pasan**
 
 Run: `pnpm exec vitest run src/documents/PlayerDocumentsSection.test.tsx` → todo PASS (mismo número de tests).
 
-- [ ] **Step 3: Mutación (a) — quitar la guardia**
+- [x] **Step 3: Mutación (a) — quitar la guardia**
 
 En `src/documents/PlayerDocumentsSection.tsx` borra la línea `    if (inFlight.current) return`.
 Run: `pnpm exec vitest run src/documents/PlayerDocumentsSection.test.tsx -t "second upload"` → FAIL (`uploadDocument` llamado 2 veces). (Verificado al planear: el test viejo con `user.upload` seguía pasando con esta mutación.)
 Restaura: `git -C $WT checkout -- src/documents/PlayerDocumentsSection.tsx`.
 
-- [ ] **Step 4: Mutación (b) — abrir la pestaña después del `await`**
+- [x] **Step 4: Mutación (b) — abrir la pestaña después del `await`**
 
 En `handleView`, mueve la firma antes de abrir: reemplaza
 
@@ -317,7 +317,7 @@ y `w.location.href = await getSignedFileUrl(doc.file_path)` por `w.location.href
 Run: `pnpm exec vitest run src/documents/PlayerDocumentsSection.test.tsx -t "Ver opens"` → FAIL (`window.open` no se llamó). (El test viejo pasaba con esta mutación.)
 Restaura: `git -C $WT checkout -- src/documents/PlayerDocumentsSection.tsx`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-c-documents.md src/documents/PlayerDocumentsSection.test.tsx
