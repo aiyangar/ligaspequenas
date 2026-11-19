@@ -82,7 +82,12 @@ export function PlayerPhoto({ player, canEdit, consentGranted, onChanged }: Play
 
   function handleRemove() {
     setConfirmOpen(false)
-    void run(() => removePlayerPhoto(player))
+    void run(async () => {
+      const res = await removePlayerPhoto(player)
+      // drop the signed URL now: until the page refetches, the img would point at a deleted object
+      if (res.ok) setUrl(null)
+      return res
+    })
   }
 
   const uploadLabel = player.photo_path ? 'Cambiar' : 'Subir foto'

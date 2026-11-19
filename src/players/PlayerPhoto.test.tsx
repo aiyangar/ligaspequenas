@@ -133,3 +133,17 @@ test('a spinner shows while the photo is saving', async () => {
   await act(async () => resolve({ ok: true }))
   expect(screen.queryByLabelText('Guardando')).not.toBeInTheDocument()
 })
+
+test('removing the photo drops the signed image before the parent reloads the player', async () => {
+  let finishReload!: () => void
+  const onChanged = vi.fn(() => new Promise<void>((r) => { finishReload = r }))
+  const user = userEvent.setup()
+  render(<PlayerPhoto player={{ ...base, photo_path: 't1/p1/photo' }} canEdit consentGranted onChanged={onChanged} />)
+  await screen.findByRole('img', { name: 'Foto de Ana Ruiz' })
+  await user.click(screen.getByRole('button', { name: 'Quitar' }))
+  await user.click(await screen.findByRole('button', { name: 'Quitar foto' }))
+  await waitFor(() => expect(onChanged).toHaveBeenCalledWith('Foto actualizada'))
+  expect(screen.queryByRole('img', { name: 'Foto de Ana Ruiz' })).not.toBeInTheDocument()
+  expect(screen.getByText('AR')).toBeInTheDocument()
+  await act(async () => finishReload())
+})

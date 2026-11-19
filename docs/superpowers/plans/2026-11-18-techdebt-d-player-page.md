@@ -171,7 +171,7 @@ git -C $WT commit -m "feat: show a spinner while the player photo saves (#58)" -
 - Modify: `src/players/PlayerPhoto.test.tsx`
 - Modify: `src/players/PlayerPhoto.tsx`
 
-- [ ] **Step 1: Test (rojo)**
+- [x] **Step 1: Test (rojo)**
 
 ```ts
 test('removing the photo drops the signed image before the parent reloads the player', async () => {
@@ -191,7 +191,7 @@ test('removing the photo drops the signed image before the parent reloads the pl
 
 Run: `pnpm exec vitest run src/players/PlayerPhoto.test.tsx -t "drops the signed image"` → FAIL (la imagen sigue mientras el padre no recarga).
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 Reemplaza `handleRemove` por:
 
@@ -209,7 +209,7 @@ Reemplaza `handleRemove` por:
 
 Run: `pnpm exec vitest run src/players/PlayerPhoto.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerPhoto.tsx src/players/PlayerPhoto.test.tsx
