@@ -189,20 +189,22 @@ alter default privileges for role postgres grant execute on functions to public;
 - **B:** unión → 0 filas (`relation` 0, `function` 0, `default_acl` 0); query global → `1`. Última migración en remoto: `20261016233000 0016_revoke_anon_privileges` (aplicada 2026-10-16).
 - **C:** (1) vacío (solo `.env.example`, excluido); (2) exactamente `VITE_SUPABASE_PUBLISHABLE_KEY` y `VITE_SUPABASE_URL`; (3) vacío; (4) producción (`44bc392`, deploy de Vercel 2026-10-16T15:46:10Z): lista `/assets/index-aX0m6XPV.js` y `/assets/browser-BoWduoKG.js` (control positivo presente), matches vacío — corrido en zsh con los mismos comandos guardados en archivos, porque un control de seguridad del entorno bloqueó `bash -c`; (5) build de `0f17400` con `.env` real: `browser-BoWduoKG.js` presente, conteo de `sb_publishable_` = 1, matches vacío.
 - **D:** buckets públicos → 0 filas; policies de `storage.objects` fuera de `{authenticated}`/`player_files_*` → 0 filas. `curl` sin sesión a `…/object/public/player-files/00000000-0000-0000-0000-000000000001/.emptyFolderPlaceholder` → 400; en E5, ruta real de una CURP → 400.
-- **E (pgTAP):** tras 0016: R-0012 25/25 `ok`, R-0013 21/21 `ok` (además R-0002 6/6, R-0014 17/17, R-0015 21/21, 0016 22/22). La corrida roja de R-0015 antes de 0016 no se obtuvo (la sesión del MCP de Supabase expiraba: "Invalid or expired requestState" repetido).
+- **E (pgTAP):** 0016 22/22 `ok` en su corrida verde del 2026-10-16 según #93 (fase O6 de #89). Regresión tras 0016, corrida el 2026-10-18 (2026-10-19 UTC) según #93: R-0012 25/25 `ok`, R-0013 21/21 `ok`, R-0002 6/6, R-0014 17/17, R-0015 21/21. La corrida roja de R-0015 antes de 0016 no se obtuvo (la sesión del MCP de Supabase expiraba: "Invalid or expired requestState" repetido).
 - **F:** Free + backups automáticos cifrados (#87). Estado de #87: abierto (OPEN).
 - **G:** solo `auth_leaked_password_protection` (aceptado: app passwordless).
 
 Residuo tras todas las corridas: todo 0/null; baseline sin cambios (tenants 1, profiles 3, users 3, players 1, documents 6, seasons 1, objects 1). Follow-ups: #90, #91.
 
-| Escenario E2E | Resultado |
-|---|---|
-| E1 | verde — alerta visible; "Subir archivo" deshabilitado en CURP/Acta/Comprobante/Constancia y habilitado en ambos consentimientos; "Subir foto" deshabilitado con leyenda |
-| E1-API | verde — upload 400 (RLS 403); PATCH 400 `P0001 consent_required`; SQL: 0 objetos, CURP `pendiente` |
-| E2 | verde — consentimientos → Físico; alerta desaparece; uploads y "Subir foto" habilitados |
-| E2b | verde — CURP Digital; "Ver" abre `/storage/v1/object/sign/player-files/…?token=`; la foto se muestra |
-| E3 | verde — Aviso → opción Pendiente deshabilitada con "Quita primero la foto y los documentos digitales."; PATCH directo 400 `P0001 consent_in_use` |
-| E3b | verde — CURP → Físico, quitar foto, Aviso → Pendiente aceptado; alerta de vuelta; uploads no-consentimiento deshabilitados; upload por API 400 RLS |
-| E3c | verde — Aviso → Físico; CURP resubida, chip Digital |
-| E4 | verde (readonly) — sin selects de Estatus ni inputs de upload ni alerta; "Ver" → URL firmada; upload 400 RLS; PATCH 200 `[]`; SQL sin cambios |
-| E5 | verde (sin sesión) — REST `/players` → 401 `42501`; URL pública de storage → 400 |
+| Escenario E2E | Fecha | Resultado |
+|---|---|---|
+| E1 | 2026-10-18 (2026-10-19 UTC) | verde — alerta visible; "Subir archivo" deshabilitado en CURP/Acta/Comprobante/Constancia y habilitado en ambos consentimientos; "Subir foto" deshabilitado con leyenda |
+| E1-API | 2026-10-18 (2026-10-19 UTC) | verde — upload 400 (RLS 403); PATCH 400 `P0001 consent_required`; SQL: 0 objetos, CURP `pendiente` |
+| E2 | 2026-10-18 (2026-10-19 UTC) | verde — consentimientos → Físico; alerta desaparece; uploads y "Subir foto" habilitados |
+| E2b | 2026-10-18 (2026-10-19 UTC) | verde — CURP Digital; "Ver" abre `/storage/v1/object/sign/player-files/…?token=`; la foto se muestra |
+| E3 | 2026-10-18 (2026-10-19 UTC) | verde — Aviso → opción Pendiente deshabilitada con "Quita primero la foto y los documentos digitales."; PATCH directo 400 `P0001 consent_in_use` |
+| E3b | 2026-10-18 (2026-10-19 UTC) | verde — CURP → Físico, quitar foto, Aviso → Pendiente aceptado; alerta de vuelta; uploads no-consentimiento deshabilitados; upload por API 400 RLS |
+| E3c | 2026-10-18 (2026-10-19 UTC) | verde — Aviso → Físico; CURP resubida, chip Digital |
+| E4 | 2026-10-18 (2026-10-19 UTC) | verde (readonly) — sin selects de Estatus en documentos (solo los del formulario del jugador, deshabilitados) ni inputs de upload ni alerta; "Ver" → URL firmada; upload 400 RLS; PATCH 200 `[]`; SQL sin cambios |
+| E5 | 2026-10-18 (2026-10-19 UTC) | verde (sin sesión) — REST `/players` → 401 `42501`; URL pública de storage → 400 |
+
+Fecha del E2E inferida: la fase E corrió entre el merge de #89 (2026-10-19T02:53Z) y el commit del checklist 25377a2 (2026-10-19T03:41Z); no hay registro con hora por escenario.
