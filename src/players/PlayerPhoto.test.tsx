@@ -158,3 +158,16 @@ test('a failed photo change asks the page to reload, with no success toast', asy
   expect(onReload).toHaveBeenCalledTimes(1)
   expect(onChanged).not.toHaveBeenCalled()
 })
+
+test('a signature that resolves after the photo was removed is ignored', async () => {
+  let sign!: (src: string) => void
+  mocks.getSignedFileUrl.mockReturnValueOnce(new Promise<string>((r) => { sign = r }))
+  const user = userEvent.setup()
+  const { onChanged } = renderPhoto({ player: { ...base, photo_path: 't1/p1/photo' } })
+  await user.click(screen.getByRole('button', { name: 'Quitar' }))
+  await user.click(await screen.findByRole('button', { name: 'Quitar foto' }))
+  await waitFor(() => expect(onChanged).toHaveBeenCalledWith('Foto actualizada'))
+  await act(async () => sign('https://signed/deleted'))
+  expect(screen.queryByRole('img', { name: 'Foto de Ana Ruiz', hidden: true })).not.toBeInTheDocument()
+  expect(screen.getByText('AR')).toBeInTheDocument()
+})

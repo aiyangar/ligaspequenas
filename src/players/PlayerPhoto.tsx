@@ -38,6 +38,8 @@ export function PlayerPhoto({ player, canEdit, consentGranted, onChanged, onRelo
   const [busy, setBusy] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const inFlight = useRef(false)
+  // bumped on removal so a signature still in flight for the deleted object is dropped
+  const signGeneration = useRef(0)
 
   // keyed by path + updated_at so a replaced photo (same path) is re-signed
   const urlKey = player.photo_path ? `${player.photo_path}@${player.updated_at}` : null
@@ -45,9 +47,10 @@ export function PlayerPhoto({ player, canEdit, consentGranted, onChanged, onRelo
   useEffect(() => {
     if (!player.photo_path || !urlKey) return
     let active = true
+    const generation = signGeneration.current
     void getSignedFileUrl(player.photo_path)
       .then((src) => {
-        if (active) setUrl({ key: urlKey, src })
+        if (active && generation === signGeneration.current) setUrl({ key: urlKey, src })
       })
       .catch(() => {
         if (active) setUrl(null)
@@ -91,7 +94,10 @@ export function PlayerPhoto({ player, canEdit, consentGranted, onChanged, onRelo
     void run(async () => {
       const res = await removePlayerPhoto(player)
       // drop the signed URL now: until the page refetches, the img would point at a deleted object
-      if (res.ok) setUrl(null)
+      if (res.ok) {
+        signGeneration.current += 1
+        setUrl(null)
+      }
       return res
     })
   }
