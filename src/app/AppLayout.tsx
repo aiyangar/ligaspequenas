@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import AppBar from '@mui/material/AppBar'
 import Toolbar from '@mui/material/Toolbar'
 import Box from '@mui/material/Box'
@@ -7,13 +7,23 @@ import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
 import Stack from '@mui/material/Stack'
 import Alert from '@mui/material/Alert'
+import type { Theme } from '@mui/material/styles'
 import { supabase } from '../lib/supabase'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
 
+const NAV_LINK_SX = {
+  '&.active': {
+    fontWeight: 700,
+    boxShadow: (theme: Theme) => `inset 0 -2px 0 ${theme.palette.primary.main}`,
+  },
+} as const
+
 export function AppLayout() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { status, role, fullName } = useTenant()
+  const playersActive = pathname === '/' || pathname.startsWith('/jugadores/')
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -45,12 +55,24 @@ export function AppLayout() {
           <Typography variant="h6" noWrap sx={{ flexGrow: 1, flexBasis: { xs: '100%', sm: 0 }, minWidth: 0 }}>
             {fullName}
           </Typography>
-          <Button color="inherit" component={NavLink} to="/">Jugadores</Button>
-          <Button color="inherit" component={NavLink} to="/equipos">Equipos</Button>
-          <Button color="inherit" component={NavLink} to="/quien-debe">Quién debe</Button>
-          {isAdmin(role) && (
-            <Button color="inherit" component={NavLink} to="/usuarios">Usuarios</Button>
-          )}
+          <Box component="nav" aria-label="Principal" sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {/* Jugadores also covers the player pages under /jugadores/, which NavLink to="/" never matches */}
+            <Button
+              color="inherit"
+              component={RouterLink}
+              to="/"
+              className={playersActive ? 'active' : undefined}
+              aria-current={playersActive ? 'page' : undefined}
+              sx={NAV_LINK_SX}
+            >
+              Jugadores
+            </Button>
+            <Button color="inherit" component={NavLink} to="/equipos" sx={NAV_LINK_SX}>Equipos</Button>
+            <Button color="inherit" component={NavLink} to="/quien-debe" sx={NAV_LINK_SX}>Quién debe</Button>
+            {isAdmin(role) && (
+              <Button color="inherit" component={NavLink} to="/usuarios" sx={NAV_LINK_SX}>Usuarios</Button>
+            )}
+          </Box>
           <Button color="inherit" onClick={handleLogout}>Salir</Button>
         </Toolbar>
       </AppBar>

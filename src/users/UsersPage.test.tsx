@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, vi } from 'vitest'
+import { beforeEach, expect, vi } from 'vitest'
 import { UsersPage } from './UsersPage'
 
 const mocks = vi.hoisted(() => ({
@@ -27,7 +27,7 @@ beforeEach(() => {
 
 test('lists the tenant users', async () => {
   render(<UsersPage />)
-  expect(await screen.findByText(/Ana/)).toBeInTheDocument()
+  expect(await screen.findByText('Ana')).toBeInTheDocument()
   expect(mocks.from).toHaveBeenCalledWith('profiles')
   expect(mocks.select).toHaveBeenCalledWith('id, full_name, role')
 })
@@ -58,11 +58,26 @@ test('shows a friendly message when the email already exists', async () => {
   expect(await screen.findByRole('status')).toHaveTextContent('ya está registrado')
 })
 
-test('changes a user role through an update', async () => {
+test('the invitation role is an MUI select, not a native one', async () => {
+  const user = userEvent.setup()
+  const { container } = render(<UsersPage />)
+  await screen.findByText(/Ana/)
+  expect(container.querySelector('select')).toBeNull()
+  await user.click(screen.getByRole('combobox', { name: 'Rol de la invitación' }))
+  await user.click(await screen.findByRole('option', { name: 'Administrador' }))
+  await user.type(screen.getByPlaceholderText('Correo'), 'jefe@b.com')
+  await user.type(screen.getByPlaceholderText('Nombre completo'), 'Jefe')
+  await user.click(screen.getByRole('button', { name: 'Invitar' }))
+  expect(mocks.inviteUser).toHaveBeenCalledWith({ email: 'jefe@b.com', fullName: 'Jefe', role: 'admin' })
+})
+
+test('changes a user role through the MUI select', async () => {
   const user = userEvent.setup()
   render(<UsersPage />)
-  await screen.findByText(/Ana/)
-  await user.selectOptions(screen.getByLabelText('Rol de Ana'), 'readonly')
+  const role = await screen.findByRole('combobox', { name: 'Rol de Ana' })
+  expect(role).toHaveTextContent('Administrador')
+  await user.click(role)
+  await user.click(await screen.findByRole('option', { name: 'Solo lectura' }))
   await waitFor(() => expect(mocks.update).toHaveBeenCalledWith({ role: 'readonly' }))
   expect(mocks.from).toHaveBeenCalledWith('profiles')
   expect(mocks.eq).toHaveBeenCalledWith('id', 'u1')

@@ -1,8 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
+import { ThemeProvider } from '@mui/material/styles'
 import { AppLayout } from './AppLayout'
+import { draculaTheme } from '../theme/dracula'
 
 const mocks = vi.hoisted(() => ({ useTenant: vi.fn(), signOut: vi.fn() }))
 vi.mock('../tenant/TenantContext', () => ({ useTenant: mocks.useTenant }))
@@ -13,18 +15,26 @@ beforeEach(() => {
   mocks.signOut.mockResolvedValue({ error: null })
 })
 
-function renderLayout() {
+function renderLayout(entry = '/') {
   const router = createMemoryRouter(
     [
       {
         element: <AppLayout />,
-        children: [{ index: true, element: <p>contenido</p> }],
+        children: [
+          { index: true, element: <p>contenido</p> },
+          { path: 'jugadores/:id', element: <p>ficha</p> },
+          { path: 'equipos', element: <p>equipos</p> },
+        ],
       },
       { path: '/login', element: <h1>Login</h1> },
     ],
-    { initialEntries: ['/'] },
+    { initialEntries: [entry] },
   )
-  return render(<RouterProvider router={router} />)
+  return render(
+    <ThemeProvider theme={draculaTheme}>
+      <RouterProvider router={router} />
+    </ThemeProvider>,
+  )
 }
 
 test('hides the Usuarios link for readonly users', () => {
@@ -66,4 +76,39 @@ test('logging out signs out and redirects to /login', async () => {
   await user.click(screen.getByRole('button', { name: 'Salir' }))
   expect(mocks.signOut).toHaveBeenCalledTimes(1)
   expect(await screen.findByText('Login')).toBeInTheDocument()
+})
+
+const ACTIVE_UNDERLINE = `inset 0 -2px 0 ${draculaTheme.palette.primary.main.toLowerCase()}`
+
+test('the section links live in the Principal navigation landmark, without Salir', () => {
+  mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Ana' })
+  renderLayout()
+  const nav = screen.getByRole('navigation', { name: 'Principal' })
+  expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual([
+    'Jugadores',
+    'Equipos',
+    'Quién debe',
+    'Usuarios',
+  ])
+  expect(within(nav).queryByRole('button', { name: 'Salir' })).not.toBeInTheDocument()
+})
+
+test('the current section is marked with aria-current, a primary underline and bold text', () => {
+  mocks.useTenant.mockReturnValue({ status: 'ready', role: 'readonly', fullName: 'Beto' })
+  renderLayout('/equipos')
+  const current = screen.getByRole('link', { name: 'Equipos' })
+  expect(current).toHaveAttribute('aria-current', 'page')
+  expect(current).toHaveStyle({ boxShadow: ACTIVE_UNDERLINE, fontWeight: '700' })
+  const other = screen.getByRole('link', { name: 'Jugadores' })
+  expect(other).not.toHaveAttribute('aria-current')
+  expect(other).not.toHaveStyle({ boxShadow: ACTIVE_UNDERLINE })
+})
+
+test.each(['/', '/jugadores/p1'])('Jugadores is the current section on %s', (entry) => {
+  mocks.useTenant.mockReturnValue({ status: 'ready', role: 'readonly', fullName: 'Beto' })
+  renderLayout(entry)
+  const players = screen.getByRole('link', { name: 'Jugadores' })
+  expect(players).toHaveAttribute('aria-current', 'page')
+  expect(players).toHaveStyle({ boxShadow: ACTIVE_UNDERLINE, fontWeight: '700' })
+  expect(screen.getByRole('link', { name: 'Equipos' })).not.toHaveAttribute('aria-current')
 })

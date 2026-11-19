@@ -213,7 +213,7 @@ Decisión del owner (spec §2): ajuste con el tema actual, sin rediseño. Qué c
 - Navegación: sigue siendo `AppBar` + `Toolbar` + `Button component={NavLink}`. Los cuatro links de sección pasan a estar dentro de `<Box component="nav" aria-label="Principal">`; "Salir" queda fuera (es una acción, no una sección). La sección actual lleva la clase `active` y `aria-current="page"` (los pone `NavLink`; para Jugadores se calculan a mano) y se marca con un subrayado de 2 px en `primary.main` (morado Dracula `#BD93F9`) y `fontWeight: 700`. El texto **no** cambia de color: sigue en `inherit` (texto claro del `AppBar`), porque `#BD93F9` como texto sobre el `AppBar` oscuro da ~2.9:1, bajo el 4.5:1 de AA. "Jugadores" es la sección actual en `/` **y** en `/jugadores/*` (fichas y alta de jugador), algo que `NavLink to="/"` no hace: por eso ese botón usa `Link` con `className`/`aria-current` calculados desde `useLocation()`. Nada más.
 - Usuarios: el rol de cada usuario pasa de `TextField select` nativo a `Select` de MUI con `MenuItem`; el de la invitación, a `TextField select` no nativo (que es `Select` de MUI con su etiqueta). La lista muestra solo el nombre: hoy dice `Ana — admin` (el valor crudo) y el rol ya se ve en el select.
 
-- [ ] **Step 2.1: Tests de navegación (rojo)**
+- [x] **Step 2.1: Tests de navegación (rojo)**
 
 En `src/app/AppLayout.test.tsx`:
 
@@ -287,7 +287,7 @@ test.each(['/', '/jugadores/p1'])('Jugadores is the current section on %s', (ent
 Run: `pnpm exec vitest run src/app/AppLayout.test.tsx`
 Expected: FAIL en los 4 tests nuevos: `the section links live…` (`Unable to find an accessible element with the role "navigation" and name "Principal"`), `the current section is marked…` y `Jugadores is the current section on /` (`toHaveStyle`: falta `boxShadow: inset 0 -2px 0 #bd93f9; fontWeight: 700`), y `Jugadores is the current section on /jugadores/p1` (`toHaveAttribute("aria-current", "page")`: sin atributo); los 6 existentes pasan con el `ThemeProvider`.
 
-- [ ] **Step 2.2: Implementar la navegación**
+- [x] **Step 2.2: Implementar la navegación**
 
 En `src/app/AppLayout.tsx`:
 
@@ -362,7 +362,7 @@ Comprobación: `grep -n "color: 'primary" src/app/AppLayout.tsx` → sin salida 
 Run: `pnpm exec vitest run src/app/AppLayout.test.tsx`
 Expected: 10 tests PASS.
 
-- [ ] **Step 2.3: Tests del rol con MUI (rojo)**
+- [x] **Step 2.3: Tests del rol con MUI (rojo)**
 
 En `src/users/UsersPage.test.tsx`:
 
@@ -405,7 +405,7 @@ Expected: FAIL en 3 tests (mensajes verificados por el planner):
 
 2 pasan.
 
-- [ ] **Step 2.4: Implementar los selects de MUI**
+- [x] **Step 2.4: Implementar los selects de MUI**
 
 En `src/users/UsersPage.tsx`:
 
@@ -483,7 +483,7 @@ Expected: 5 tests PASS.
 
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint src/app src/users` → exit 0.
 
-- [ ] **Step 2.5: Commit**
+- [x] **Step 2.5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-i-users-auth.md src/app/AppLayout.tsx src/app/AppLayout.test.tsx src/users/UsersPage.tsx src/users/UsersPage.test.tsx

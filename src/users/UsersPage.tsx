@@ -9,6 +9,8 @@ import Alert from '@mui/material/Alert'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
+import MenuItem from '@mui/material/MenuItem'
+import Select from '@mui/material/Select'
 import { supabase } from '../lib/supabase'
 import { inviteUser } from './inviteUser'
 
@@ -19,6 +21,13 @@ interface ProfileRow {
   full_name: string
   role: Role
 }
+
+const ROLE_LABELS: Record<Role, string> = {
+  readonly: 'Solo lectura',
+  admin: 'Administrador',
+}
+
+const ROLES: Role[] = ['readonly', 'admin']
 
 const INVITE_ERROR_MESSAGES: Record<string, string> = {
   email_exists: 'Ese correo ya está registrado',
@@ -99,11 +108,13 @@ export function UsersPage() {
           label="Rol de la invitación"
           value={role}
           onChange={(e) => setRole(e.target.value as Role)}
-          slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
           sx={{ minWidth: 160 }}
         >
-          <option value="readonly">Solo lectura</option>
-          <option value="admin">Administrador</option>
+          {ROLES.map((r) => (
+            <MenuItem key={r} value={r}>
+              {ROLE_LABELS[r]}
+            </MenuItem>
+          ))}
         </TextField>
         <Button type="submit" variant="contained">Invitar</Button>
       </Stack>
@@ -121,23 +132,22 @@ export function UsersPage() {
           <ListItem
             key={u.id}
             secondaryAction={
-              <TextField
-                select
+              <Select
                 size="small"
                 value={u.role}
                 onChange={(e) => void changeRole(u.id, e.target.value as Role)}
-                slotProps={{
-                  select: { native: true },
-                  htmlInput: { 'aria-label': `Rol de ${u.full_name}` },
-                }}
+                inputProps={{ 'aria-label': `Rol de ${u.full_name}` }}
                 sx={{ minWidth: 150 }}
               >
-                <option value="readonly">Solo lectura</option>
-                <option value="admin">Administrador</option>
-              </TextField>
+                {ROLES.map((r) => (
+                  <MenuItem key={r} value={r}>
+                    {ROLE_LABELS[r]}
+                  </MenuItem>
+                ))}
+              </Select>
             }
           >
-            <ListItemText primary={`${u.full_name} — ${u.role}`} />
+            <ListItemText primary={u.full_name} />
           </ListItem>
         ))}
       </List>
