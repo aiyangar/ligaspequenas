@@ -37,11 +37,11 @@
 - Modify: `ops/backup/safe-error.test.ts` (l.60–65)
 - Modify: `ops/backup/lib/safe-error.ts` (imports; l.69–77)
 
-- [ ] **Step 0: Preparar y medir el baseline**
+- [x] **Step 0: Preparar y medir el baseline**
 
 `git -C $WT branch --show-current` → `fix/backups-review-minors`; `git -C $WT log --oneline origin/develop..HEAD` → vacío. En `$WT`: `pnpm install --frozen-lockfile`, `pnpm exec vitest run` (anota `B_files` y `B_tests`, todo verde) y `pnpm exec vitest run ops/backup` (esperado hoy: `Test Files 5 passed (5)`, `Tests 103 passed (103)`).
 
-- [ ] **Step 1: Escribir los tests (rojo)**
+- [x] **Step 1: Escribir los tests (rojo)**
 
 En `ops/backup/safe-error.test.ts`, reemplaza el `test.each([...])(` de la línea 60 (solo su lista; el cuerpo `'the system code %s passes through'` no cambia) e inserta un test nuevo justo antes, para que quede así:
 
@@ -70,12 +70,12 @@ test.each([
 )
 ```
 
-- [ ] **Step 2: Verificar que fallan**
+- [x] **Step 2: Verificar que fallan**
 
 Run: `pnpm exec vitest run ops/backup/safe-error.test.ts`
 Expected: 2 FAIL — `an uppercase code that is not a Node errno is never printed` (`expected 'error: ESECRETKEY1QQQ' to be 'error: unknown'`) y `the system code EAI_AGAIN passes through` (`expected 'error: unknown' to be 'error: EAI_AGAIN'`). El resto pasa (`ECONNRESET`, `ETIMEDOUT` y `ENOTFOUND` ya pasan con el regex actual).
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 En `ops/backup/lib/safe-error.ts`:
 
@@ -110,12 +110,12 @@ function codeOf(value: unknown): string | undefined {
 
 (`getSystemErrorMap()` trae los nombres de libuv, `ENOENT`, `ECONNREFUSED`, `EAI_AGAIN`…; las constantes de `node:dns` traen los códigos que no son de libuv, como `ENOTFOUND` y `ETIMEOUT`. El filtro descarta `UNKNOWN` y todo lo que no sea string. Verificado en Node 24.14: 85 nombres de libuv, 24 de DNS.)
 
-- [ ] **Step 4: Verificar que pasan**
+- [x] **Step 4: Verificar que pasan**
 
 Run: `pnpm exec vitest run ops/backup/safe-error.test.ts`
 Expected: todo PASS (los 2 que fallaban incluidos).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-k-backups.md ops/backup/lib/safe-error.ts ops/backup/safe-error.test.ts
