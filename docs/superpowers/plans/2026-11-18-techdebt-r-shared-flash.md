@@ -36,10 +36,10 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `update/shared-flash-helper`.
-- [ ] **Step 0.2:** Q está en la base: `git -C $WT log --oneline -1 --grep "#145" origin/develop` → una línea (`fix: ignore stale player refreshes…`), y `grep -c "refreshRequest" $WT/src/players/PlayerFormPage.tsx` → mayor que 0. Si no, **detente** y avisa al orquestador.
-- [ ] **Step 0.3:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.4:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado: 48 y 572 si nada más se mergeó; si S, T, U o V ya entraron, los números serán mayores; lo que cuenta es el delta).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `update/shared-flash-helper`.
+- [x] **Step 0.2:** Q está en la base: `git -C $WT log --oneline -1 --grep "#145" origin/develop` → una línea (`fix: ignore stale player refreshes…`), y `grep -c "refreshRequest" $WT/src/players/PlayerFormPage.tsx` → mayor que 0. Si no, **detente** y avisa al orquestador.
+- [x] **Step 0.3:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.4:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado: 48 y 572 si nada más se mergeó; si S, T, U o V ya entraron, los números serán mayores; lo que cuenta es el delta).
 
 ---
 
@@ -52,7 +52,7 @@
 **Interfaces:**
 - Produces: `export function flashOf(state: unknown): string | null` en `src/lib/flash.ts` (Task 2 lo importa).
 
-- [ ] **Step 1.1: Escribir el test (rojo)**
+- [x] **Step 1.1: Escribir el test (rojo)**
 
 `src/lib/flash.test.ts` (Vitest con globals, como `src/lib/category.test.ts`):
 
@@ -74,7 +74,7 @@ test('flashOf is null when history state carries no flash', () => {
 Run: `pnpm exec vitest run src/lib/flash.test.ts`
 Expected (verificado por el planner): FAIL del archivo con `Error: Failed to resolve import "./flash" from "src/lib/flash.test.ts". Does the file exist?` (`Tests  no tests`).
 
-- [ ] **Step 1.2: Implementar**
+- [x] **Step 1.2: Implementar**
 
 Crea `src/lib/flash.ts` con `export function flashOf(state: unknown): string | null` y exactamente el cuerpo de las copias actuales:
 
@@ -86,7 +86,7 @@ Sin comentarios.
 
 Run: `pnpm exec vitest run src/lib/flash.test.ts` → 2 tests PASS.
 
-- [ ] **Step 1.3: Commit**
+- [x] **Step 1.3: Commit**
 
 `git -C $WT status -s` → solo `src/lib/flash.ts`, `src/lib/flash.test.ts` (ambos `??`) y este plan.
 
