@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, onTestFinished, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
@@ -371,6 +371,16 @@ function exportButton() {
   return screen.getByRole('button', { name: 'Exportar a Excel' })
 }
 
+// Browsers ignore focus() on a disabled button; jsdom honors it because MUI sets tabindex.
+function ignoreFocusOnDisabledButtons() {
+  const realFocus = HTMLElement.prototype.focus
+  const focus = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement, options) {
+    if (this instanceof HTMLButtonElement && this.disabled) return
+    realFocus.call(this, options)
+  })
+  onTestFinished(() => focus.mockRestore())
+}
+
 function deferred() {
   let resolve!: () => void
   let reject!: (error: Error) => void
@@ -467,13 +477,7 @@ test('two clicks in the same tick export once', async () => {
 test('focus returns to the export button once it is enabled again', async () => {
   const run = deferred()
   mocks.exportPlayersToExcel.mockReturnValue(run.promise)
-  // Browsers ignore focus() on a disabled button; jsdom honors it because MUI sets tabindex.
-  const realFocus = HTMLElement.prototype.focus
-  const focus = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement, options) {
-    if (this instanceof HTMLButtonElement && this.disabled) return
-    realFocus.call(this, options)
-  })
-  onTestFinished(() => focus.mockRestore())
+  ignoreFocusOnDisabledButtons()
   const user = userEvent.setup()
   renderPage()
   await screen.findByText('Ana Ruiz')
@@ -482,6 +486,27 @@ test('focus returns to the export button once it is enabled again', async () => 
   act(() => exportButton().blur())
   expect(document.body).toHaveFocus()
   await act(async () => run.resolve())
+  await waitFor(() => expect(exportButton()).toBeEnabled())
+  expect(exportButton()).toHaveFocus()
+})
+
+test('focus waits for the export button when the filters keep it disabled after the export', async () => {
+  const run = deferred()
+  mocks.exportPlayersToExcel.mockReturnValue(run.promise)
+  ignoreFocusOnDisabledButtons()
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  await user.click(exportButton())
+  await user.selectOptions(screen.getByLabelText('Pago'), 'al_corriente')
+  await user.selectOptions(screen.getByLabelText('Documentos'), 'completos')
+  act(() => (document.activeElement as HTMLElement).blur())
+  expect(document.body).toHaveFocus()
+  await act(async () => run.resolve())
+  await waitFor(() => expect(exportButton()).toHaveAttribute('aria-busy', 'false'))
+  expect(exportButton()).toBeDisabled()
+  expect(document.body).toHaveFocus()
+  fireEvent.change(screen.getByLabelText('Documentos'), { target: { value: '' } })
   await waitFor(() => expect(exportButton()).toBeEnabled())
   expect(exportButton()).toHaveFocus()
 })
@@ -513,14 +538,21 @@ test('a failed export shows an error, re-enables the button, and a later success
   expect(mocks.exportPlayersToExcel).toHaveBeenCalledTimes(2)
 })
 
-test('changing a filter clears a stale export error', async () => {
+test.each([
+  ['Categoría', 'cat2'],
+  ['Estatus', 'activo'],
+  ['Equipo', 'team9'],
+  ['Pago', 'con_adeudo'],
+  ['Documentos', 'completos'],
+  ['Afiliación', 'autoriza'],
+])('changing the %s filter clears a stale export error', async (label, value) => {
   mocks.exportPlayersToExcel.mockRejectedValueOnce(new Error('chunk failed'))
   const user = userEvent.setup()
   renderPage()
   await screen.findByText('Ana Ruiz')
   await user.click(exportButton())
   expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo generar el archivo de Excel. Intenta de nuevo.')
-  await user.selectOptions(screen.getByLabelText('Estatus'), 'activo')
+  await user.selectOptions(screen.getByLabelText(label), value)
   await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
   expect(mocks.exportPlayersToExcel).toHaveBeenCalledTimes(1)
 })

@@ -142,12 +142,14 @@ export function PlayersPage() {
     }
   }
 
+  const exportDisabled = loadError || visible.length === 0 || exporting
+
   // focus() on the still-disabled button is a no-op in browsers, so wait for the render that enables it
   useEffect(() => {
-    if (exporting || !restoreExportFocus.current) return
+    if (exportDisabled || !restoreExportFocus.current) return
     restoreExportFocus.current = false
     if (document.activeElement === document.body) exportButtonRef.current?.focus()
-  }, [exporting])
+  }, [exportDisabled])
 
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto', mt: 4, px: 2 }}>
@@ -166,7 +168,7 @@ export function PlayersPage() {
               ref={exportButtonRef}
               variant="outlined"
               onClick={() => void handleExport()}
-              disabled={loadError || visible.length === 0 || exporting}
+              disabled={exportDisabled}
               aria-busy={exporting}
             >
               Exportar a Excel
