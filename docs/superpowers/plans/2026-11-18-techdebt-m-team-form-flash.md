@@ -175,7 +175,7 @@ git -C $WT commit -m "fix: show the team form's success flash once and drop it f
 
 Hoy ningún test cubre a dónde navega `TeamFormPage` al guardar ni qué `state` manda. Este test fija el contrato que Task 1 consume; pasa desde el inicio y el rojo se demuestra con mutación.
 
-- [ ] **Step 2.1: Escribir los tests**
+- [x] **Step 2.1: Escribir los tests**
 
 En `src/teams/TeamFormPage.test.tsx`:
 
@@ -213,7 +213,7 @@ test('creating hands the new team page its success flash in history state', asyn
 Run: `pnpm exec vitest run src/teams/TeamFormPage.test.tsx`
 Expected: 7 tests PASS (verificado por el planner).
 
-- [ ] **Step 2.2: Mutación (rojo demostrado)**
+- [x] **Step 2.2: Mutación (rojo demostrado)**
 
 En `src/teams/TeamFormPage.tsx` l.88, cambia temporalmente `{ state: { flash: 'Cambios guardados' } }` por `{ state: { message: 'Cambios guardados' } }`.
 
@@ -222,11 +222,11 @@ Expected: FAIL solo en `saving hands the team page its success flash in history 
 
 Restaura: `git -C $WT checkout -- src/teams/TeamFormPage.tsx`; `git -C $WT diff --stat -- src/teams/TeamFormPage.tsx` → vacío. Vuelve a correr → 7 PASS.
 
-- [ ] **Step 2.3: Suite completa, tipos y lint**
+- [x] **Step 2.3: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `B_tests + 6` tests, todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 2.4: Commit**
+- [x] **Step 2.4: Commit**
 
 `git -C $WT status -s` → solo `TeamFormPage.test.tsx` y este plan.
 
