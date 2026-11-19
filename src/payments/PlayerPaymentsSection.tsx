@@ -26,6 +26,10 @@ import {
 } from './payments'
 import type { MutationResult, PaymentFormValues, PaymentRow } from './payments'
 
+function paymentLabel(p: PaymentRow): string {
+  return `${paymentText(p)} · ${formatMoney(p.amount)} · ${formatPaymentDate(p.payment_date)}`
+}
+
 export interface PlayerPaymentsSectionProps {
   playerId: string
   tenantId: string
@@ -41,6 +45,7 @@ export function PlayerPaymentsSection({ playerId, tenantId, canEdit, onChanged }
   const [dialogKey, setDialogKey] = useState(0)
   const [editing, setEditing] = useState<PaymentRow | null>(null)
   const [confirm, setConfirm] = useState<PaymentRow | null>(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const deleteInFlight = useRef(false)
@@ -89,13 +94,18 @@ export function PlayerPaymentsSection({ playerId, tenantId, canEdit, onChanged }
     return res
   }
 
+  function openConfirm(payment: PaymentRow) {
+    setConfirm(payment)
+    setConfirmOpen(true)
+  }
+
   async function handleDelete() {
-    if (!confirm || deleteInFlight.current) return
+    if (!confirm || !confirmOpen || deleteInFlight.current) return
     deleteInFlight.current = true
     setDeleting(true)
     try {
       const res = await deletePayment(confirm.id)
-      setConfirm(null)
+      setConfirmOpen(false)
       if (res.ok) {
         setError(null)
         reload()
@@ -145,10 +155,10 @@ export function PlayerPaymentsSection({ playerId, tenantId, canEdit, onChanged }
               </Typography>
               {canEdit && (
                 <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                  <Button size="small" onClick={() => openDialog(p)}>
+                  <Button size="small" onClick={() => openDialog(p)} aria-label={`Editar ${paymentLabel(p)}`}>
                     Editar
                   </Button>
-                  <Button size="small" color="error" onClick={() => setConfirm(p)}>
+                  <Button size="small" color="error" onClick={() => openConfirm(p)} aria-label={`Borrar ${paymentLabel(p)}`}>
                     Borrar
                   </Button>
                 </Stack>
@@ -167,17 +177,18 @@ export function PlayerPaymentsSection({ playerId, tenantId, canEdit, onChanged }
         />
       )}
       <Dialog
-        open={confirm !== null}
+        open={confirmOpen}
         onClose={() => {
-          if (!deleting) setConfirm(null)
+          if (!deleting) setConfirmOpen(false)
         }}
         aria-labelledby="delete-payment-title"
+        slotProps={{ transition: { onExited: () => setConfirm(null) } }}
       >
         <DialogTitle id="delete-payment-title">
           {confirm ? `¿Borrar el pago de ${paymentText(confirm)}?` : ''}
         </DialogTitle>
         <DialogActions>
-          <Button onClick={() => setConfirm(null)} disabled={deleting}>
+          <Button onClick={() => setConfirmOpen(false)} disabled={deleting}>
             Cancelar
           </Button>
           <Button color="error" onClick={() => void handleDelete()} disabled={deleting}>

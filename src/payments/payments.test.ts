@@ -136,6 +136,19 @@ test('paymentErrorMessage translates RLS rejections only', () => {
   expect(paymentErrorMessage('network down')).toBe('network down')
 })
 
+test('paymentErrorMessage reads 403 only as a whole word', () => {
+  expect(paymentErrorMessage('Request failed with status 403')).toBe('No tienes permiso para esta acción.')
+  expect(paymentErrorMessage('403 Forbidden')).toBe('No tienes permiso para esta acción.')
+  expect(paymentErrorMessage('Unauthorized')).toBe('No tienes permiso para esta acción.')
+  expect(paymentErrorMessage('amount 14030 is out of range')).toBe('amount 14030 is out of range')
+  expect(paymentErrorMessage('payment 9f403a2c not found')).toBe('payment 9f403a2c not found')
+})
+
+test('paymentErrorMessage translates a Postgres 42501 permission denied', () => {
+  expect(paymentErrorMessage('permission denied for table payments')).toBe('No tienes permiso para esta acción.')
+  expect(paymentErrorMessage('Permission denied for schema private')).toBe('No tienes permiso para esta acción.')
+})
+
 test('fetchPlayerPayments filters by player, orders on the server and normalizes amounts', async () => {
   respond([row({ amount: '150.50' as unknown as number })])
   const rows = await fetchPlayerPayments('p1')

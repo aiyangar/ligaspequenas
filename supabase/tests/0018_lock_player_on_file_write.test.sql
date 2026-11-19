@@ -42,7 +42,7 @@ select extensions.is(
   (select 'search_path=""' = any (proconfig) from pg_proc where oid = 'private.player_file_path_allowed(text)'::regprocedure),
   true, 'path helper pins an empty search_path');
 select extensions.is(
-  (select d ~ 'from public\.players p\s+where p\.id::text = v_parts\[2\] and p\.tenant_id = v_tenant\s+for share;'
+  (select d ~ 'from public\.players p\s+where\s+(p\.id::text\s*=\s*v_parts\[2\]|p\.id\s*=\s*v_parts\[2\]::uuid)\s+and\s+p\.tenant_id\s*=\s*v_tenant\s+for share;'
           and position('for share;' in d) < position('player_consent_granted' in d)
    from (select lower(pg_get_functiondef('private.player_file_path_allowed(text)'::regprocedure)) as d) s),
   true, 'path helper locks the players row FOR SHARE before the consent check');

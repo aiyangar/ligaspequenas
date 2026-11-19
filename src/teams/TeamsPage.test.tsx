@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
@@ -70,4 +70,31 @@ test('a failed load offers Reintentar instead of the empty state', async () => {
   await user.click(screen.getByRole('button', { name: 'Reintentar' }))
   expect(await screen.findByText('MTY AC Rojo')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument()
+})
+
+test('each team is a list item that holds its link', async () => {
+  renderPage()
+  await screen.findByText('MTY AC Rojo')
+  const list = screen.getByRole('list')
+  const links = within(list).getAllByRole('link')
+  expect(links).toHaveLength(2)
+  for (const link of links) expect(link.closest('li')).not.toBeNull()
+  expect(list.querySelectorAll(':scope > a')).toHaveLength(0)
+})
+
+test('the first load and a retry show Cargando… until the teams arrive', async () => {
+  let finishRetry!: (rows: TeamRow[]) => void
+  mocks.fetchTeams
+    .mockRejectedValueOnce(new Error('boom'))
+    .mockReturnValueOnce(new Promise<TeamRow[]>((r) => { finishRetry = r }))
+  const user = userEvent.setup()
+  renderPage()
+  expect(screen.getByText('Cargando…')).toBeInTheDocument()
+  const retry = await screen.findByRole('button', { name: 'Reintentar' })
+  expect(screen.queryByText('Cargando…')).not.toBeInTheDocument()
+  await user.click(retry)
+  expect(screen.getByText('Cargando…')).toBeInTheDocument()
+  await act(async () => finishRetry([team({ id: 't1', name: 'MTY AC Rojo' })]))
+  expect(await screen.findByText('MTY AC Rojo')).toBeInTheDocument()
+  expect(screen.queryByText('Cargando…')).not.toBeInTheDocument()
 })

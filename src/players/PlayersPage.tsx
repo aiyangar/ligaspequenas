@@ -6,6 +6,7 @@ import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
 import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import Chip from '@mui/material/Chip'
@@ -58,12 +59,14 @@ export function PlayersPage() {
   const [paymentState, setPaymentState] = useState<'' | PaymentState>('')
   const [docsFilter, setDocsFilter] = useState<DocsFilter>('')
   const [affiliation, setAffiliation] = useState<'' | AffiliationStatus>('')
+  const [loaded, setLoaded] = useState(false)
   const [loadError, setLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const exportingRef = useRef(false)
   const exportButtonRef = useRef<HTMLButtonElement>(null)
+  const restoreExportFocus = useRef(false)
 
   const load = useCallback(async (): Promise<PlayerRow[]> => fetchPlayers(), [])
 
@@ -74,6 +77,7 @@ export function PlayersPage() {
         if (!active) return
         setLoadError(false)
         setPlayers(rows)
+        setLoaded(true)
       })
       .catch(() => {
         if (active) setLoadError(true)
@@ -87,6 +91,20 @@ export function PlayersPage() {
     setLoadError(false)
     setReloadKey((k) => k + 1)
   }
+
+  function filterSetter<T>(set: (value: T) => void) {
+    return (value: T) => {
+      setExportError(null)
+      set(value)
+    }
+  }
+  const changeSearch = filterSetter(setSearch)
+  const changeCategoryId = filterSetter(setCategoryId)
+  const changeStatus = filterSetter(setStatus)
+  const changeTeamId = filterSetter(setTeamId)
+  const changePaymentState = filterSetter(setPaymentState)
+  const changeDocsFilter = filterSetter(setDocsFilter)
+  const changeAffiliation = filterSetter(setAffiliation)
 
   const categories = useMemo(
     () => uniqueOptions(players.map((p) => [p.category_id, p.category_name])),
@@ -122,10 +140,19 @@ export function PlayersPage() {
       setExportError('No se pudo generar el archivo de Excel. Intenta de nuevo.')
     } finally {
       exportingRef.current = false
+      restoreExportFocus.current = true
       setExporting(false)
-      if (document.activeElement === document.body) exportButtonRef.current?.focus()
     }
   }
+
+  const exportDisabled = loadError || visible.length === 0 || exporting
+
+  // focus() on the still-disabled button is a no-op in browsers, so wait for the render that enables it
+  useEffect(() => {
+    if (exportDisabled || !restoreExportFocus.current) return
+    restoreExportFocus.current = false
+    if (document.activeElement === document.body) exportButtonRef.current?.focus()
+  }, [exportDisabled])
 
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto', mt: 4, px: 2 }}>
@@ -144,7 +171,7 @@ export function PlayersPage() {
               ref={exportButtonRef}
               variant="outlined"
               onClick={() => void handleExport()}
-              disabled={loadError || visible.length === 0 || exporting}
+              disabled={exportDisabled}
               aria-busy={exporting}
             >
               Exportar a Excel
@@ -164,6 +191,8 @@ export function PlayersPage() {
 
       {loadError ? (
         <LoadError onRetry={handleRetry} />
+      ) : !loaded ? (
+        <Typography sx={{ mt: 2 }}>Cargando…</Typography>
       ) : (
         <>
           <Stack
@@ -175,14 +204,14 @@ export function PlayersPage() {
             <TextField
               label="Buscar por nombre"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => changeSearch(e.target.value)}
               sx={{ flexGrow: 1, minWidth: 200 }}
             />
             <TextField
               select
               label="Categoría"
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
+              onChange={(e) => changeCategoryId(e.target.value)}
               slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
               sx={{ minWidth: 180 }}
             >
@@ -197,7 +226,7 @@ export function PlayersPage() {
               select
               label="Estatus"
               value={status}
-              onChange={(e) => setStatus(e.target.value as '' | PlayerStatus)}
+              onChange={(e) => changeStatus(e.target.value as '' | PlayerStatus)}
               slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
               sx={{ minWidth: 140 }}
             >
@@ -209,7 +238,7 @@ export function PlayersPage() {
               select
               label="Equipo"
               value={teamId}
-              onChange={(e) => setTeamId(e.target.value)}
+              onChange={(e) => changeTeamId(e.target.value)}
               slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
               sx={{ minWidth: 160 }}
             >
@@ -224,7 +253,7 @@ export function PlayersPage() {
               select
               label="Pago"
               value={paymentState}
-              onChange={(e) => setPaymentState(e.target.value as '' | PaymentState)}
+              onChange={(e) => changePaymentState(e.target.value as '' | PaymentState)}
               slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
               sx={{ minWidth: 160 }}
             >
@@ -239,7 +268,7 @@ export function PlayersPage() {
               select
               label="Documentos"
               value={docsFilter}
-              onChange={(e) => setDocsFilter(e.target.value as DocsFilter)}
+              onChange={(e) => changeDocsFilter(e.target.value as DocsFilter)}
               slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
               sx={{ minWidth: 160 }}
             >
@@ -251,7 +280,7 @@ export function PlayersPage() {
               select
               label="Afiliación"
               value={affiliation}
-              onChange={(e) => setAffiliation(e.target.value as '' | AffiliationStatus)}
+              onChange={(e) => changeAffiliation(e.target.value as '' | AffiliationStatus)}
               slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
               sx={{ minWidth: 160 }}
             >
@@ -264,35 +293,43 @@ export function PlayersPage() {
             </TextField>
           </Stack>
 
-          <List sx={{ mt: 2 }}>
-            {visible.map((p) => (
-              <ListItemButton key={p.id} component={RouterLink} to={`/jugadores/${p.id}`}>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <ListItemText
-                    primary={p.full_name}
-                    secondary={`${playerCategoryText(p)} · ${p.status}${p.team_name ? ` · ${p.team_name}` : ''}`}
-                  />
-                  <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
-                    <Chip
-                      size="small"
-                      label={PAYMENT_STATE_LABELS[p.payment_state]}
-                      color={PAYMENT_STATE_COLOR[p.payment_state]}
-                    />
-                    <Chip
-                      size="small"
-                      label={`Docs ${p.docs_delivered}/${DOCUMENT_TOTAL}`}
-                      color={docsComplete(p) ? 'success' : 'warning'}
-                    />
-                    <Chip
-                      size="small"
-                      label={`Afiliación: ${AFFILIATION_STATUS_LABELS[p.affiliation_status]}`}
-                      color={AFFILIATION_COLOR[p.affiliation_status]}
-                    />
-                  </Stack>
-                </Box>
-              </ListItemButton>
-            ))}
-          </List>
+          {players.length > 0 && visible.length === 0 ? (
+            <Typography role="status" color="text.secondary" sx={{ mt: 2 }}>
+              Sin jugadores con estos filtros.
+            </Typography>
+          ) : (
+            <List sx={{ mt: 2 }}>
+              {visible.map((p) => (
+                <ListItem key={p.id} disablePadding>
+                  <ListItemButton component={RouterLink} to={`/jugadores/${p.id}`}>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <ListItemText
+                        primary={p.full_name}
+                        secondary={`${playerCategoryText(p)} · ${p.status}${p.team_name ? ` · ${p.team_name}` : ''}`}
+                      />
+                      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
+                        <Chip
+                          size="small"
+                          label={PAYMENT_STATE_LABELS[p.payment_state]}
+                          color={PAYMENT_STATE_COLOR[p.payment_state]}
+                        />
+                        <Chip
+                          size="small"
+                          label={`Docs ${p.docs_delivered}/${DOCUMENT_TOTAL}`}
+                          color={docsComplete(p) ? 'success' : 'warning'}
+                        />
+                        <Chip
+                          size="small"
+                          label={`Afiliación: ${AFFILIATION_STATUS_LABELS[p.affiliation_status]}`}
+                          color={AFFILIATION_COLOR[p.affiliation_status]}
+                        />
+                      </Stack>
+                    </Box>
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          )}
         </>
       )}
     </Box>

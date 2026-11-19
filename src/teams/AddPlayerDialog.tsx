@@ -6,6 +6,7 @@ import DialogActions from '@mui/material/DialogActions'
 import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
 import ListSubheader from '@mui/material/ListSubheader'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
@@ -35,6 +36,17 @@ export function AddPlayerDialog({ open, categoryId, teamId, onAssign, onMove, on
   const [loadError, setLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [loading, setLoading] = useState(true)
+  const source = `${categoryId}/${teamId}`
+  const [loadedSource, setLoadedSource] = useState(source)
+
+  // Adjusting state during render (not in the effect) so the previous list is not rendered for the new source.
+  if (loadedSource !== source) {
+    setLoadedSource(source)
+    setLoadError(false)
+    setLoading(true)
+    setSearch('')
+    setPending(null)
+  }
 
   // Reset search/pending inside the async callback (not synchronously in the
   // effect body) to satisfy react-hooks/set-state-in-effect.
@@ -115,16 +127,17 @@ export function AddPlayerDialog({ open, categoryId, teamId, onAssign, onMove, on
                 subheader={<ListSubheader>{g.teamId ? `En ${g.teamName}` : 'Sin equipo'}</ListSubheader>}
               >
                 {g.players.map((p) => (
-                  <ListItemButton
-                    key={p.id}
-                    onClick={() =>
-                      g.teamId
-                        ? setPending({ player: p, fromTeamName: g.teamName ?? '' })
-                        : onAssign(p.id)
-                    }
-                  >
-                    <ListItemText primary={p.full_name} secondary={`edad ${p.edad_liga ?? '—'}`} />
-                  </ListItemButton>
+                  <ListItem key={p.id} disablePadding>
+                    <ListItemButton
+                      onClick={() =>
+                        g.teamId
+                          ? setPending({ player: p, fromTeamName: g.teamName ?? '' })
+                          : onAssign(p.id)
+                      }
+                    >
+                      <ListItemText primary={p.full_name} secondary={`edad ${p.edad_liga ?? '—'}`} />
+                    </ListItemButton>
+                  </ListItem>
                 ))}
               </List>
             ))}

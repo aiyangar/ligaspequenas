@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
+import { Link as RouterLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import Button from '@mui/material/Button'
@@ -8,12 +8,14 @@ import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import Alert from '@mui/material/Alert'
+import Snackbar from '@mui/material/Snackbar'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
+import { flashOf } from '../lib/flash'
 import { LoadError } from '../app/LoadError'
 import { NotFoundState } from '../app/NotFoundState'
 import { AddPlayerDialog } from './AddPlayerDialog'
@@ -27,6 +29,7 @@ import { playerCategoryText } from '../players/players'
 export function TeamDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { role, tenantId } = useTenant()
   const canEdit = isAdmin(role)
 
@@ -39,6 +42,14 @@ export function TeamDetailPage() {
   const [loadError, setLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [loaded, setLoaded] = useState(false)
+  // the team form always lands here on a fresh mount, so reading the flash at mount is enough
+  const [toast, setToast] = useState<string | null>(() => flashOf(location.state))
+  const hasFlash = flashOf(location.state) !== null
+
+  useEffect(() => {
+    // history state survives a reload, so drop the flash once the toast holds it
+    if (hasFlash) void navigate(location.pathname, { replace: true, state: null })
+  }, [hasFlash, location.pathname, navigate])
 
   const load = useCallback(async () => {
     if (!id) return null
@@ -257,6 +268,17 @@ export function TeamDetailPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={toast !== null}
+        autoHideDuration={4000}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setToast(null)} severity="success" variant="filled" sx={{ width: '100%' }}>
+          {toast}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

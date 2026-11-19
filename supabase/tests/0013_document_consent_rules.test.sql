@@ -1,7 +1,22 @@
 begin;
-select extensions.plan(21);
+select extensions.plan(22);
 
--- fixtures: tenants X/Y, admin X, readonly X, admin Y, players P/Q in X (see plan Task 1 fixture block), created after 0013
+-- tenants X/Y, admin X, readonly X, admin Y, players P/Q in X; the seed trigger gives each player 6 pendiente documents
+insert into public.tenants (id, name, slug) values
+  ('cccccccc-0000-0000-0000-000000000001', 'Test Docs X', 'test-docs-x'),
+  ('cccccccc-0000-0000-0000-000000000002', 'Test Docs Y', 'test-docs-y');
+insert into auth.users (id, email) values
+  ('cccccccc-1111-0000-0000-000000000001', 'admin-x@docs.test'),
+  ('cccccccc-1111-0000-0000-000000000002', 'readonly-x@docs.test'),
+  ('cccccccc-1111-0000-0000-000000000003', 'admin-y@docs.test');
+insert into public.profiles (id, tenant_id, full_name, role) values
+  ('cccccccc-1111-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000001', 'Admin X', 'admin'),
+  ('cccccccc-1111-0000-0000-000000000002', 'cccccccc-0000-0000-0000-000000000001', 'Readonly X', 'readonly'),
+  ('cccccccc-1111-0000-0000-000000000003', 'cccccccc-0000-0000-0000-000000000002', 'Admin Y', 'admin');
+insert into public.players (id, tenant_id, full_name, birth_date, tutor_name, tutor_whatsapp) values
+  ('cccccccc-2222-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000001', 'Docs Test P', '2015-06-10', 'Tutor', '111'),
+  ('cccccccc-2222-0000-0000-000000000002', 'cccccccc-0000-0000-0000-000000000001', 'Docs Test Q', '2015-06-10', 'Tutor', '111');
+
 create or replace function pg_temp.try_sql(p_sql text) returns text
 language plpgsql as $$
 begin
@@ -34,6 +49,9 @@ select extensions.is(
 select extensions.is(
   pg_temp.try_sql($q$update public.documents set status = 'digital', file_path = 'cccccccc-0000-0000-0000-000000000001/cccccccc-2222-0000-0000-000000000001/image_consent' where player_id = 'cccccccc-2222-0000-0000-000000000001' and doc_type = 'image_consent'$q$),
   'ok', 'digital image_consent is exempt from the lock');
+select extensions.is(
+  pg_temp.try_sql($q$update public.documents set status = 'digital', file_path = 'cccccccc-0000-0000-0000-000000000001/cccccccc-2222-0000-0000-000000000002/privacy_notice' where player_id = 'cccccccc-2222-0000-0000-000000000002' and doc_type = 'privacy_notice'$q$),
+  'ok', 'digital privacy_notice is exempt from the lock');
 select extensions.is(
   pg_temp.try_sql($q$update public.documents set status = 'fisico', file_path = null where player_id = 'cccccccc-2222-0000-0000-000000000001' and doc_type = 'privacy_notice'$q$),
   'ok', 'privacy_notice to fisico');
@@ -110,6 +128,15 @@ select extensions.is(
   pg_temp.try_sql($q$update public.documents set status = 'pendiente', file_path = null where player_id = 'cccccccc-2222-0000-0000-000000000001' and doc_type = 'image_consent'$q$),
   'ok', 'revoking consent with no files in use is allowed');
 select set_config('role', 'postgres', true);
+
+-- cleanup runs before finish() so the MCP form executes it
+select set_config('role', 'postgres', true), set_config('request.jwt.claims', '', true);
+select set_config('storage.allow_delete_query', 'true', true);
+delete from storage.objects where bucket_id = 'player-files' and name like 'cccccccc-0000-0000-0000-00000000000%';
+delete from public.players where id in ('cccccccc-2222-0000-0000-000000000001', 'cccccccc-2222-0000-0000-000000000002');
+delete from public.profiles where id::text like 'cccccccc-1111-%';
+delete from auth.users where id::text like 'cccccccc-1111-%';
+delete from public.tenants where id::text like 'cccccccc-0000-%';
 
 select * from extensions.finish();
 rollback;

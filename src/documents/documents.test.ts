@@ -7,7 +7,7 @@ import {
 import type { DocumentRow } from './documents'
 
 const mocks = vi.hoisted(() => ({
-  from: vi.fn(), select: vi.fn(), selectEq: vi.fn(), update: vi.fn(), updateEq: vi.fn(),
+  from: vi.fn(), select: vi.fn(), selectEq: vi.fn(), update: vi.fn(), updateEq: vi.fn(), updateSelect: vi.fn(),
   storageFrom: vi.fn(), upload: vi.fn(), remove: vi.fn(), list: vi.fn(), createSignedUrl: vi.fn(),
   calls: [] as string[],
 }))
@@ -33,10 +33,11 @@ beforeEach(() => {
   mocks.calls.length = 0
   mocks.selectEq.mockResolvedValue({ data: [], error: null })
   mocks.select.mockReturnValue({ eq: mocks.selectEq })
-  mocks.updateEq.mockImplementation(async () => {
+  mocks.updateSelect.mockImplementation(async () => {
     mocks.calls.push('update')
-    return { error: null }
+    return { data: [{ id: 'd1' }], error: null }
   })
+  mocks.updateEq.mockReturnValue({ select: mocks.updateSelect })
   mocks.update.mockReturnValue({ eq: mocks.updateEq })
   mocks.from.mockReturnValue({ select: mocks.select, update: mocks.update })
   mocks.upload.mockImplementation(async () => {
@@ -92,6 +93,23 @@ test('documentErrorMessage translates by prefix', () => {
   expect(documentErrorMessage('network down')).toBe('network down')
 })
 
+test('documentErrorMessage treats Unauthorized and a 403 status as a permission error', () => {
+  expect(documentErrorMessage('Unauthorized')).toBe('No tienes permiso para esta acción.')
+  expect(documentErrorMessage('Request failed with status 403')).toBe('No tienes permiso para esta acción.')
+  expect(documentErrorMessage('403 Forbidden', { consentGranted: false })).toBe(CONSENT_REQUIRED_MESSAGE)
+})
+
+test('documentErrorMessage does not read 403 inside a longer number or id', () => {
+  expect(documentErrorMessage('payload of 14030 bytes rejected')).toBe('payload of 14030 bytes rejected')
+  expect(documentErrorMessage('object 9f403a2c not found')).toBe('object 9f403a2c not found')
+})
+
+test('documentErrorMessage translates a Postgres 42501 permission denied like an RLS rejection', () => {
+  expect(documentErrorMessage('permission denied for table player_documents')).toBe('No tienes permiso para esta acción.')
+  expect(documentErrorMessage('Permission denied for schema private')).toBe('No tienes permiso para esta acción.')
+  expect(documentErrorMessage('permission denied for table players', { consentGranted: false })).toBe(CONSENT_REQUIRED_MESSAGE)
+})
+
 test('validateDocumentFile accepts the 4 MIME types up to exactly 10 MB', () => {
   expect(validateDocumentFile(file('application/pdf', 10 * 1024 * 1024))).toBeNull()
   expect(validateDocumentFile(file('image/webp', 1))).toBeNull()
@@ -129,6 +147,12 @@ test('removeFile with an empty result treats a missing object as gone', async ()
   expect(mocks.list).toHaveBeenCalledWith('t1/p1', { search: 'curp' })
 })
 
+test('removeFile with an empty result reports a list error', async () => {
+  mocks.remove.mockResolvedValueOnce({ data: [], error: null })
+  mocks.list.mockResolvedValueOnce({ data: null, error: { message: 'network down' } })
+  expect(await removeFile('t1/p1/curp')).toEqual({ ok: false, error: 'network down' })
+})
+
 test('removeFile with an empty result fails when the object still exists', async () => {
   mocks.remove.mockResolvedValueOnce({ data: [], error: null })
   mocks.list.mockResolvedValueOnce({ data: [{ name: 'curp' }], error: null })
@@ -139,7 +163,13 @@ test('setDocumentStatus on a non-digital row only updates', async () => {
   expect(await setDocumentStatus(doc(), 'fisico')).toEqual({ ok: true })
   expect(mocks.update).toHaveBeenCalledWith({ status: 'fisico', file_path: null })
   expect(mocks.updateEq).toHaveBeenCalledWith('id', 'd1')
+  expect(mocks.updateSelect).toHaveBeenCalledWith('id')
   expect(mocks.remove).not.toHaveBeenCalled()
+})
+
+test('an update that RLS filters down to zero rows is a permission error, not a silent success', async () => {
+  mocks.updateSelect.mockResolvedValueOnce({ data: [], error: null })
+  expect(await setDocumentStatus(doc(), 'fisico')).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
 })
 
 test('setDocumentStatus on a digital non-consent row removes first, then updates', async () => {
@@ -161,8 +191,17 @@ test('setDocumentStatus on a digital consent row updates first, then removes', a
   expect(mocks.calls).toEqual(['update', 'remove'])
 })
 
+test('a consent row whose file removal fails after the update reports the failure', async () => {
+  mocks.remove.mockResolvedValueOnce({ data: null, error: { message: 'network down' } })
+  const consent = doc({ doc_type: 'image_consent', status: 'digital', file_path: 't1/p1/image_consent' })
+  expect(await setDocumentStatus(consent, 'fisico')).toEqual({ ok: false, error: 'network down' })
+  expect(mocks.update).toHaveBeenCalledWith({ status: 'fisico', file_path: null })
+  expect(mocks.remove).toHaveBeenCalledWith(['t1/p1/image_consent'])
+  expect(mocks.updateEq.mock.invocationCallOrder[0]).toBeLessThan(mocks.remove.mock.invocationCallOrder[0])
+})
+
 test('a rejected consent revocation keeps the file', async () => {
-  mocks.updateEq.mockResolvedValueOnce({ error: { message: 'consent_in_use: x' } })
+  mocks.updateSelect.mockResolvedValueOnce({ data: null, error: { message: 'consent_in_use: x' } })
   const consent = doc({ doc_type: 'privacy_notice', status: 'digital', file_path: 't1/p1/privacy_notice' })
   const res = await setDocumentStatus(consent, 'pendiente')
   expect(res).toEqual({ ok: false, error: 'No se puede regresar a pendiente: primero quita la foto y los documentos digitales.' })
@@ -184,14 +223,21 @@ test('uploadDocument upserts to the fixed path, then marks the row digital', asy
 })
 
 test('uploadDocument rolls back the object when the update fails on a new upload', async () => {
-  mocks.updateEq.mockResolvedValueOnce({ error: { message: 'consent_required: x' } })
+  mocks.updateSelect.mockResolvedValueOnce({ data: null, error: { message: 'consent_required: x' } })
   const res = await uploadDocument(doc(), file('application/pdf', 100), true)
   expect(res).toEqual({ ok: false, error: CONSENT_REQUIRED_MESSAGE })
   expect(mocks.remove).toHaveBeenCalledWith(['t1/p1/curp'])
 })
 
+test('uploadDocument rolls back a new upload whose update matched zero rows', async () => {
+  mocks.updateSelect.mockResolvedValueOnce({ data: [], error: null })
+  const res = await uploadDocument(doc(), file('application/pdf', 100), true)
+  expect(res).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
+  expect(mocks.remove).toHaveBeenCalledWith(['t1/p1/curp'])
+})
+
 test('uploadDocument does not roll back a replacement', async () => {
-  mocks.updateEq.mockResolvedValueOnce({ error: { message: 'boom' } })
+  mocks.updateSelect.mockResolvedValueOnce({ data: null, error: { message: 'boom' } })
   const res = await uploadDocument(doc({ status: 'digital', file_path: 't1/p1/curp' }), file('application/pdf', 100), true)
   expect(res.ok).toBe(false)
   expect(mocks.remove).not.toHaveBeenCalled()

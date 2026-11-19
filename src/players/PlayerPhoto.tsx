@@ -3,6 +3,7 @@ import type { ChangeEvent } from 'react'
 import Alert from '@mui/material/Alert'
 import Avatar from '@mui/material/Avatar'
 import Button from '@mui/material/Button'
+import CircularProgress from '@mui/material/CircularProgress'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
@@ -19,6 +20,7 @@ export interface PlayerPhotoProps {
   canEdit: boolean
   consentGranted: boolean
   onChanged: (flash: string) => Promise<void> | void
+  onReload?: () => Promise<void> | void
 }
 
 function initials(name: string): string {
@@ -30,12 +32,14 @@ function initials(name: string): string {
     .join('')
 }
 
-export function PlayerPhoto({ player, canEdit, consentGranted, onChanged }: PlayerPhotoProps) {
+export function PlayerPhoto({ player, canEdit, consentGranted, onChanged, onReload }: PlayerPhotoProps) {
   const [url, setUrl] = useState<{ key: string; src: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const inFlight = useRef(false)
+  // bumped on removal so a signature still in flight for the deleted object is dropped
+  const signGeneration = useRef(0)
 
   // keyed by path + updated_at so a replaced photo (same path) is re-signed
   const urlKey = player.photo_path ? `${player.photo_path}@${player.updated_at}` : null
@@ -43,9 +47,10 @@ export function PlayerPhoto({ player, canEdit, consentGranted, onChanged }: Play
   useEffect(() => {
     if (!player.photo_path || !urlKey) return
     let active = true
+    const generation = signGeneration.current
     void getSignedFileUrl(player.photo_path)
       .then((src) => {
-        if (active) setUrl({ key: urlKey, src })
+        if (active && generation === signGeneration.current) setUrl({ key: urlKey, src })
       })
       .catch(() => {
         if (active) setUrl(null)
@@ -64,8 +69,13 @@ export function PlayerPhoto({ player, canEdit, consentGranted, onChanged }: Play
     setError(null)
     try {
       const res = await action()
-      if (res.ok) await onChanged('Foto actualizada')
-      else setError(res.error ?? 'No se pudo actualizar la foto.')
+      if (res.ok) {
+        await onChanged('Foto actualizada')
+      } else {
+        setError(res.error ?? 'No se pudo actualizar la foto.')
+        // the consent shown may be stale, so let the page reload it
+        await onReload?.()
+      }
     } finally {
       inFlight.current = false
       setBusy(false)
@@ -81,7 +91,15 @@ export function PlayerPhoto({ player, canEdit, consentGranted, onChanged }: Play
 
   function handleRemove() {
     setConfirmOpen(false)
-    void run(() => removePlayerPhoto(player))
+    void run(async () => {
+      const res = await removePlayerPhoto(player)
+      // drop the signed URL now: until the page refetches, the img would point at a deleted object
+      if (res.ok) {
+        signGeneration.current += 1
+        setUrl(null)
+      }
+      return res
+    })
   }
 
   const uploadLabel = player.photo_path ? 'Cambiar' : 'Subir foto'
@@ -93,7 +111,7 @@ export function PlayerPhoto({ player, canEdit, consentGranted, onChanged }: Play
       </Avatar>
       {canEdit && (
         <Stack spacing={0.5}>
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
             <Button component="label" variant="outlined" size="small" disabled={busy || !consentGranted}>
               {uploadLabel}
               <input
@@ -110,6 +128,7 @@ export function PlayerPhoto({ player, canEdit, consentGranted, onChanged }: Play
                 Quitar
               </Button>
             )}
+            {busy && <CircularProgress size={20} aria-label="Guardando" />}
           </Stack>
           {!consentGranted && (
             <Typography variant="caption" color="text.secondary">

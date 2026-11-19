@@ -56,12 +56,18 @@ Para la de **recuperación** hay dos opciones:
 - **USB:** generarla en un disco en RAM y copiarla a la USB:
 
 ```bash
-ram=$(hdiutil attach -nomount ram://16384 | tr -d '[:space:]')
-diskutil erasevolume APFS backupsram "$ram"
-age-keygen -o /Volumes/backupsram/recuperacion.txt   # imprime "Public key: age1…"
-cp /Volumes/backupsram/recuperacion.txt /Volumes/<USB>/
-hdiutil detach "$ram"
+if [ -e /Volumes/backupsram ]; then
+  echo 'ALTO: /Volumes/backupsram ya existe; desmontarlo (hdiutil detach /Volumes/backupsram) y repetir'
+else
+  ram=$(hdiutil attach -nomount ram://16384 | tr -d '[:space:]')
+  diskutil erasevolume APFS backupsram "$ram"
+  age-keygen -o /Volumes/backupsram/recuperacion.txt   # imprime "Public key: age1…"
+  cp /Volumes/backupsram/recuperacion.txt /Volumes/<USB>/
+  hdiutil detach "$ram"
+fi
 ```
+
+Si imprime `ALTO`, no seguir hasta desmontar el volumen viejo.
 
 La USB (o la hoja) se guarda en **otro lugar físico** que el Mac. Anotar las dos líneas `age1…` que se vieron en la terminal.
 
@@ -106,23 +112,39 @@ gh run view <run-id> --json headBranch,event,headSha
 
 `headBranch` debe ser `develop`, `event` debe ser `schedule` o `workflow_dispatch`, y `headSha` se anota para compararlo con `manifest.json`. Si algo no coincide, ese artifact **no** se usa.
 
-Los datos descifrados van a un **disco en RAM** (la misma receta que para las llaves), nunca al disco interno. 4194304 sectores son 2 GB; se ajusta si el respaldo crece:
+Los datos descifrados van a un **disco en RAM** (la misma receta que para las llaves), nunca al disco interno. 4194304 sectores son 2 GB; se ajusta si el respaldo crece. Si ya hay un volumen montado como `/Volumes/backupsdata` (uno viejo que no se desmontó), el nuevo se montaría como `backupsdata 1`, `$dir` apuntaría al viejo y el `hdiutil detach "$ram"` del final desmontaría el equivocado; por eso el primer bloque no crea nada en ese caso. Spotlight se apaga en el disco para que no indexe los documentos:
 
 ```bash
-ram=$(hdiutil attach -nomount ram://4194304 | tr -d '[:space:]')
-diskutil erasevolume APFS backupsdata "$ram"
-dir=/Volumes/backupsdata
-gh run download <run-id> -n backup-<ts> -D "$dir"
-# Copiar la llave principal del gestor de contraseñas al portapapeles. Así nunca se escribe en el disco.
-age -d -i <(pbpaste) "$dir/backup-<ts>.tar.age" | tar -xf - -C "$dir"
-pbcopy < /dev/null
-(cd "$dir" && shasum -a 256 -c SHA256SUMS)
-node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).commit)' "$dir/manifest.json"
+unset dir ram
+if [ -e /Volumes/backupsdata ]; then
+  echo 'ALTO: /Volumes/backupsdata ya existe; desmontarlo (hdiutil detach /Volumes/backupsdata) y repetir'
+elif ram=$(hdiutil attach -nomount ram://4194304 | tr -d '[:space:]') && [ -n "$ram" ] \
+  && diskutil erasevolume APFS backupsdata "$ram" && dir=/Volumes/backupsdata; then
+  sudo mdutil -i off "$dir"
+  mdutil -s "$dir"
+else
+  echo 'ALTO: no se pudo crear el disco en RAM; si quedó un dispositivo adjunto, desmontarlo (hdiutil detach "$ram") y repetir'
+fi
+```
+
+Verde: no imprime `ALTO` y la salida de `mdutil -s` no dice `enabled` (en macOS actuales suele decir `Indexing disabled.`, pero el texto exacto varía por versión). Si imprime `ALTO` o dice `enabled`, no seguir. El primer bloque empieza con `unset dir ram` y solo define `$dir` si el disco se creó bien, así que valores de una corrida anterior en la misma terminal no cuentan. El segundo bloque solo corre si el primero definió `$dir` y `$ram` en esta corrida (por ejemplo, no tras un `ALTO`); si no, imprime `ALTO: corre primero el bloque anterior` y no ejecuta nada, aunque se pegue entero en un shell interactivo.
+
+```bash
+if [ -n "$dir" ] && [ -n "$ram" ]; then
+  gh run download <run-id> -n backup-<ts> -D "$dir"
+  # Copiar la llave principal del gestor de contraseñas al portapapeles. Así nunca se escribe en el disco.
+  age -d -i <(pbpaste) "$dir/backup-<ts>.tar.age" | tar -xf - -C "$dir"
+  pbcopy < /dev/null
+  (cd "$dir" && shasum -a 256 -c SHA256SUMS)
+  node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).commit)' "$dir/manifest.json"
+else
+  echo "ALTO: corre primero el bloque anterior"
+fi
 ```
 
 Verde: todas las líneas en `OK`, y el `commit` que imprime la última línea es igual al `headSha` de `gh run view`. Si difiere, se descarta el artifact. Con la llave de recuperación es igual: teclear o copiar su línea `AGE-SECRET-KEY-…` al portapapeles y usar el mismo `<(pbpaste)`.
 
-`$dir` tiene datos de menores en claro. En cuanto termine la restauración o el simulacro se desmonta el disco en RAM, y con eso desaparece todo: `hdiutil detach "$ram"`.
+`$dir` tiene datos de menores en claro. En cuanto termine la restauración o el simulacro se desmonta el disco en RAM, y con eso desaparece todo: `hdiutil detach "$ram" && unset dir ram`.
 
 ## Restaurar la base
 
@@ -149,13 +171,17 @@ cd -
 
 ```bash
 psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0012_player_files_storage.sql
+psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0018_lock_player_on_file_write.sql
+psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0019_harden_player_file_helpers.sql
 psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0016_revoke_anon_privileges.sql
 ```
 
    - `0012`: la fila del bucket (idempotente) y las policies de `storage.objects`, porque el dump de schema no incluye `storage`.
+   - `0018`: 0012 deja `private.player_file_path_allowed` con su cuerpo original; 0018 le vuelve a poner el `for share` sobre el jugador.
+   - `0019`: 0012 le vuelve a dar a `authenticated` el `EXECUTE` sobre `private.player_consent_granted`; 0019 lo quita y deja `player_file_path_allowed` con la búsqueda por uuid. Va después de 0018 porque redefine la misma función.
    - `0016`: pg_dump escribe los permisos relativos a los defaults de Postgres, y un proyecto nuevo de Supabase da ALL a `anon` sobre lo que se crea en `public`. Sin 0016, el proyecto restaurado le devuelve privilegios a `anon` (checklist B en rojo). Son solo revokes, así que correrla dos veces es seguro.
 
-   **Regla:** toda migración que toque `auth`/`storage` **o que revoque privilegios** se agrega a esta lista. Si una migración posterior redefine una función de 0012, aplicar de 0012 solo las policies.
+   **Regla:** toda migración que toque `auth`/`storage` **o que revoque privilegios** se agrega a esta lista. Si una migración posterior redefine una función o un grant de 0012, se agrega a esta lista después de 0012 (como 0018 y 0019), en orden.
 
 3. Verificar privilegios. El bloque B del checklist (`docs/security/pre-real-data-checklist.md`) debe dar verde sobre el proyecto nuevo, **y** `authenticated` debe tener los mismos grants en los dos proyectos. Se corre esta query en producción (por MCP o `psql`) y en el restaurado, y se comparan:
 
@@ -199,13 +225,13 @@ node ops/backup/storage-restore.ts "$dir" 'https://<ref-nuevo>.supabase.co'
 unset SUPABASE_RESTORE_SECRET_KEY
 ```
 
-Imprime solo `restored=<n> skipped=<n>`, y `restored + skipped` debe coincidir con `objects` de `manifest.json`. `skipped` cuenta los `.emptyFolderPlaceholder` de 0 bytes, marcadores de carpeta del Dashboard que no se suben porque la lista de tipos MIME del bucket puede rechazarlos; su fila de `storage.objects` ya viene en `data.sql`. El script se niega a restaurar sobre producción (`error: target` si el host empieza con `eksbaugyypadtanyjcje.`). La llave se lee de la variable de entorno, nunca de un argumento. Cada archivo se sube con `x-upsert: true`, que reemplaza el binario de la fila que ya existe; el upsert deja `owner` en `null`, que la app no usa. Antes de la primera subida comprueba que cada ruta sea segura y que cada archivo sea un archivo normal (ni symlink ni carpeta); al subir, que el tamaño coincida con `storage-index.json`. Si algo falla imprime `error: <código> index=<n>` y sale con 1. Al terminar, borrar la secret key temporal.
+Imprime solo `restored=<n> skipped=<n>`, y `restored + skipped` debe coincidir con `objects` de `manifest.json`. `skipped` cuenta los `.emptyFolderPlaceholder` de 0 bytes, marcadores de carpeta del Dashboard que no se suben porque la lista de tipos MIME del bucket puede rechazarlos; su fila de `storage.objects` ya viene en `data.sql`. El script se niega a restaurar sobre producción (`error: target` si el host empieza con `eksbaugyypadtanyjcje.`). La llave se lee de la variable de entorno, nunca de un argumento. Cada archivo se sube con `x-upsert: true`, que reemplaza el binario de la fila que ya existe; el upsert deja `owner` en `null`, que la app no usa. Antes de la primera subida comprueba que `storage/` y `storage/player-files/` sean carpetas reales (no symlinks), que cada ruta sea segura, que cada archivo sea un archivo normal (ni symlink ni carpeta) y que su tamaño coincida con `storage-index.json`; al subir lo vuelve a comparar con los bytes leídos. Si algo falla imprime `error: <código>` (más ` index=<n>` cuando el problema es de un archivo) y sale con 1. Al terminar, borrar la secret key temporal.
 
 ## Restaurar producción
 
 Ante corrupción o borrado, **nunca** se restaura encima del proyecto vivo. Siempre:
 
-1. Proyecto nuevo, y las secciones anteriores completas (base, 0012 y 0016, privilegios, checklist A–D, Storage).
+1. Proyecto nuevo, y las secciones anteriores completas (base, 0012, 0018, 0019 y 0016, privilegios, checklist A–D, Storage).
 2. Reconfigurar a mano lo que no va en el respaldo: Auth (Site URL, redirect URLs, plantillas de correo), SMTP y los secrets de la Edge Function.
 3. Desplegar la Edge Function: `supabase functions deploy invite-user --project-ref <ref-nuevo>`.
 4. En Vercel, cambiar `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` al proyecto nuevo y redesplegar. Las sesiones viejas dejan de valer: los usuarios vuelven a entrar con su enlace.
@@ -237,7 +263,7 @@ select count(*) as objetos from storage.objects where bucket_id = 'player-files'
 7. **Solo en el primer simulacro**, confirmar y anotar: (a) que el proyecto nuevo da el bloque B del checklist en verde **solo después** de volver a aplicar 0016 (correr B antes y después del paso 2 de "Restaurar la base"); y (b) si el `data.sql` del CLI termina con la línea `-- PostgreSQL database dump complete` de pg_dump (`tail -n 5 "$dir/db/data.sql"`). Si la trae, una rama posterior puede agregar ese chequeo al workflow; hoy no se agrega porque nadie lo ha verificado.
 8. Confirmar en healthchecks.io que el check sigue activo y recibió el último ping (riesgo R5).
 9. Anotar la fila en la tabla de abajo.
-10. Borrar el proyecto temporal y desmontar el disco en RAM (`hdiutil detach "$ram"`).
+10. Borrar el proyecto temporal y desmontar el disco en RAM (`hdiutil detach "$ram" && unset dir ram`).
 
 | Fecha | Commit | Artifact | Filas `public` (prod vs restaurado) | `auth.users` | Objetos | `sha256` | Checklist A–D | healthchecks activo | Resultado | Quién |
 |---|---|---|---|---|---|---|---|---|---|---|

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
@@ -32,20 +32,22 @@ function p(over: Partial<PlayerRow>): PlayerRow {
   }
 }
 
-function renderPage() {
+function renderPage(entry: string | { pathname: string; state: unknown } = '/equipos/team9') {
   const router = createMemoryRouter(
     [
       { path: '/equipos/:id', element: <TeamDetailPage /> },
       { path: '/equipos', element: <div>lista</div> },
       { path: '/equipos/:id/editar', element: <div>editar</div> },
     ],
-    { initialEntries: ['/equipos/team9'] },
+    { initialEntries: [entry] },
   )
-  return render(<RouterProvider router={router} />)
+  render(<RouterProvider router={router} />)
+  return router
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  // mockReset also drops unconsumed *Once responses, which clearAllMocks would leak into the next test
+  for (const fn of Object.values(mocks)) fn.mockReset()
   mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Admin', tenantId: 't1' })
   mocks.fetchTeam.mockResolvedValue({
     id: 'team9', tenant_id: 't1', season_id: 's1', category_id: 'cat1', name: 'MTY AC Rojo',
@@ -159,4 +161,74 @@ test('a failed assign shows its error, closes the dialog and still reloads', asy
   expect(await screen.findByText('RLS denied')).toBeInTheDocument()
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   expect(mocks.fetchRoster).toHaveBeenCalledTimes(2)
+})
+
+test('a failed assign keeps its error when the reload also fails', async () => {
+  mocks.fetchEligiblePlayers.mockResolvedValue([p({ id: 'free', full_name: 'Free Agent', team_id: null, team_name: null })])
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Roster')
+  mocks.assignPlayer.mockResolvedValue({ ok: false, error: 'RLS denied' })
+  mocks.fetchRoster.mockRejectedValue(new Error('boom'))
+  await user.click(screen.getByRole('button', { name: 'Añadir jugador' }))
+  await user.click(await screen.findByText('Free Agent'))
+  expect(await screen.findByText('RLS denied')).toBeInTheDocument()
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(mocks.fetchRoster).toHaveBeenCalledTimes(2)
+  expect(screen.queryByText('No se pudo actualizar la vista. Recarga la página.')).not.toBeInTheDocument()
+})
+
+test('a failed move keeps its error when the reload also fails', async () => {
+  mocks.fetchEligiblePlayers.mockResolvedValue([p({ id: 'inB', full_name: 'Beto Otro', team_id: 'other', team_name: 'Otro' })])
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Roster')
+  mocks.movePlayer.mockResolvedValue({ ok: false, error: 'RLS denied' })
+  mocks.fetchRoster.mockRejectedValue(new Error('boom'))
+  await user.click(screen.getByRole('button', { name: 'Añadir jugador' }))
+  await user.click(await screen.findByText('Beto Otro'))
+  await user.click(await screen.findByRole('button', { name: 'Mover' }))
+  expect(await screen.findByText('RLS denied')).toBeInTheDocument()
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(mocks.movePlayer).toHaveBeenCalledWith('inB', 's1', 'team9')
+  expect(mocks.fetchRoster).toHaveBeenCalledTimes(2)
+  expect(screen.queryByText('No se pudo actualizar la vista. Recarga la página.')).not.toBeInTheDocument()
+})
+
+test.each(['Equipo creado', 'Cambios guardados'])('the %s flash from the team form shows as a toast', async (flash) => {
+  renderPage({ pathname: '/equipos/team9', state: { flash } })
+  expect(await screen.findByText(flash)).toBeInTheDocument()
+  expect(screen.getByText(flash).closest('.MuiAlert-root')).toHaveClass('MuiAlert-colorSuccess')
+})
+
+test('the flash is dropped from history once shown, so a reload does not repeat it', async () => {
+  const router = renderPage({ pathname: '/equipos/team9', state: { flash: 'Equipo creado' } })
+  expect(await screen.findByText('Equipo creado')).toBeInTheDocument()
+  await waitFor(() => expect(router.state.location.state).toBeNull())
+  expect(router.state.location.pathname).toBe('/equipos/team9')
+  expect(screen.getByText('Equipo creado')).toBeInTheDocument()
+  cleanup()
+  renderPage({ pathname: router.state.location.pathname, state: router.state.location.state })
+  expect(await screen.findByText('Ana Roster')).toBeInTheDocument()
+  expect(screen.queryByText('Equipo creado')).not.toBeInTheDocument()
+})
+
+test('without a flash no toast is shown', async () => {
+  renderPage()
+  await screen.findByText('Ana Roster')
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
+// Order-dependent on purpose: the first test leaves *Once responses queued for the second (#166)
+describe('mock isolation between tests', () => {
+  test('a test that queues *Once responses and never consumes them', () => {
+    for (const fn of Object.values(mocks)) fn.mockImplementationOnce(() => { throw new Error('leaked *Once') })
+    expect(mocks.fetchTeam).not.toHaveBeenCalled()
+  })
+
+  test('the next test gets the beforeEach defaults, not the leaked responses', async () => {
+    renderPage()
+    expect(await screen.findByRole('heading', { name: /MTY AC Rojo/ })).toBeInTheDocument()
+    expect(screen.getByText('Ana Roster')).toBeInTheDocument()
+  })
 })

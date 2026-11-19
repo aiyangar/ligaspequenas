@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   single: vi.fn(),
   update: vi.fn(),
   updateEq: vi.fn(),
+  updateSelect: vi.fn(),
   storageFrom: vi.fn(),
   upload: vi.fn(),
   remove: vi.fn(),
@@ -43,12 +44,13 @@ beforeEach(() => {
   mocks.range.mockImplementation(async (from: number) => ({ data: from === 0 ? [row()] : [], error: null }))
   mocks.maybeSingle.mockResolvedValue({ data: row(), error: null })
   mocks.eq.mockReturnValue({ maybeSingle: mocks.maybeSingle }) // read path only
-  // write chains: from().insert().select('id').single()  and  from().update().eq()
+  // write chains: from().insert().select('id').single() and from().update().eq().select('id')
   mocks.single.mockResolvedValue({ data: { id: 'newid' }, error: null })
   mocks.insert.mockReturnValue({ select: mocks.select })
-  mocks.updateEq.mockImplementation(async () => {
+  mocks.updateSelect.mockResolvedValue({ data: [{ id: 'p1' }], error: null })
+  mocks.updateEq.mockImplementation(() => {
     mocks.calls.push('update')
-    return { error: null }
+    return { select: mocks.updateSelect }
   })
   mocks.update.mockReturnValue({ eq: mocks.updateEq })
   // select serves reads (order/eq) and the insert().select('id').single() write
@@ -160,7 +162,17 @@ test('createPlayer inserts with tenant_id and empty strings coerced to null', as
 test('createPlayer surfaces an RLS/DB error as ok:false', async () => {
   mocks.single.mockResolvedValue({ data: null, error: { message: 'permission denied' } })
   const result = await createPlayer({ ...emptyPlayer(), full_name: 'X', birth_date: '2015-01-01', tutor_name: 'T', tutor_whatsapp: '0' }, 'tenant-1')
-  expect(result).toEqual({ ok: false, error: 'permission denied' })
+  expect(result).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
+})
+
+test('createPlayer returns any other database error as it is', async () => {
+  const values = { ...emptyPlayer(), full_name: 'X', birth_date: '2015-01-01', tutor_name: 'T', tutor_whatsapp: '0' }
+  mocks.single.mockResolvedValueOnce({ data: null, error: { message: 'null value in column "full_name" of relation "players" violates not-null constraint' } })
+  expect(await createPlayer(values, 'tenant-1')).toEqual({ ok: false, error: 'null value in column "full_name" of relation "players" violates not-null constraint' })
+  mocks.single.mockResolvedValueOnce({ data: null, error: { message: 'consent_required: x' } })
+  expect(await createPlayer(values, 'tenant-1')).toEqual({ ok: false, error: 'consent_required: x' })
+  mocks.single.mockResolvedValueOnce({ data: null, error: { message: 'player 9f403a2c not found' } })
+  expect(await createPlayer(values, 'tenant-1')).toEqual({ ok: false, error: 'player 9f403a2c not found' })
 })
 
 test('updatePlayer updates by id and returns ok', async () => {
@@ -168,7 +180,28 @@ test('updatePlayer updates by id and returns ok', async () => {
   expect(mocks.from).toHaveBeenCalledWith('players')
   expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ full_name: 'Ana' }))
   expect(mocks.updateEq).toHaveBeenCalledWith('id', 'p1')
+  expect(mocks.updateSelect).toHaveBeenCalledWith('id')
   expect(result).toEqual({ ok: true })
+})
+
+test('updatePlayer reports zero updated rows as a permission error', async () => {
+  mocks.updateSelect.mockResolvedValue({ data: [], error: null })
+  const result = await updatePlayer('p1', { ...emptyPlayer(), full_name: 'Ana', birth_date: '2015-01-01', tutor_name: 'T', tutor_whatsapp: '0' })
+  expect(result).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
+})
+
+test('updatePlayer returns the PostgREST error message', async () => {
+  mocks.updateSelect.mockResolvedValue({ data: null, error: { message: 'curp_format' } })
+  const result = await updatePlayer('p1', { ...emptyPlayer(), full_name: 'Ana', birth_date: '2015-01-01', tutor_name: 'T', tutor_whatsapp: '0' })
+  expect(result).toEqual({ ok: false, error: 'curp_format' })
+})
+
+test('updatePlayer translates a PostgREST permission error', async () => {
+  const values = { ...emptyPlayer(), full_name: 'Ana', birth_date: '2015-01-01', tutor_name: 'T', tutor_whatsapp: '0' }
+  mocks.updateSelect.mockResolvedValueOnce({ data: null, error: { message: 'new row violates row-level security policy for table "players"' } })
+  expect(await updatePlayer('p1', values)).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
+  mocks.updateSelect.mockResolvedValueOnce({ data: null, error: { message: 'Permission denied for table players' } })
+  expect(await updatePlayer('p1', values)).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
 })
 
 test('rowToValues maps nulls to empty strings', () => {
@@ -218,6 +251,7 @@ test('uploadPlayerPhoto upserts to tenant/player/photo, then sets photo_path', a
   expect(mocks.upload).toHaveBeenCalledWith('t1/p1/photo', f, { upsert: true, contentType: 'image/jpeg' })
   expect(mocks.from).toHaveBeenCalledWith('players')
   expect(mocks.update).toHaveBeenCalledWith({ photo_path: 't1/p1/photo' })
+  expect(mocks.updateSelect).toHaveBeenCalledWith('id')
   expect(mocks.calls).toEqual(['upload', 'update'])
 })
 
@@ -228,14 +262,14 @@ test('uploadPlayerPhoto validates before calling Supabase', async () => {
 })
 
 test('uploadPlayerPhoto rolls back a new photo when the update fails', async () => {
-  mocks.updateEq.mockResolvedValueOnce({ error: { message: 'consent_required: x' } })
+  mocks.updateSelect.mockResolvedValueOnce({ data: null, error: { message: 'consent_required: x' } })
   const res = await uploadPlayerPhoto({ id: 'p1', tenant_id: 't1', photo_path: null }, photo('image/jpeg', 1), true)
   expect(res).toEqual({ ok: false, error: 'Primero registra el consentimiento de imagen y el aviso de privacidad.' })
   expect(mocks.remove).toHaveBeenCalledWith(['t1/p1/photo'])
 })
 
 test('uploadPlayerPhoto does not roll back a replacement', async () => {
-  mocks.updateEq.mockResolvedValueOnce({ error: { message: 'boom' } })
+  mocks.updateSelect.mockResolvedValueOnce({ data: null, error: { message: 'boom' } })
   await uploadPlayerPhoto({ id: 'p1', tenant_id: 't1', photo_path: 't1/p1/photo' }, photo('image/jpeg', 1), true)
   expect(mocks.remove).not.toHaveBeenCalled()
 })
@@ -244,6 +278,7 @@ test('removePlayerPhoto removes the object first, then clears photo_path', async
   const res = await removePlayerPhoto({ id: 'p1', photo_path: 't1/p1/photo' })
   expect(res).toEqual({ ok: true })
   expect(mocks.update).toHaveBeenCalledWith({ photo_path: null })
+  expect(mocks.updateSelect).toHaveBeenCalledWith('id')
   expect(mocks.calls).toEqual(['remove', 'update'])
 })
 
@@ -252,4 +287,32 @@ test('removePlayerPhoto keeps photo_path when the remove fails', async () => {
   const res = await removePlayerPhoto({ id: 'p1', photo_path: 't1/p1/photo' })
   expect(res.ok).toBe(false)
   expect(mocks.update).not.toHaveBeenCalled()
+})
+
+test('uploadPlayerPhoto maps a Storage RLS rejection to the consent message when consent is missing', async () => {
+  mocks.upload.mockResolvedValueOnce({ data: null, error: { message: 'new row violates row-level security policy' } })
+  const res = await uploadPlayerPhoto({ id: 'p1', tenant_id: 't1', photo_path: null }, photo('image/jpeg', 1), false)
+  expect(res).toEqual({ ok: false, error: 'Primero registra el consentimiento de imagen y el aviso de privacidad.' })
+  expect(mocks.update).not.toHaveBeenCalled()
+})
+
+test('uploadPlayerPhoto rolls back a new photo when RLS updates zero rows', async () => {
+  mocks.updateSelect.mockResolvedValueOnce({ data: [], error: null })
+  const res = await uploadPlayerPhoto({ id: 'p1', tenant_id: 't1', photo_path: null }, photo('image/jpeg', 1), true)
+  expect(res).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
+  expect(mocks.remove).toHaveBeenCalledWith(['t1/p1/photo'])
+  expect(mocks.calls).toEqual(['upload', 'update', 'remove'])
+})
+
+test('uploadPlayerPhoto keeps a replaced photo when RLS updates zero rows', async () => {
+  mocks.updateSelect.mockResolvedValueOnce({ data: [], error: null })
+  const res = await uploadPlayerPhoto({ id: 'p1', tenant_id: 't1', photo_path: 't1/p1/photo' }, photo('image/jpeg', 1), true)
+  expect(res).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
+  expect(mocks.remove).not.toHaveBeenCalled()
+})
+
+test('removePlayerPhoto reports zero updated rows as a permission error', async () => {
+  mocks.updateSelect.mockResolvedValueOnce({ data: [], error: null })
+  const res = await removePlayerPhoto({ id: 'p1', photo_path: 't1/p1/photo' })
+  expect(res).toEqual({ ok: false, error: 'No tienes permiso para esta acción.' })
 })

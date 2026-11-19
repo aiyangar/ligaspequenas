@@ -32,6 +32,7 @@ export interface PlayerDocumentsSectionProps {
   canEdit: boolean
   hasPhoto: boolean
   onChanged: (flash: string) => Promise<void> | void
+  onReload?: () => Promise<void> | void
 }
 
 const CHIP_COLOR: Record<DocumentStatus, 'default' | 'info' | 'success'> = {
@@ -42,13 +43,14 @@ const CHIP_COLOR: Record<DocumentStatus, 'default' | 'info' | 'success'> = {
 
 const ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp'
 
-export function PlayerDocumentsSection({ documents, canEdit, hasPhoto, onChanged }: PlayerDocumentsSectionProps) {
+export function PlayerDocumentsSection({ documents, canEdit, hasPhoto, onChanged, onReload }: PlayerDocumentsSectionProps) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<{ doc: DocumentRow; next: 'pendiente' | 'fisico' } | null>(null)
   // synchronous guard: busyId only disables controls after a re-render
   const inFlight = useRef(false)
 
+  const anyBusy = busyId !== null
   const granted = consentGranted(documents)
   const inUse = filesInUse(documents, hasPhoto)
 
@@ -60,8 +62,13 @@ export function PlayerDocumentsSection({ documents, canEdit, hasPhoto, onChanged
     try {
       const res = await action()
       // stay busy until the parent has reloaded, so no control acts on a stale row
-      if (res.ok) await onChanged('Documento actualizado')
-      else setError(res.error ?? 'No se pudo actualizar el documento.')
+      if (res.ok) {
+        await onChanged('Documento actualizado')
+      } else {
+        setError(res.error ?? 'No se pudo actualizar el documento.')
+        // part of the change may have landed (e.g. consent updated, file not removed), so reload the rows
+        await onReload?.()
+      }
     } finally {
       inFlight.current = false
       setBusyId(null)
@@ -148,7 +155,7 @@ export function PlayerDocumentsSection({ documents, canEdit, hasPhoto, onChanged
                     label="Estatus"
                     value={doc.status}
                     onChange={(e) => handleStatus(doc, e.target.value)}
-                    disabled={busy}
+                    disabled={anyBusy}
                     helperText={pendingLocked ? 'Quita primero la foto y los documentos digitales.' : undefined}
                     slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
                     sx={{ minWidth: 140 }}
@@ -165,14 +172,14 @@ export function PlayerDocumentsSection({ documents, canEdit, hasPhoto, onChanged
                   </TextField>
                 )}
                 {canEdit && (
-                  <Button component="label" variant="outlined" size="small" disabled={busy || uploadLocked}>
+                  <Button component="label" variant="outlined" size="small" disabled={anyBusy || uploadLocked}>
                     {uploadLabel}
                     <input
                       hidden
                       type="file"
                       accept={ACCEPT}
                       aria-label={uploadLabel}
-                      disabled={busy || uploadLocked}
+                      disabled={anyBusy || uploadLocked}
                       onChange={(e) => handleFile(doc, e)}
                     />
                   </Button>

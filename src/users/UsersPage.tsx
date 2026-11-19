@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
@@ -9,6 +9,9 @@ import Alert from '@mui/material/Alert'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
+import MenuItem from '@mui/material/MenuItem'
+import Select from '@mui/material/Select'
+import { LoadError } from '../app/LoadError'
 import { supabase } from '../lib/supabase'
 import { inviteUser } from './inviteUser'
 
@@ -20,53 +23,97 @@ interface ProfileRow {
   role: Role
 }
 
+interface Notice {
+  severity: 'success' | 'error'
+  text: string
+}
+
+const ROLE_LABELS: Record<Role, string> = {
+  readonly: 'Solo lectura',
+  admin: 'Administrador',
+}
+
+const ROLES: Role[] = ['readonly', 'admin']
+
 const INVITE_ERROR_MESSAGES: Record<string, string> = {
   email_exists: 'Ese correo ya está registrado',
   invalid_role: 'Rol inválido',
   forbidden: 'No tienes permiso para invitar usuarios',
 }
 
+function inviteErrorText(code: string | undefined): string {
+  if (code && INVITE_ERROR_MESSAGES[code]) return INVITE_ERROR_MESSAGES[code]
+  // only machine codes are shown; free-text errors (e.g. supabase-js messages) stay out of the UI
+  return code && /^[a-z_]+$/.test(code) ? `No se pudo enviar la invitación (${code}).` : 'No se pudo enviar la invitación.'
+}
+
+async function fetchUsers(): Promise<ProfileRow[]> {
+  const { data, error } = await supabase.from('profiles').select('id, full_name, role')
+  if (error) throw new Error(error.message)
+  return (data as ProfileRow[] | null) ?? []
+}
+
 export function UsersPage() {
   const [users, setUsers] = useState<ProfileRow[]>([])
+  const [loadError, setLoadError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState<Role>('readonly')
-  const [message, setMessage] = useState<string | null>(null)
-
-  const fetchUsers = useCallback(async (): Promise<ProfileRow[]> => {
-    const { data } = await supabase.from('profiles').select('id, full_name, role')
-    return (data as ProfileRow[] | null) ?? []
-  }, [])
+  const [notice, setNotice] = useState<Notice | null>(null)
 
   useEffect(() => {
     let active = true
-    void fetchUsers().then((rows) => {
-      if (active) setUsers(rows)
-    })
+    void fetchUsers()
+      .then((rows) => {
+        if (!active) return
+        setLoadError(false)
+        setUsers(rows)
+      })
+      .catch(() => {
+        if (active) setLoadError(true)
+      })
     return () => {
       active = false
     }
-  }, [fetchUsers])
+  }, [reloadKey])
+
+  function reload() {
+    setReloadKey((k) => k + 1)
+  }
+
+  function handleRetry() {
+    setLoadError(false)
+    reload()
+  }
 
   async function handleInvite(e: FormEvent) {
     e.preventDefault()
-    setMessage(null)
+    setNotice(null)
     const result = await inviteUser({ email, fullName, role })
     if (!result.ok) {
-      const reason =
-        (result.error && INVITE_ERROR_MESSAGES[result.error]) || result.error || 'No se pudo enviar la invitación'
-      setMessage(`Error: ${reason}`)
+      setNotice({ severity: 'error', text: inviteErrorText(result.error) })
       return
     }
-    setMessage('Usuario creado, se le envió un enlace de acceso')
+    setNotice({ severity: 'success', text: 'Usuario creado, se le envió un enlace de acceso' })
     setEmail('')
     setFullName('')
-    setUsers(await fetchUsers())
+    reload()
   }
 
   async function changeRole(id: string, newRole: Role) {
-    await supabase.from('profiles').update({ role: newRole }).eq('id', id)
-    setUsers(await fetchUsers())
+    setNotice(null)
+    const { data, error } = await supabase.from('profiles').update({ role: newRole }).eq('id', id).select('id')
+    if (error) {
+      setNotice({ severity: 'error', text: 'No se pudo cambiar el rol.' })
+      return
+    }
+    // RLS filters the row instead of raising, so a forbidden change looks like a success on zero rows
+    if (!data || data.length === 0) {
+      setNotice({ severity: 'error', text: 'No tienes permiso para esta acción.' })
+      return
+    }
+    reload()
   }
 
   return (
@@ -99,48 +146,49 @@ export function UsersPage() {
           label="Rol de la invitación"
           value={role}
           onChange={(e) => setRole(e.target.value as Role)}
-          slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
           sx={{ minWidth: 160 }}
         >
-          <option value="readonly">Solo lectura</option>
-          <option value="admin">Administrador</option>
+          {ROLES.map((r) => (
+            <MenuItem key={r} value={r}>
+              {ROLE_LABELS[r]}
+            </MenuItem>
+          ))}
         </TextField>
         <Button type="submit" variant="contained">Invitar</Button>
       </Stack>
-      {message && (
-        <Alert
-          role="status"
-          severity={message.startsWith('Error') ? 'error' : 'success'}
-          sx={{ mt: 2 }}
-        >
-          {message}
+      {notice && (
+        <Alert role={notice.severity === 'error' ? 'alert' : 'status'} severity={notice.severity} sx={{ mt: 2 }}>
+          {notice.text}
         </Alert>
       )}
-      <List sx={{ mt: 2 }}>
-        {users.map((u) => (
-          <ListItem
-            key={u.id}
-            secondaryAction={
-              <TextField
-                select
-                size="small"
-                value={u.role}
-                onChange={(e) => void changeRole(u.id, e.target.value as Role)}
-                slotProps={{
-                  select: { native: true },
-                  htmlInput: { 'aria-label': `Rol de ${u.full_name}` },
-                }}
-                sx={{ minWidth: 150 }}
-              >
-                <option value="readonly">Solo lectura</option>
-                <option value="admin">Administrador</option>
-              </TextField>
-            }
-          >
-            <ListItemText primary={`${u.full_name} — ${u.role}`} />
-          </ListItem>
-        ))}
-      </List>
+      {loadError ? (
+        <LoadError message="No se pudieron cargar los usuarios." onRetry={handleRetry} />
+      ) : (
+        <List sx={{ mt: 2 }}>
+          {users.map((u) => (
+            <ListItem
+              key={u.id}
+              secondaryAction={
+                <Select
+                  size="small"
+                  value={u.role}
+                  onChange={(e) => void changeRole(u.id, e.target.value as Role)}
+                  inputProps={{ 'aria-label': `Rol de ${u.full_name}` }}
+                  sx={{ minWidth: 150 }}
+                >
+                  {ROLES.map((r) => (
+                    <MenuItem key={r} value={r}>
+                      {ROLE_LABELS[r]}
+                    </MenuItem>
+                  ))}
+                </Select>
+              }
+            >
+              <ListItemText primary={u.full_name} />
+            </ListItem>
+          ))}
+        </List>
+      )}
     </Box>
   )
 }

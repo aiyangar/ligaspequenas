@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import Box from '@mui/material/Box'
@@ -10,6 +10,7 @@ import Snackbar from '@mui/material/Snackbar'
 import TextField from '@mui/material/TextField'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
+import { flashOf } from '../lib/flash'
 import { LoadError } from '../app/LoadError'
 import { NotFoundState } from '../app/NotFoundState'
 import { PlayerForm } from './PlayerForm'
@@ -50,8 +51,16 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
   const [loadError, setLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [loaded, setLoaded] = useState(false)
-  // Dismissed by navigation key so a fresh save (new key) re-shows the toast.
-  const [dismissedFlashKey, setDismissedFlashKey] = useState<string | null>(null)
+  // the create flow lands on a fresh instance (keyed by id), so its flash is read once here
+  const [toast, setToast] = useState<string | null>(() => flashOf(location.state))
+  // a new key per message remounts the Snackbar, so a replacing toast gets its full autoHideDuration
+  const [toastKey, setToastKey] = useState(0)
+  const hasFlash = flashOf(location.state) !== null
+
+  useEffect(() => {
+    // history state survives a reload, so drop the flash once the toast holds it
+    if (hasFlash) void navigate(location.pathname, { replace: true, state: null })
+  }, [hasFlash, location.pathname, navigate])
 
   useEffect(() => {
     if (!id) return
@@ -99,7 +108,6 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
   const [documents, setDocuments] = useState<DocumentRow[] | null>(null)
   const [docsLoadError, setDocsLoadError] = useState(false)
   const [docsReloadKey, setDocsReloadKey] = useState(0)
-  const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -134,7 +142,24 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
   }
 
   function showToast(text: string) {
+    setToastKey((k) => k + 1)
     setToast(text)
+  }
+
+  const refreshRequest = useRef(0)
+
+  // only the row is replaced: typed values stay, while category and team rules follow the saved data
+  async function refreshRow(playerId: string) {
+    // saves, photo and team changes can overlap; only the latest request may touch the page
+    const request = ++refreshRequest.current
+    try {
+      const refreshed = await fetchPlayer(playerId)
+      if (request !== refreshRequest.current) return
+      if (refreshed) setRow(refreshed)
+    } catch {
+      if (request !== refreshRequest.current) return
+      setMessage('Error: no se pudo actualizar la vista. Recarga la página.')
+    }
   }
 
   function handleRetry() {
@@ -146,12 +171,6 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
     setTeamsLoadError(false)
     setTeamsReloadKey((k) => k + 1)
   }
-
-  // Success confirmation rides along the post-save navigation as router state,
-  // so the toast shows on the destination instead of a browser alert. Derived
-  // (not copied into state via an effect) to avoid a synchronous setState-in-effect.
-  const flash = (location.state as { flash?: string } | null)?.flash ?? null
-  const showFlash = flash !== null && location.key !== dismissedFlashKey
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -168,7 +187,8 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
         setMessage(`Error: ${result.error ?? 'no se pudo guardar'}`)
         return
       }
-      void navigate(`/jugadores/${id!}`, { state: { flash: 'Cambios guardados' } })
+      showToast('Cambios guardados')
+      await refreshRow(id!)
     } else {
       const result = await createPlayer(values, tenantId)
       setSubmitting(false)
@@ -190,12 +210,7 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
   async function handlePhotoChanged(text: string) {
     showToast(text)
     if (!row) return
-    try {
-      const refreshed = await fetchPlayer(row.id)
-      if (refreshed) setRow(refreshed)
-    } catch {
-      setMessage('Error: no se pudo actualizar la vista. Recarga la página.')
-    }
+    await refreshRow(row.id)
   }
 
   async function handleTeamChange(next: string) {
@@ -208,12 +223,7 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
       setMessage(`Error: ${res.error ?? 'no se pudo actualizar el equipo'}`)
       return
     }
-    try {
-      const refreshed = await fetchPlayer(row.id)
-      if (refreshed) setRow(refreshed)
-    } catch {
-      setMessage('Error: no se pudo actualizar la vista. Recarga la página.')
-    }
+    await refreshRow(row.id)
   }
 
   if (loadError) {
@@ -235,20 +245,26 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
   }
 
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 640, mx: 'auto', mt: 4, px: 2 }}>
-      <Stack spacing={2}>
-        <Typography variant="h4" component="h1" gutterBottom>
+    <Box sx={{ maxWidth: 640, mx: 'auto', mt: 4, px: 2 }}>
+      <Stack spacing={3}>
+        <Typography variant="h4" component="h1">
           {editing ? 'Jugador' : 'Nuevo jugador'}
         </Typography>
-        {editing && row && (
-          <PlayerPhoto
-            player={row}
-            canEdit={canEdit}
-            consentGranted={documents !== null && consentGranted(documents)}
-            onChanged={handlePhotoChanged}
-          />
-        )}
-        <PlayerForm values={values} onChange={setValues} disabled={!canEdit} categoryText={categoryText} />
+        <Box component="form" onSubmit={handleSubmit}>
+          <Stack spacing={2}>
+            <PlayerForm values={values} onChange={setValues} disabled={!canEdit} categoryText={categoryText} />
+            {message && (
+              <Alert role="alert" severity={message.startsWith('Error') ? 'error' : 'success'} sx={{ mt: 1 }}>
+                {message}
+              </Alert>
+            )}
+            {canEdit && (
+              <Button type="submit" variant="contained" disabled={submitting}>
+                Guardar
+              </Button>
+            )}
+          </Stack>
+        </Box>
         {editing && row && (teamsLoadError ? (
           <LoadError message="No se pudieron cargar los equipos." onRetry={handleTeamsRetry} />
         ) : (
@@ -282,6 +298,20 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
             ))}
           </TextField>
         ))}
+        {editing && row && (
+          <Box component="section" aria-labelledby="photo-heading">
+            <Typography id="photo-heading" variant="h6" component="h2" gutterBottom>
+              Foto
+            </Typography>
+            <PlayerPhoto
+              player={row}
+              canEdit={canEdit}
+              consentGranted={documents !== null && consentGranted(documents)}
+              onChanged={handlePhotoChanged}
+              onReload={refreshDocuments}
+            />
+          </Box>
+        )}
         {editing && row && (docsLoadError ? (
           <LoadError message="No se pudieron cargar los documentos." onRetry={retryDocuments} />
         ) : documents && (
@@ -293,6 +323,7 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
               showToast(text)
               await refreshDocuments()
             }}
+            onReload={refreshDocuments}
           />
         ))}
         {editing && row && (
@@ -303,33 +334,9 @@ function PlayerFormContent({ id }: { id: string | undefined }) {
             onChanged={showToast}
           />
         )}
-        {message && (
-          <Alert role="alert" severity={message.startsWith('Error') ? 'error' : 'success'} sx={{ mt: 1 }}>
-            {message}
-          </Alert>
-        )}
-        {canEdit && (
-          <Button type="submit" variant="contained" disabled={submitting}>
-            Guardar
-          </Button>
-        )}
       </Stack>
       <Snackbar
-        open={showFlash}
-        autoHideDuration={4000}
-        onClose={() => setDismissedFlashKey(location.key)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setDismissedFlashKey(location.key)}
-          severity="success"
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
-          {flash}
-        </Alert>
-      </Snackbar>
-      <Snackbar
+        key={toastKey}
         open={toast !== null}
         autoHideDuration={4000}
         onClose={() => setToast(null)}

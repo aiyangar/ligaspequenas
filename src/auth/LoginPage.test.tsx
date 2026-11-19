@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { LoginPage } from './LoginPage'
+import { deferred } from '../test/deferred'
 
 const mocks = vi.hoisted(() => ({ signInWithOtp: vi.fn() }))
 vi.mock('../lib/supabase', () => ({
@@ -13,14 +14,6 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.signInWithOtp.mockResolvedValue({ data: {}, error: null })
 })
-
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  const promise = new Promise<T>((r) => {
-    resolve = r
-  })
-  return { promise, resolve }
-}
 
 function renderLogin() {
   const router = createMemoryRouter(

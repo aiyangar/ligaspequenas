@@ -45,15 +45,17 @@ values ('player-files', 'player-files', false, 10485760,
 on conflict (id) do nothing;
 ```
 
-### 3.2 Helpers (`private`, `security definer`, `set search_path = ''`, `grant execute … to authenticated`)
+### 3.2 Helpers (`private`, `security definer`, `set search_path = ''`)
 
 Toda referencia dentro de los helpers va calificada por esquema (`public.players`, `public.documents`, `public.document_type`, `private.current_tenant_id()`, `storage.objects`), porque `search_path` está vacío.
+
+`player_file_path_allowed` lleva `grant execute … to authenticated`, porque la llaman las policies de Storage. `player_consent_granted` **no** lo lleva desde 0019 (#48): solo la llaman funciones `security definer` (`player_file_path_allowed` y los triggers de §3.4 y §3.5), que corren como su owner, y el helper responde por cualquier `player_id` sin filtrar por tenant.
 
 - **`private.player_consent_granted(p_player_id uuid) returns boolean`** — `true` si y solo si existen **exactamente 2** filas del jugador con `doc_type in ('image_consent', 'privacy_notice')` y `status <> 'pendiente'`, o sea `(select count(*) … ) = 2`. Una fila faltante cuenta como **no** otorgado (no se usa `not exists(… 'pendiente')`).
 - **`private.player_file_path_allowed(p_name text) returns boolean`** — divide con `string_to_array(p_name, '/')` (no `storage.foldername`, que descarta el último segmento) y devuelve `true` si y solo si:
   1. el arreglo tiene `array_length = 3`;
   2. el segmento 1 es `private.current_tenant_id()::text`;
-  3. existe `public.players p` con `p.id::text = segmento 2` y `p.tenant_id = private.current_tenant_id()`. Se compara como **texto**, nunca con `segmento::uuid`: un cast inválido lanzaría 22P02 dentro de la política y la petición fallaría con error en vez de `false`;
+  3. el segmento 2 tiene la forma de un uuid en minúsculas con guiones (`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`) y existe `public.players p` con `p.id = segmento 2::uuid` y `p.tenant_id = private.current_tenant_id()`, tomado `for share` (0018). El regex va **antes** del cast: un segmento que no es uuid devuelve `false` en vez de lanzar 22P02 dentro de la política. Como solo acepta la forma que produce `uuid::text`, el resultado es el mismo que la comparación como texto de 0012, pero la búsqueda usa la PK (0019, #48);
   4. el segmento 3 es uno de los 6 valores de `document_type` o `photo` (comparado como texto contra `enum_range`);
   5. si el segmento 3 **no** es `image_consent` ni `privacy_notice`, `private.player_consent_granted(p.id)` es `true`, usando el `p.id` ya encontrado en el paso 3.
 

@@ -58,6 +58,8 @@ export const STATUS_LABELS: Record<DocumentStatus, string> = {
 export const CONSENT_REQUIRED_MESSAGE =
   'Primero registra el consentimiento de imagen y el aviso de privacidad.'
 
+export const NO_PERMISSION_MESSAGE = 'No tienes permiso para esta acción.'
+
 const CONSENT_TYPES: readonly DocumentType[] = ['image_consent', 'privacy_notice']
 
 export function isConsentType(t: DocumentType): boolean {
@@ -76,6 +78,10 @@ export function playerFilePath(tenantId: string, playerId: string, name: Documen
   return `${tenantId}/${playerId}/${name}`
 }
 
+export function isPermissionError(message: string): boolean {
+  return /row-level security|permission denied|unauthorized|\b403\b/i.test(message)
+}
+
 export function documentErrorMessage(message: string, opts: { consentGranted?: boolean } = {}): string {
   if (message.startsWith('consent_required')) return CONSENT_REQUIRED_MESSAGE
   if (message.startsWith('consent_in_use')) {
@@ -84,8 +90,8 @@ export function documentErrorMessage(message: string, opts: { consentGranted?: b
   if (/^(invalid_file_path|file_path_mismatch|document_identity_immutable)/.test(message)) {
     return 'Ruta de archivo inválida.'
   }
-  if (/row-level security|unauthorized|403/i.test(message)) {
-    return opts.consentGranted === false ? CONSENT_REQUIRED_MESSAGE : 'No tienes permiso para esta acción.'
+  if (isPermissionError(message)) {
+    return opts.consentGranted === false ? CONSENT_REQUIRED_MESSAGE : NO_PERMISSION_MESSAGE
   }
   return message
 }
@@ -123,8 +129,16 @@ export async function removeFile(path: string): Promise<FileResult> {
   return { ok: true }
 }
 
-async function updateDocument(id: string, values: { status: DocumentStatus; file_path: string | null }) {
-  return supabase.from('documents').update(values).eq('id', id)
+async function updateDocument(
+  id: string,
+  values: { status: DocumentStatus; file_path: string | null },
+  opts: { consentGranted?: boolean } = {},
+): Promise<string | null> {
+  const { data, error } = await supabase.from('documents').update(values).eq('id', id).select('id')
+  if (error) return documentErrorMessage(error.message, opts)
+  // RLS filters the row instead of raising, so a forbidden update looks like a success on zero rows
+  if (!data || data.length === 0) return NO_PERMISSION_MESSAGE
+  return null
 }
 
 export async function setDocumentStatus(
@@ -133,19 +147,19 @@ export async function setDocumentStatus(
 ): Promise<FileResult> {
   const values = { status, file_path: null }
   if (doc.status !== 'digital' || !doc.file_path) {
-    const { error } = await updateDocument(doc.id, values)
-    return error ? { ok: false, error: documentErrorMessage(error.message) } : { ok: true }
+    const error = await updateDocument(doc.id, values)
+    return error ? { ok: false, error } : { ok: true }
   }
   if (isConsentType(doc.doc_type)) {
     // the server may reject a revocation, so the signed consent is only deleted after it accepts
-    const { error } = await updateDocument(doc.id, values)
-    if (error) return { ok: false, error: documentErrorMessage(error.message) }
+    const error = await updateDocument(doc.id, values)
+    if (error) return { ok: false, error }
     return removeFile(doc.file_path)
   }
   const removed = await removeFile(doc.file_path)
   if (!removed.ok) return removed
-  const { error } = await updateDocument(doc.id, values)
-  return error ? { ok: false, error: documentErrorMessage(error.message) } : { ok: true }
+  const error = await updateDocument(doc.id, values)
+  return error ? { ok: false, error } : { ok: true }
 }
 
 export async function uploadDocument(
@@ -158,10 +172,10 @@ export async function uploadDocument(
   const path = playerFilePath(doc.tenant_id, doc.player_id, doc.doc_type)
   const uploaded = await bucket().upload(path, file, { upsert: true, contentType: file.type })
   if (uploaded.error) return { ok: false, error: documentErrorMessage(uploaded.error.message, { consentGranted }) }
-  const { error } = await updateDocument(doc.id, { status: 'digital', file_path: path })
+  const error = await updateDocument(doc.id, { status: 'digital', file_path: path }, { consentGranted })
   if (error) {
     if (doc.status !== 'digital') await removeFile(path)
-    return { ok: false, error: documentErrorMessage(error.message, { consentGranted }) }
+    return { ok: false, error }
   }
   return { ok: true }
 }

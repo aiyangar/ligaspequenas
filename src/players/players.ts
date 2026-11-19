@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { categoryLabel } from '../lib/category'
 import { fetchAllRows } from '../lib/fetchAllRows'
-import { PLAYER_FILES_BUCKET, documentErrorMessage, playerFilePath, removeFile } from '../documents/documents'
+import { NO_PERMISSION_MESSAGE, PLAYER_FILES_BUCKET, documentErrorMessage, isPermissionError, playerFilePath, removeFile } from '../documents/documents'
 import type { PaymentState } from '../payments/payments'
 
 export type PlayerStatus = 'activo' | 'baja'
@@ -156,6 +156,10 @@ function toRecord(v: PlayerFormValues) {
   }
 }
 
+function playerErrorMessage(message: string): string {
+  return isPermissionError(message) ? NO_PERMISSION_MESSAGE : message
+}
+
 export async function createPlayer(
   values: PlayerFormValues,
   tenantId: string,
@@ -165,7 +169,7 @@ export async function createPlayer(
     .insert({ ...toRecord(values), tenant_id: tenantId })
     .select('id')
     .single()
-  if (error) return { ok: false, error: error.message }
+  if (error) return { ok: false, error: playerErrorMessage(error.message) }
   return { ok: true, id: (data as { id: string }).id }
 }
 
@@ -173,8 +177,10 @@ export async function updatePlayer(
   id: string,
   values: PlayerFormValues,
 ): Promise<UpdatePlayerResult> {
-  const { error } = await supabase.from('players').update(toRecord(values)).eq('id', id)
-  if (error) return { ok: false, error: error.message }
+  const { data, error } = await supabase.from('players').update(toRecord(values)).eq('id', id).select('id')
+  if (error) return { ok: false, error: playerErrorMessage(error.message) }
+  // RLS filters the row instead of raising, so a forbidden save looks like a success on zero rows
+  if (!data || data.length === 0) return { ok: false, error: NO_PERMISSION_MESSAGE }
   return { ok: true }
 }
 
@@ -184,6 +190,18 @@ const PHOTO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 export function validatePhotoFile(file: File): string | null {
   if (!PHOTO_MIME_TYPES.includes(file.type)) return 'Formato no permitido: usa JPG, PNG o WebP.'
   if (file.size > MAX_PHOTO_BYTES) return 'La foto supera 5 MB.'
+  return null
+}
+
+async function setPhotoPath(
+  id: string,
+  photoPath: string | null,
+  opts: { consentGranted?: boolean } = {},
+): Promise<string | null> {
+  const { data, error } = await supabase.from('players').update({ photo_path: photoPath }).eq('id', id).select('id')
+  if (error) return documentErrorMessage(error.message, opts)
+  // RLS filters the row instead of raising, so a forbidden update looks like a success on zero rows
+  if (!data || data.length === 0) return NO_PERMISSION_MESSAGE
   return null
 }
 
@@ -199,10 +217,10 @@ export async function uploadPlayerPhoto(
     .from(PLAYER_FILES_BUCKET)
     .upload(path, file, { upsert: true, contentType: file.type })
   if (uploaded.error) return { ok: false, error: documentErrorMessage(uploaded.error.message, { consentGranted }) }
-  const { error } = await supabase.from('players').update({ photo_path: path }).eq('id', player.id)
+  const error = await setPhotoPath(player.id, path, { consentGranted })
   if (error) {
     if (player.photo_path === null) await removeFile(path)
-    return { ok: false, error: documentErrorMessage(error.message, { consentGranted }) }
+    return { ok: false, error }
   }
   return { ok: true }
 }
@@ -214,7 +232,7 @@ export async function removePlayerPhoto(
     const removed = await removeFile(player.photo_path)
     if (!removed.ok) return removed
   }
-  const { error } = await supabase.from('players').update({ photo_path: null }).eq('id', player.id)
-  if (error) return { ok: false, error: documentErrorMessage(error.message) }
+  const error = await setPhotoPath(player.id, null)
+  if (error) return { ok: false, error }
   return { ok: true }
 }

@@ -69,7 +69,7 @@ union all select extensions.is(
   0, 'B2 no private function is executable by PUBLIC')
 union all select extensions.is(has_function_privilege('authenticated', 'private.current_tenant_id()', 'EXECUTE'), true, 'B3 authenticated executes current_tenant_id')
 union all select extensions.is(has_function_privilege('authenticated', 'private.is_admin()', 'EXECUTE'), true, 'B3 authenticated executes is_admin')
-union all select extensions.is(has_function_privilege('authenticated', 'private.player_consent_granted(uuid)', 'EXECUTE'), true, 'B3 authenticated executes player_consent_granted')
+union all select extensions.is(has_function_privilege('authenticated', 'private.player_consent_granted(uuid)', 'EXECUTE'), false, 'B3 authenticated no longer executes player_consent_granted (0019)')
 union all select extensions.is(has_function_privilege('authenticated', 'private.player_file_path_allowed(text)', 'EXECUTE'), true, 'B3 authenticated executes player_file_path_allowed')
 union all select extensions.is(has_function_privilege('anon', 'public.set_updated_at()', 'EXECUTE'), false, 'B4 anon cannot execute set_updated_at')
 union all select extensions.is(

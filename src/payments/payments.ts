@@ -132,7 +132,7 @@ export function formatMoney(amount: number): string {
 }
 
 export function paymentErrorMessage(message: string): string {
-  if (/row-level security|unauthorized|403/i.test(message)) return 'No tienes permiso para esta acción.'
+  if (/row-level security|permission denied|unauthorized|\b403\b/i.test(message)) return 'No tienes permiso para esta acción.'
   return message
 }
 

@@ -72,3 +72,17 @@ test('the first occurrence of a repeated key wins', async () => {
   page.mockResolvedValue({ data: [], error: null })
   expect(await fetchAllRows(page, (r) => r.id)).toEqual([{ id: 'a', v: 1 }, { id: 'b', v: 3 }])
 })
+
+test('one block made only of rows already read is tolerated, as a concurrent insert can shift rows', async () => {
+  const page = pages(ok([0]), ok([0]), ok([1]), ok([]))
+  expect(await fetchAllRows(page, byValue)).toEqual([0, 1])
+  expect(page.mock.calls.map(([from]) => from)).toEqual([0, 1, 2, 3])
+})
+
+test('a response that ignores the range throws instead of paging forever', async () => {
+  const page = vi.fn(async (from: number): Promise<PageResult<number>> =>
+    from > 100 ? { data: null, error: { message: 'runaway paging' } } : ok([0, 1]),
+  )
+  await expect(fetchAllRows(page, byValue)).rejects.toThrow('the server ignored the requested range')
+  expect(page.mock.calls.map(([from]) => from)).toEqual([0, 2, 4])
+})

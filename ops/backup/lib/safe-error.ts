@@ -1,3 +1,6 @@
+import * as dns from 'node:dns'
+import { getSystemErrorMap } from 'node:util'
+
 export class HttpError extends Error {
   status: number
   index: number | undefined
@@ -35,6 +38,7 @@ export const INTERNAL_CODES = [
   'recipients',
   'size',
   'target',
+  'timeout',
 ] as const
 
 export type InternalCode = (typeof INTERNAL_CODES)[number]
@@ -66,12 +70,31 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object'
 }
 
-// Only Node/undici code shapes or our own codes; anything else could carry arbitrary text, even a key.
-const SYSTEM_CODE = /^(E[A-Z0-9]+|ERR_[A-Z0-9_]+|UND_ERR_[A-Z0-9_]+)$/
+// Node's own errno names, known Node/undici codes or our own codes; anything else could carry arbitrary text, even a key.
+const ERRNO_CODES: ReadonlySet<string> = new Set(
+  [...[...getSystemErrorMap().values()].map(([name]) => name), ...Object.values(dns)].filter(
+    (code: unknown): code is string => typeof code === 'string' && /^E[A-Z0-9_]+$/.test(code),
+  ),
+)
+// Node and undici codes the backup scripts were observed to raise (fs/promises, URL, fetch on Node 24); see #121.
+export const NODE_ERROR_CODES: readonly string[] = [
+  'ERR_FS_FILE_TOO_LARGE',
+  'ERR_INVALID_ARG_TYPE',
+  'ERR_INVALID_ARG_VALUE',
+  'ERR_INVALID_URL',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_SOCKET',
+]
+const NODE_CODE_SHAPE = /^(ERR|UND_ERR)_[A-Z0-9_]+$/
 
 function codeOf(value: unknown): string | undefined {
   if (!isObject(value)) return undefined
+  // AbortSignal.timeout rejects with a DOMException whose code is the number 23
+  if (value.name === 'TimeoutError') return 'timeout'
   const code = value.code
   if (typeof code !== 'string') return undefined
-  return SYSTEM_CODE.test(code) || (INTERNAL_CODES as readonly string[]).includes(code) ? code : undefined
+  const nodeCode = NODE_CODE_SHAPE.test(code) && NODE_ERROR_CODES.includes(code)
+  return ERRNO_CODES.has(code) || nodeCode || (INTERNAL_CODES as readonly string[]).includes(code)
+    ? code
+    : undefined
 }

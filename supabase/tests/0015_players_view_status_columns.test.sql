@@ -1,7 +1,7 @@
 begin;
 select extensions.plan(21);
 
--- fixtures: tenants A/B, admin A, readonly A, admin B, players S1–S5, payments 1–6 (see plan Task 1 fixture block)
+-- tenants A/B, admin A, readonly A, admin B, players S1–S5, payments 1–6
 insert into public.tenants (id, name, slug) values
   ('eeeeeeee-0000-0000-0000-000000000001', 'Test Status A', 'test-status-a'),
   ('eeeeeeee-0000-0000-0000-000000000002', 'Test Status B', 'test-status-b');

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { CodedError, HttpError, INTERNAL_CODES, errorLine } from './lib/safe-error.ts'
+import { CodedError, HttpError, INTERNAL_CODES, NODE_ERROR_CODES, errorLine } from './lib/safe-error.ts'
 
 test('an fs error prints only its code, never the path', () => {
   const err = Object.assign(new Error("ENOENT: no such file, open '/tmp/x/t1/p1/curp'"), { code: 'ENOENT' })
@@ -57,7 +57,23 @@ test('a code that looks like a secret key is never printed', () => {
   expect(errorLine({ code: 'usage' })).toBe('error: unknown')
 })
 
-test.each(['ENOENT', 'EACCES', 'ECONNREFUSED', 'ERR_INVALID_URL', 'UND_ERR_SOCKET', 'UND_ERR_CONNECT_TIMEOUT'])(
+test('an uppercase code that is not a Node errno is never printed', () => {
+  expect(errorLine({ code: 'ESECRETKEY1QQQ' })).toBe('error: unknown')
+  expect(errorLine({ code: 'EAGESECRETKEY' })).toBe('error: unknown')
+})
+
+test.each([
+  'ENOENT',
+  'EACCES',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'ERR_INVALID_URL',
+  'UND_ERR_SOCKET',
+  'UND_ERR_CONNECT_TIMEOUT',
+])(
   'the system code %s passes through',
   (code) => {
     expect(errorLine({ code })).toBe(`error: ${code}`)
@@ -67,4 +83,36 @@ test.each(['ENOENT', 'EACCES', 'ECONNREFUSED', 'ERR_INVALID_URL', 'UND_ERR_SOCKE
 test.each([...INTERNAL_CODES])('the internal code %s passes through', (code) => {
   expect(errorLine(new CodedError(code))).toBe(`error: ${code}`)
   expect(errorLine({ code })).toBe(`error: ${code}`)
+})
+
+test('a Node-shaped code outside the known list is never printed', () => {
+  expect(errorLine({ code: 'ERR_SB_SECRET_ABCDEFGHIJKLMNOP' })).toBe('error: unknown')
+  expect(errorLine({ code: 'ERR_AGE_SECRET_KEY_1QQQ' })).toBe('error: unknown')
+  expect(errorLine({ code: 'UND_ERR_SB_SECRET_ABCDEFGH' })).toBe('error: unknown')
+  expect(errorLine(new TypeError('fetch failed', { cause: { code: 'ERR_SB_SECRET_ABCDEFGH' } }))).toBe('error: unknown')
+})
+
+test.each([...NODE_ERROR_CODES])('the known Node code %s has the Node shape and passes through', (code) => {
+  expect(code).toMatch(/^(ERR|UND_ERR)_[A-Z0-9_]+$/)
+  expect(errorLine({ code })).toBe(`error: ${code}`)
+})
+
+test('an AbortSignal timeout prints the fixed code timeout, on the error or on its cause', async () => {
+  const signal = AbortSignal.timeout(1)
+  await new Promise((resolve) => signal.addEventListener('abort', resolve))
+  expect(signal.reason).toMatchObject({ name: 'TimeoutError', code: 23 })
+  expect(errorLine(signal.reason)).toBe('error: timeout')
+  expect(errorLine(new TypeError('fetch failed', { cause: signal.reason }))).toBe('error: timeout')
+})
+
+test('a timeout never prints its message', () => {
+  expect(errorLine(new DOMException('https://abc.supabase.co/storage/v1/object/x sb_secret_ABC', 'TimeoutError'))).toBe('error: timeout')
+})
+
+test('a manual abort is not a timeout', () => {
+  expect(errorLine(new DOMException('aborted', 'AbortError'))).toBe('error: unknown')
+})
+
+test('an unknown Node-shaped code falls back to the code of its cause', () => {
+  expect(errorLine({ code: 'ERR_FAKE', cause: { code: 'UND_ERR_SOCKET' } })).toBe('error: UND_ERR_SOCKET')
 })
