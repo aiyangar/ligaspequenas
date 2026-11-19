@@ -1,7 +1,7 @@
 # Barrido de deuda técnica, tercera ola — Diseño
 
 **Fecha:** 2026-11-18
-**Estado:** Propuesto
+**Estado:** Aprobado por el owner (2026-11-18)
 **Contexto:** continuación de `2026-11-18-tech-debt-sweep-design.md`. El owner pidió que no quede nada sin resolver; estos 8 issues salieron durante la planeación y las revisiones de las olas 1 y 2. Aplican las mismas reglas de ese spec (§1: ningún issue se cierra sin cambio verificado o evidencia; §5: restricciones).
 
 ## 1. Issues y lotes
