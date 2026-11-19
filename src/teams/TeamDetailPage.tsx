@@ -15,6 +15,7 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
+import { flashOf } from '../lib/flash'
 import { LoadError } from '../app/LoadError'
 import { NotFoundState } from '../app/NotFoundState'
 import { AddPlayerDialog } from './AddPlayerDialog'
@@ -24,10 +25,6 @@ import {
 import type { TeamRow } from './teams'
 import type { PlayerRow } from '../players/players'
 import { playerCategoryText } from '../players/players'
-
-function flashOf(state: unknown): string | null {
-  return (state as { flash?: string } | null)?.flash ?? null
-}
 
 export function TeamDetailPage() {
   const { id } = useParams()
@@ -45,7 +42,7 @@ export function TeamDetailPage() {
   const [loadError, setLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [loaded, setLoaded] = useState(false)
-  // the team form hands over its success message in history state; it is read once here
+  // the team form always lands here on a fresh mount, so reading the flash at mount is enough
   const [toast, setToast] = useState<string | null>(() => flashOf(location.state))
   const hasFlash = flashOf(location.state) !== null
 

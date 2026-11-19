@@ -36,10 +36,10 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `update/shared-flash-helper`.
-- [ ] **Step 0.2:** Q está en la base: `git -C $WT log --oneline -1 --grep "#145" origin/develop` → una línea (`fix: ignore stale player refreshes…`), y `grep -c "refreshRequest" $WT/src/players/PlayerFormPage.tsx` → mayor que 0. Si no, **detente** y avisa al orquestador.
-- [ ] **Step 0.3:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.4:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado: 48 y 572 si nada más se mergeó; si S, T, U o V ya entraron, los números serán mayores; lo que cuenta es el delta).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `update/shared-flash-helper`.
+- [x] **Step 0.2:** Q está en la base: `git -C $WT log --oneline -1 --grep "#145" origin/develop` → una línea (`fix: ignore stale player refreshes…`), y `grep -c "refreshRequest" $WT/src/players/PlayerFormPage.tsx` → mayor que 0. Si no, **detente** y avisa al orquestador.
+- [x] **Step 0.3:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.4:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado: 48 y 572 si nada más se mergeó; si S, T, U o V ya entraron, los números serán mayores; lo que cuenta es el delta).
 
 ---
 
@@ -52,7 +52,7 @@
 **Interfaces:**
 - Produces: `export function flashOf(state: unknown): string | null` en `src/lib/flash.ts` (Task 2 lo importa).
 
-- [ ] **Step 1.1: Escribir el test (rojo)**
+- [x] **Step 1.1: Escribir el test (rojo)**
 
 `src/lib/flash.test.ts` (Vitest con globals, como `src/lib/category.test.ts`):
 
@@ -74,7 +74,7 @@ test('flashOf is null when history state carries no flash', () => {
 Run: `pnpm exec vitest run src/lib/flash.test.ts`
 Expected (verificado por el planner): FAIL del archivo con `Error: Failed to resolve import "./flash" from "src/lib/flash.test.ts". Does the file exist?` (`Tests  no tests`).
 
-- [ ] **Step 1.2: Implementar**
+- [x] **Step 1.2: Implementar**
 
 Crea `src/lib/flash.ts` con `export function flashOf(state: unknown): string | null` y exactamente el cuerpo de las copias actuales:
 
@@ -86,7 +86,7 @@ Sin comentarios.
 
 Run: `pnpm exec vitest run src/lib/flash.test.ts` → 2 tests PASS.
 
-- [ ] **Step 1.3: Commit**
+- [x] **Step 1.3: Commit**
 
 `git -C $WT status -s` → solo `src/lib/flash.ts`, `src/lib/flash.test.ts` (ambos `??`) y este plan.
 
@@ -109,7 +109,7 @@ git -C $WT commit -m "refactor: add a shared flashOf helper for history-state fl
 **Interfaces:**
 - Consumes: `flashOf` de Task 1.
 
-- [ ] **Step 2.1: Editar por ancla**
+- [x] **Step 2.1: Editar por ancla**
 
 En **cada** una de las dos páginas:
 
@@ -136,23 +136,23 @@ Solo en `src/teams/TeamDetailPage.tsx`, reemplaza la línea de comentario
 
 Nada más cambia en ninguno de los dos archivos.
 
-- [ ] **Step 2.2: Comprobaciones**
+- [x] **Step 2.2: Comprobaciones**
 
 - `grep -rn "function flashOf" $WT/src` → una sola línea, `src/lib/flash.ts:1`.
 - `grep -c "from '../lib/flash'" $WT/src/players/PlayerFormPage.tsx $WT/src/teams/TeamDetailPage.tsx` → `1` y `1`.
 - `git -C $WT diff --stat` → `src/players/PlayerFormPage.tsx | 5 +----` y `src/teams/TeamDetailPage.tsx | 7 ++-----` (planner: `2 files changed, 3 insertions(+), 9 deletions(-)`).
 
-- [ ] **Step 2.3: Q sigue intacto**
+- [x] **Step 2.3: Q sigue intacto**
 
 `git -C $WT diff -- src/players/PlayerFormPage.tsx` → solo el `+import { flashOf }…` y las 4 líneas `-` de la función; ninguna línea de `useRef`, `refreshRequest` ni `refreshRow`.
 
-- [ ] **Step 2.4: Suite completa, tipos y lint**
+- [x] **Step 2.4: Suite completa, tipos y lint**
 
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx src/teams/TeamDetailPage.test.tsx` → todo PASS sin tocar los tests (incluye `the %s flash from the team form shows as a toast`, `the flash is dropped from history once shown…`, `the create flash is dropped from history once shown…`, `saving an edit shows the toast without leaving a flash in history`).
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files + 1` archivos, `B_tests + 2` tests, todo verde (planner: 49 y 574). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 2.5: Commit**
+- [x] **Step 2.5: Commit**
 
 `git -C $WT status -s` → solo `PlayerFormPage.tsx`, `TeamDetailPage.tsx` y este plan.
 

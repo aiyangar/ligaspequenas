@@ -10,6 +10,7 @@ import Snackbar from '@mui/material/Snackbar'
 import TextField from '@mui/material/TextField'
 import { useTenant } from '../tenant/TenantContext'
 import { isAdmin } from '../lib/authorize'
+import { flashOf } from '../lib/flash'
 import { LoadError } from '../app/LoadError'
 import { NotFoundState } from '../app/NotFoundState'
 import { PlayerForm } from './PlayerForm'
@@ -29,10 +30,6 @@ import type { DocumentRow } from '../documents/documents'
 import { PlayerDocumentsSection } from '../documents/PlayerDocumentsSection'
 import { PlayerPhoto } from './PlayerPhoto'
 import { PlayerPaymentsSection } from '../payments/PlayerPaymentsSection'
-
-function flashOf(state: unknown): string | null {
-  return (state as { flash?: string } | null)?.flash ?? null
-}
 
 export function PlayerFormPage() {
   const { id } = useParams()
