@@ -104,6 +104,12 @@ test('documentErrorMessage does not read 403 inside a longer number or id', () =
   expect(documentErrorMessage('object 9f403a2c not found')).toBe('object 9f403a2c not found')
 })
 
+test('documentErrorMessage translates a Postgres 42501 permission denied like an RLS rejection', () => {
+  expect(documentErrorMessage('permission denied for table player_documents')).toBe('No tienes permiso para esta acción.')
+  expect(documentErrorMessage('Permission denied for schema private')).toBe('No tienes permiso para esta acción.')
+  expect(documentErrorMessage('permission denied for table players', { consentGranted: false })).toBe(CONSENT_REQUIRED_MESSAGE)
+})
+
 test('validateDocumentFile accepts the 4 MIME types up to exactly 10 MB', () => {
   expect(validateDocumentFile(file('application/pdf', 10 * 1024 * 1024))).toBeNull()
   expect(validateDocumentFile(file('image/webp', 1))).toBeNull()

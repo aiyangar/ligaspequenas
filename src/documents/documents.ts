@@ -86,7 +86,7 @@ export function documentErrorMessage(message: string, opts: { consentGranted?: b
   if (/^(invalid_file_path|file_path_mismatch|document_identity_immutable)/.test(message)) {
     return 'Ruta de archivo inválida.'
   }
-  if (/row-level security|unauthorized|\b403\b/i.test(message)) {
+  if (/row-level security|permission denied|unauthorized|\b403\b/i.test(message)) {
     return opts.consentGranted === false ? CONSENT_REQUIRED_MESSAGE : NO_PERMISSION_MESSAGE
   }
   return message
