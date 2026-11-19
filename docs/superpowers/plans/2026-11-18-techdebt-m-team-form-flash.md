@@ -35,10 +35,10 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/team-form-flash`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde).
-- [ ] **Step 0.4:** `grep -rn "flash\|useLocation" src/teams --include='*.tsx' | grep -v '\.test\.tsx'` → solo las dos líneas `navigate(…, { state: { flash: … } })` de `TeamFormPage.tsx` (l.88 y l.97) y el comentario `…never flashes…` de `AddPlayerDialog.tsx`. Confirma que hoy nadie lee el flash.
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/team-form-flash`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde).
+- [x] **Step 0.4:** `grep -rn "flash\|useLocation" src/teams --include='*.tsx' | grep -v '\.test\.tsx'` → solo las dos líneas `navigate(…, { state: { flash: … } })` de `TeamFormPage.tsx` (l.88 y l.97) y el comentario `…never flashes…` de `AddPlayerDialog.tsx`. Confirma que hoy nadie lee el flash.
 
 ---
 
@@ -48,7 +48,7 @@
 - Modify: `src/teams/TeamDetailPage.test.tsx` (import l.1; `renderPage` l.35–45; 4 tests nuevos al final)
 - Modify: `src/teams/TeamDetailPage.tsx` (imports l.2 y l.10; `flashOf` nuevo; estado y efecto nuevos tras `loaded`; `Snackbar` al final del `return`)
 
-- [ ] **Step 1.1: Escribir los tests (rojo)**
+- [x] **Step 1.1: Escribir los tests (rojo)**
 
 En `src/teams/TeamDetailPage.test.tsx`:
 
@@ -103,7 +103,7 @@ test('without a flash no toast is shown', async () => {
 Run: `pnpm exec vitest run src/teams/TeamDetailPage.test.tsx`
 Expected: FAIL en 3 tests (verificado por el planner): `the Equipo creado flash…`, `the Cambios guardados flash…` y `the flash is dropped from history…`, los tres con `Unable to find an element with the text: <flash>`; los 13 restantes pasan (incluido `without a flash no toast is shown`, que es la guarda del caso sin flash).
 
-- [ ] **Step 1.2: Implementar**
+- [x] **Step 1.2: Implementar**
 
 En `src/teams/TeamDetailPage.tsx`:
 
@@ -154,7 +154,7 @@ Expected: 16 tests PASS.
 
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint src/teams` → exit 0.
 
-- [ ] **Step 1.3: Commit**
+- [x] **Step 1.3: Commit**
 
 `git -C $WT status -s` → solo `TeamDetailPage.tsx`, `TeamDetailPage.test.tsx` y este plan.
 
@@ -175,7 +175,7 @@ git -C $WT commit -m "fix: show the team form's success flash once and drop it f
 
 Hoy ningún test cubre a dónde navega `TeamFormPage` al guardar ni qué `state` manda. Este test fija el contrato que Task 1 consume; pasa desde el inicio y el rojo se demuestra con mutación.
 
-- [ ] **Step 2.1: Escribir los tests**
+- [x] **Step 2.1: Escribir los tests**
 
 En `src/teams/TeamFormPage.test.tsx`:
 
@@ -213,7 +213,7 @@ test('creating hands the new team page its success flash in history state', asyn
 Run: `pnpm exec vitest run src/teams/TeamFormPage.test.tsx`
 Expected: 7 tests PASS (verificado por el planner).
 
-- [ ] **Step 2.2: Mutación (rojo demostrado)**
+- [x] **Step 2.2: Mutación (rojo demostrado)**
 
 En `src/teams/TeamFormPage.tsx` l.88, cambia temporalmente `{ state: { flash: 'Cambios guardados' } }` por `{ state: { message: 'Cambios guardados' } }`.
 
@@ -222,11 +222,11 @@ Expected: FAIL solo en `saving hands the team page its success flash in history 
 
 Restaura: `git -C $WT checkout -- src/teams/TeamFormPage.tsx`; `git -C $WT diff --stat -- src/teams/TeamFormPage.tsx` → vacío. Vuelve a correr → 7 PASS.
 
-- [ ] **Step 2.3: Suite completa, tipos y lint**
+- [x] **Step 2.3: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `B_tests + 6` tests, todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 2.4: Commit**
+- [x] **Step 2.4: Commit**
 
 `git -C $WT status -s` → solo `TeamFormPage.test.tsx` y este plan.
 

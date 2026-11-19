@@ -23,7 +23,8 @@ function renderAt(path: string) {
     ],
     { initialEntries: [path] },
   )
-  return render(<RouterProvider router={router} />)
+  render(<RouterProvider router={router} />)
+  return router
 }
 
 beforeEach(() => {
@@ -89,4 +90,22 @@ test('editing a missing team shows not-found instead of a blank form', async () 
   expect(await screen.findByText('Equipo no encontrado')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Volver a Equipos' })).toHaveAttribute('href', '/equipos')
   expect(screen.queryByRole('button', { name: 'Guardar' })).not.toBeInTheDocument()
+})
+
+test('saving hands the team page its success flash in history state', async () => {
+  const user = userEvent.setup()
+  const router = renderAt('/equipos/team9/editar')
+  await screen.findByDisplayValue('MTY AC Rojo')
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  await waitFor(() => expect(router.state.location.pathname).toBe('/equipos/team9'))
+  expect(router.state.location.state).toEqual({ flash: 'Cambios guardados' })
+})
+
+test('creating hands the new team page its success flash in history state', async () => {
+  const user = userEvent.setup()
+  const router = renderAt('/equipos/nuevo')
+  await user.type(await screen.findByLabelText(/Nombre/), 'MTY AC Azul')
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  await waitFor(() => expect(router.state.location.pathname).toBe('/equipos/newteam'))
+  expect(router.state.location.state).toEqual({ flash: 'Equipo creado' })
 })
