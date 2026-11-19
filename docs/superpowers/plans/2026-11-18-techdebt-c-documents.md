@@ -449,14 +449,18 @@ git -C $WT commit -m "fix: let the documents section reload its rows after a fai
 
 ## Verificación en navegador (orquestador, después de la revisión limpia)
 
-Dev server en el worktree del lote y la sesión admin persistente de Playwright. Antes de empezar anota el estatus actual de cada documento del jugador que uses (para restaurarlo).
+Dev server en el worktree del lote y la sesión admin persistente de Playwright. **Nunca se toca al jugador real**: todo sobre un jugador de prueba que el orquestador crea y borra.
 
-- [ ] En la ficha del jugador, cambia un documento **no** de consentimiento que esté en Pendiente (p. ej. Constancia médica) a Físico: aparece el toast "Documento actualizado", el chip pasa a Físico y **no** aparece "No tienes permiso para esta acción." (confirma que `.select('id')` devuelve la fila bajo la RLS real). Regrésalo a Pendiente (mismo resultado).
-- [ ] Mientras guarda (observa con la red en "Slow 3G" si hace falta), los selects y botones de las otras filas se ven deshabilitados (#51).
-- [ ] Estado final: todos los documentos con el estatus anotado al inicio (baseline del spec §5: 6 documentos, 1 objeto en `player-files`).
+- [ ] **Baseline antes** (query del spec §5): 1 tenant, 3 profiles, 3 users, 1 jugador, 6 documentos, 0 pagos, 1 objeto en `player-files`.
+- [ ] **Jugador de prueba:** créalo por la UI (`/jugadores/nuevo`) con un nombre único (p. ej. `ZZ Prueba C <fecha-hora>`); anota id y nombre exacto. Pon sus dos consentimientos en Físico.
+- [ ] En su ficha, cambia un documento **no** de consentimiento de Pendiente a Físico: toast "Documento actualizado", el chip pasa a Físico y **no** aparece "No tienes permiso para esta acción." (confirma que `.select('id')` devuelve la fila bajo la RLS real). Regrésalo a Pendiente (mismo resultado).
+- [ ] Mientras guarda (con la red en "Slow 3G" si hace falta), los selects y botones de las otras filas se ven deshabilitados (#51).
+- [ ] **Limpieza:** si quedó algún objeto en `player-files` bajo `<tenant>/<id>/`, bórralo por la API de Storage. Después, como `postgres` por MCP: `delete from public.players where id = '<id>' and full_name = '<nombre exacto>';` (1 fila; sus documentos caen por `on delete cascade`).
+- [ ] **Baseline después:** 1 tenant, 3 profiles, 3 users, 1 jugador, 6 documentos, 0 pagos, 1 objeto.
 
 ## Discrepancias
 
 - **#50 se reparte entre C y D.** La recarga vive en la sección (este lote), pero solo sirve cuando la página la conecta, y la página es de D. Cambiar la firma de `onChanged` (la sugerencia del issue) obligaría a editar `PlayerFormPage`, que D reescribe en paralelo. Por eso `onReload` es una prop nueva y opcional: este lote compila solo, y D la conecta en su Task 8, que espera a que este lote esté en `develop`. La parte de la foto de #50 ("fix both together") también va en D (`PlayerPhoto` es de D). Por eso este PR lleva `Refs #50` y el de D `Closes #50`.
 - **Zero-row en el `uploadDocument`:** un update a cero filas cuenta como fallo, así que también hace el rollback del objeto recién subido (test `rolls back a new upload whose update matched zero rows`). El issue no lo pedía, pero sin rollback quedaría un objeto huérfano en Storage.
 - **Mismo hueco en `players.ts`:** `uploadPlayerPhoto` y `removePlayerPhoto` tampoco detectan un update filtrado a cero filas. No está en ningún issue y `players.ts` no es de este lote: el orquestador puede registrarlo como issue nuevo.
+- **Nit opcional de la revisión (recargar también tras un error de validación del cliente): no se aplica.** La validación vive en `uploadDocument` (capa de datos); para distinguirla en la sección habría que duplicar `validateDocumentFile` en `handleFile`. El costo de no hacerlo es una lectura extra de documentos tras elegir un archivo inválido, sin efecto visible.

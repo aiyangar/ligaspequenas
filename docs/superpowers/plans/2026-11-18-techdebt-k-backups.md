@@ -329,7 +329,7 @@ Si imprime `ALTO`, no seguir hasta desmontar el volumen viejo.
 
 - [ ] **Step 2: Disco en RAM (Minor 3)**
 
-En `docs/ops/backups.md`, reemplaza el párrafo de la l.109 y el bloque `bash` que le sigue (l.111–121) por lo siguiente. Las líneas desde `gh run download` hasta `node -e …` son las mismas de hoy, solo pasan a un segundo bloque:
+En `docs/ops/backups.md`, reemplaza el párrafo de la l.109 y el bloque `bash` que le sigue (l.111–121) por lo siguiente. Las líneas desde `gh run download` hasta `node -e …` son las mismas de hoy (con dos espacios de sangría); pasan a un segundo bloque envuelto en `if [ -n "$dir" ] && [ -n "$ram" ]; then … else echo "ALTO: corre primero el bloque anterior"; fi`:
 
 ````markdown
 Los datos descifrados van a un **disco en RAM** (la misma receta que para las llaves), nunca al disco interno. 4194304 sectores son 2 GB; se ajusta si el respaldo crece. Si ya hay un volumen montado como `/Volumes/backupsdata` (uno viejo que no se desmontó), el nuevo se montaría como `backupsdata 1`, `$dir` apuntaría al viejo y el `hdiutil detach "$ram"` del final desmontaría el equivocado; por eso el primer bloque no crea nada en ese caso. Spotlight se apaga en el disco para que no indexe los documentos:
@@ -346,15 +346,19 @@ else
 fi
 ```
 
-Verde: no imprime `ALTO` y la última línea dice `Indexing disabled.`. Si imprime `ALTO` o Spotlight sigue activo, no seguir.
+Verde: no imprime `ALTO` y la salida de `mdutil -s` no dice `enabled` (en macOS actuales suele decir `Indexing disabled.`, pero el texto exacto varía por versión). Si imprime `ALTO` o dice `enabled`, no seguir. El segundo bloque solo corre si el primero definió `$dir` y `$ram` (por ejemplo, no tras un `ALTO`); si no, imprime `ALTO: corre primero el bloque anterior` y no ejecuta nada, aunque se pegue entero en un shell interactivo.
 
 ```bash
-gh run download <run-id> -n backup-<ts> -D "$dir"
-# Copiar la llave principal del gestor de contraseñas al portapapeles. Así nunca se escribe en el disco.
-age -d -i <(pbpaste) "$dir/backup-<ts>.tar.age" | tar -xf - -C "$dir"
-pbcopy < /dev/null
-(cd "$dir" && shasum -a 256 -c SHA256SUMS)
-node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).commit)' "$dir/manifest.json"
+if [ -n "$dir" ] && [ -n "$ram" ]; then
+  gh run download <run-id> -n backup-<ts> -D "$dir"
+  # Copiar la llave principal del gestor de contraseñas al portapapeles. Así nunca se escribe en el disco.
+  age -d -i <(pbpaste) "$dir/backup-<ts>.tar.age" | tar -xf - -C "$dir"
+  pbcopy < /dev/null
+  (cd "$dir" && shasum -a 256 -c SHA256SUMS)
+  node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).commit)' "$dir/manifest.json"
+else
+  echo "ALTO: corre primero el bloque anterior"
+fi
 ```
 ````
 
@@ -378,7 +382,7 @@ El resto de la línea no cambia.
 
 - [ ] **Step 4: Verde**
 
-Repite los cuatro `grep -c` del Step 1. Expected: `1`, `1`, `0`, `1`. Además `grep -c 'carpetas reales (no symlinks)' docs/ops/backups.md` → `1`.
+Repite los cuatro `grep -c` del Step 1. Expected: `1`, `1`, `0`, `1`. Además `grep -c 'carpetas reales (no symlinks)' docs/ops/backups.md` → `1`. Y `grep -cF 'if [ -n "$dir" ] && [ -n "$ram" ]; then' docs/ops/backups.md` → `1`; `grep -cF 'ALTO: corre primero el bloque anterior' docs/ops/backups.md` → `1`.
 
 - [ ] **Step 5: Suite completa, tipos y lint**
 
@@ -405,9 +409,9 @@ git -C $WT commit -m "docs: guard the backup RAM disk name and turn off Spotligh
 
 ## Pruebas manuales que quedan para el owner (pendiente de aprobación del owner)
 
-- **Simulacro de restauración.** El runbook (`docs/ops/backups.md`, "Simulacro de restauración", l.217) pide uno "después de cualquier cambio a `backup.yml` o a `ops/backup/`". Esta rama cambia `ops/backup/lib/storage.ts` (la restauración) y el bloque del disco en RAM, así que toca un simulacro en el Mac del owner contra un proyecto temporal. En él se verifica además que `sudo mdutil -i off` y `mdutil -s` imprimen `Indexing disabled.` y que el guard `ALTO` no se dispara con un `/Volumes` limpio. El orquestador no lo puede correr (necesita la llave privada y el Mac del owner); queda listado en el PR y espera su aprobación.
+- **Simulacro de restauración.** El runbook (`docs/ops/backups.md`, sección `## Simulacro`, l.217) pide uno "después de cualquier cambio a `backup.yml` o a `ops/backup/`". Esta rama cambia `ops/backup/lib/storage.ts` (la restauración) y el bloque del disco en RAM, así que toca un simulacro en el Mac del owner contra un proyecto temporal. En él se verifica además que, tras `sudo mdutil -i off`, la salida de `mdutil -s` no dice `enabled` y que el guard `ALTO` no se dispara con un `/Volumes` limpio. El orquestador no lo puede correr (necesita la llave privada y el Mac del owner); queda listado en el PR y espera su aprobación.
 
-- [ ] **Step M1 (owner, manual): simulacro de restauración** — pendiente de aprobación del owner. Verde: restauración completa en el proyecto temporal según el runbook, `Indexing disabled.` en el disco en RAM, el guard `ALTO` no se dispara con `/Volumes` limpio (ni en `backupsdata` ni en `backupsram` si se genera una llave), y el proyecto temporal se borra al final. #97 no se da por cerrado en el reporte final hasta que el owner lo apruebe.
+- [ ] **Step M1 (owner, manual): simulacro de restauración** — pendiente de aprobación del owner. Verde: restauración completa en el proyecto temporal según el runbook, `mdutil -s "$dir"` sin la palabra `enabled` (el texto exacto varía por versión de macOS; se acepta cualquier salida que no diga `enabled`), el segundo bloque no imprime `ALTO: corre primero el bloque anterior`, el guard `ALTO` no se dispara con `/Volumes` limpio (ni en `backupsdata` ni en `backupsram` si se genera una llave), y el proyecto temporal se borra al final. #97 no se da por cerrado en el reporte final hasta que el owner lo apruebe.
 
 ## Discrepancias
 

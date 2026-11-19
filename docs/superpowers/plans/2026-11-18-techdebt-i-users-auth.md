@@ -8,7 +8,7 @@
 
 **Architecture:**
 - **#39:** dos helpers de test nuevos en `src/test/` (`deferred.ts` y `authListener.ts`, con sus tests); solo los tests de `src/auth/*` los adoptan (spec §4).
-- **#15:** `UsersPage` usa `Select` de MUI (con `MenuItem`) para el rol de cada usuario y `TextField select` no nativo para el rol de la invitación; la lista muestra solo el nombre (el rol ya se ve en el select). `AppLayout` agrupa los links de sección en un `<nav aria-label="Principal">` y marca la sección actual (`NavLink` → clase `active`) con el color `primary` del tema y un subrayado. Mismos componentes (MUI `Button` + `NavLink`), sin cambio de estructura.
+- **#15:** `UsersPage` usa `Select` de MUI (con `MenuItem`) para el rol de cada usuario y `TextField select` no nativo para el rol de la invitación; la lista muestra solo el nombre (el rol ya se ve en el select). `AppLayout` agrupa los links de sección en un `<nav aria-label="Principal">` y marca la sección actual con `aria-current="page"`, un subrayado de 2 px en `primary.main` y `fontWeight: 700`; el texto conserva el color `inherit` del `AppBar` (el morado como color de texto sobre el `AppBar` oscuro queda en ~2.9:1, bajo AA). "Jugadores" es la sección actual en `/` y en `/jugadores/*`. Mismos componentes (MUI `Button` + `NavLink`/`Link`), sin cambio de estructura.
 - **#13:** `UsersPage` guarda el aviso como `{ severity, text }`; los errores van en `role="alert"` y los éxitos en `role="status"`; `fetchUsers` lanza si Supabase devuelve error y la lista muestra `LoadError` con Reintentar (el patrón del resto de la app); un cambio de rol fallido muestra un aviso en vez de fallar en silencio.
 - **#41/#42:** `http.ts` gana `jsonResponse` y `withInternalErrorResponse` (puros, probados con Vitest como el resto del módulo); `index.ts` envuelve todo el handler en `withInternalErrorResponse`. El orquestador redespliega y prueba con curl después del merge.
 
@@ -23,7 +23,7 @@
 - **Archivos permitidos** (solo estos): `src/test/deferred.ts`, `src/test/deferred.test.ts`, `src/test/authListener.ts`, `src/test/authListener.test.ts` (nuevos); `src/auth/AuthContext.test.tsx`, `src/auth/AuthCallbackPage.test.tsx`, `src/auth/LoginPage.test.tsx`; `src/users/UsersPage.tsx`, `src/users/UsersPage.test.tsx`; `src/app/AppLayout.tsx`, `src/app/AppLayout.test.tsx`; `supabase/functions/invite-user/http.ts`, `supabase/functions/invite-user/http.test.ts`, `supabase/functions/invite-user/index.ts`; y este plan. **No** migres los `deferred` locales de `src/players/*` ni `src/teams/*` (spec §4, §6). **No** toques código de producción de `src/auth/*`.
 - **Runner de la Edge Function:** el repo **no** usa `deno test`. Los módulos puros de `supabase/functions/invite-user/` (`authorize.ts`, `http.ts`, `rollback.ts`) se prueban con Vitest (los recoge `pnpm exec vitest run`) y se typechequean con `tsconfig.functions.json` (referenciado por `tsc -b`). `index.ts` está excluido de ese tsconfig a propósito (importa `jsr:`/`npm:` y usa `Deno`): solo lo validan ESLint, el typecheck fuera del repo del Step 5.4 y las pruebas en vivo del orquestador. No hay `deno` instalado en la máquina.
 - Código, identificadores y comentarios en inglés; sin comentarios salvo una línea corta con el *por qué*. Mensajes de commit en inglés, terminados en la línea `Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd`. `git add` incluye este plan para que las marcas `- [x]` queden en el commit.
-- Conteos: delta sobre el baseline del Step 0 (`B_files`, `B_tests`). Referencia medida por el planner en `origin/develop` = `24c14a4`: **45 archivos, 449 tests**. Este lote agrega **+2 archivos y +17 tests** (47 / 466 sobre la referencia).
+- Conteos: delta sobre el baseline del Step 0 (`B_files`, `B_tests`). Referencia medida por el planner en `origin/develop` = `24c14a4`: **45 archivos, 449 tests**. Este lote agrega **+2 archivos y +20 tests** (47 / 469 sobre la referencia).
 
 ## Review Focus
 
@@ -32,7 +32,7 @@
 - **El `Origin` entrante se compara exacto** (sin `toLowerCase`, sin quitar `/`): fijado en Task 4, con mutación.
 - **Usuarios ya no falla en silencio:** lectura fallida → `LoadError` + Reintentar; recarga fallida después de invitar → el aviso de éxito se queda y aparece Reintentar; cambio de rol fallido → aviso y el select sigue mostrando el rol anterior.
 - **Severidad explícita:** el color y el `role` del aviso salen de `notice.severity`, nunca del texto.
-- **Sin rediseño (#15):** mismo `AppBar`/`Toolbar`/`Button`; solo el agrupado en `<nav>` y el estilo de la sección activa. El orquestador lo confirma en navegador (desktop y 390 px).
+- **Sin rediseño (#15) y con contraste AA:** mismo `AppBar`/`Toolbar`/`Button`; solo el agrupado en `<nav>` y la marca de la sección activa (subrayado `primary.main` + negrita, texto en `inherit`, nunca morado como color de texto). El orquestador mide el contraste y compara 390 px contra una captura "antes" (O5).
 
 ---
 
@@ -204,13 +204,13 @@ git -C $WT commit -m "test: share deferred() and the auth listener capture acros
 ## Task 2: Rol con `Select` de MUI y navegación con el tema (#15)
 
 **Files:**
-- Modify: `src/app/AppLayout.test.tsx` (imports, `renderLayout`, 2 tests nuevos)
-- Modify: `src/app/AppLayout.tsx` (constante nueva; links l.48–53)
+- Modify: `src/app/AppLayout.test.tsx` (imports, `renderLayout`, 4 tests nuevos: 2 + un `test.each` de 2 casos)
+- Modify: `src/app/AppLayout.tsx` (imports l.1 y l.9; constante nueva; `useLocation` en el componente; links l.48–53)
 - Modify: `src/users/UsersPage.test.tsx` (`lists the tenant users`, `changes a user role through an update`, 1 test nuevo)
 - Modify: `src/users/UsersPage.tsx` (imports, constantes, select de invitación l.97–107, select por usuario l.124–137, `ListItemText` l.140)
 
 Decisión del owner (spec §2): ajuste con el tema actual, sin rediseño. Qué cambia y qué no:
-- Navegación: sigue siendo `AppBar` + `Toolbar` + `Button component={NavLink}`. Los cuatro links de sección pasan a estar dentro de `<Box component="nav" aria-label="Principal">`; "Salir" queda fuera (es una acción, no una sección). La sección actual (`NavLink` le pone la clase `active` y `aria-current="page"`) se pinta con `primary.main` (morado Dracula `#BD93F9`) y un subrayado de 2 px del mismo color. Nada más.
+- Navegación: sigue siendo `AppBar` + `Toolbar` + `Button component={NavLink}`. Los cuatro links de sección pasan a estar dentro de `<Box component="nav" aria-label="Principal">`; "Salir" queda fuera (es una acción, no una sección). La sección actual lleva la clase `active` y `aria-current="page"` (los pone `NavLink`; para Jugadores se calculan a mano) y se marca con un subrayado de 2 px en `primary.main` (morado Dracula `#BD93F9`) y `fontWeight: 700`. El texto **no** cambia de color: sigue en `inherit` (texto claro del `AppBar`), porque `#BD93F9` como texto sobre el `AppBar` oscuro da ~2.9:1, bajo el 4.5:1 de AA. "Jugadores" es la sección actual en `/` **y** en `/jugadores/*` (fichas y alta de jugador), algo que `NavLink to="/"` no hace: por eso ese botón usa `Link` con `className`/`aria-current` calculados desde `useLocation()`. Nada más.
 - Usuarios: el rol de cada usuario pasa de `TextField select` nativo a `Select` de MUI con `MenuItem`; el de la invitación, a `TextField select` no nativo (que es `Select` de MUI con su etiqueta). La lista muestra solo el nombre: hoy dice `Ana — admin` (el valor crudo) y el rol ya se ve en el select.
 
 - [ ] **Step 2.1: Tests de navegación (rojo)**
@@ -229,6 +229,7 @@ function renderLayout(entry = '/') {
         element: <AppLayout />,
         children: [
           { index: true, element: <p>contenido</p> },
+          { path: 'jugadores/:id', element: <p>ficha</p> },
           { path: 'equipos', element: <p>equipos</p> },
         ],
       },
@@ -244,9 +245,11 @@ function renderLayout(entry = '/') {
 }
 ```
 
-4. Agrega al final:
+4. Agrega al final (jsdom devuelve el color del `box-shadow` en minúsculas, de ahí el `toLowerCase()`; el test no mira el color del texto a propósito):
 
 ```tsx
+const ACTIVE_UNDERLINE = `inset 0 -2px 0 ${draculaTheme.palette.primary.main.toLowerCase()}`
+
 test('the section links live in the Principal navigation landmark, without Salir', () => {
   mocks.useTenant.mockReturnValue({ status: 'ready', role: 'admin', fullName: 'Ana' })
   renderLayout()
@@ -260,35 +263,65 @@ test('the section links live in the Principal navigation landmark, without Salir
   expect(within(nav).queryByRole('button', { name: 'Salir' })).not.toBeInTheDocument()
 })
 
-test('the current section is marked and painted in the theme primary color', () => {
+test('the current section is marked with aria-current, a primary underline and bold text', () => {
   mocks.useTenant.mockReturnValue({ status: 'ready', role: 'readonly', fullName: 'Beto' })
   renderLayout('/equipos')
   const current = screen.getByRole('link', { name: 'Equipos' })
   expect(current).toHaveAttribute('aria-current', 'page')
-  expect(current).toHaveStyle({ color: draculaTheme.palette.primary.main })
+  expect(current).toHaveStyle({ boxShadow: ACTIVE_UNDERLINE, fontWeight: '700' })
   const other = screen.getByRole('link', { name: 'Jugadores' })
   expect(other).not.toHaveAttribute('aria-current')
-  expect(other).not.toHaveStyle({ color: draculaTheme.palette.primary.main })
+  expect(other).not.toHaveStyle({ boxShadow: ACTIVE_UNDERLINE })
+})
+
+test.each(['/', '/jugadores/p1'])('Jugadores is the current section on %s', (entry) => {
+  mocks.useTenant.mockReturnValue({ status: 'ready', role: 'readonly', fullName: 'Beto' })
+  renderLayout(entry)
+  const players = screen.getByRole('link', { name: 'Jugadores' })
+  expect(players).toHaveAttribute('aria-current', 'page')
+  expect(players).toHaveStyle({ boxShadow: ACTIVE_UNDERLINE, fontWeight: '700' })
+  expect(screen.getByRole('link', { name: 'Equipos' })).not.toHaveAttribute('aria-current')
 })
 ```
 
 Run: `pnpm exec vitest run src/app/AppLayout.test.tsx`
-Expected: FAIL en los 2 tests nuevos (`Unable to find an accessible element with the role "navigation" and name "Principal"`; y `toHaveStyle` con el color esperado `#BD93F9` / `rgb(189, 147, 249)` sin aplicar); los 6 existentes pasan con el `ThemeProvider`.
+Expected: FAIL en los 4 tests nuevos: `the section links live…` (`Unable to find an accessible element with the role "navigation" and name "Principal"`), `the current section is marked…` y `Jugadores is the current section on /` (`toHaveStyle`: falta `boxShadow: inset 0 -2px 0 #bd93f9; fontWeight: 700`), y `Jugadores is the current section on /jugadores/p1` (`toHaveAttribute("aria-current", "page")`: sin atributo); los 6 existentes pasan con el `ThemeProvider`.
 
 - [ ] **Step 2.2: Implementar la navegación**
 
 En `src/app/AppLayout.tsx`:
 
-1. Justo antes de `export function AppLayout() {` agrega:
+1. Cambia `import { NavLink, Outlet, useNavigate } from 'react-router-dom'` por `import { NavLink, Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom'`, y debajo de `import Alert from '@mui/material/Alert'` agrega `import type { Theme } from '@mui/material/styles'`.
+
+2. Justo antes de `export function AppLayout() {` agrega:
 
 ```tsx
 const NAV_LINK_SX = {
-  '&.active': { color: 'primary.main', boxShadow: 'inset 0 -2px 0 currentColor' },
+  '&.active': {
+    fontWeight: 700,
+    boxShadow: (theme: Theme) => `inset 0 -2px 0 ${theme.palette.primary.main}`,
+  },
 } as const
 
 ```
 
-2. Reemplaza:
+3. Al inicio de `AppLayout`, reemplaza:
+
+```tsx
+  const navigate = useNavigate()
+  const { status, role, fullName } = useTenant()
+```
+
+por (los hooks van antes de los `return` tempranos):
+
+```tsx
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const { status, role, fullName } = useTenant()
+  const playersActive = pathname === '/' || pathname.startsWith('/jugadores/')
+```
+
+4. Reemplaza:
 
 ```tsx
           <Button color="inherit" component={NavLink} to="/">Jugadores</Button>
@@ -303,7 +336,17 @@ por:
 
 ```tsx
           <Box component="nav" aria-label="Principal" sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-            <Button color="inherit" component={NavLink} to="/" sx={NAV_LINK_SX}>Jugadores</Button>
+            {/* Jugadores also covers the player pages under /jugadores/, which NavLink to="/" never matches */}
+            <Button
+              color="inherit"
+              component={RouterLink}
+              to="/"
+              className={playersActive ? 'active' : undefined}
+              aria-current={playersActive ? 'page' : undefined}
+              sx={NAV_LINK_SX}
+            >
+              Jugadores
+            </Button>
             <Button color="inherit" component={NavLink} to="/equipos" sx={NAV_LINK_SX}>Equipos</Button>
             <Button color="inherit" component={NavLink} to="/quien-debe" sx={NAV_LINK_SX}>Quién debe</Button>
             {isAdmin(role) && (
@@ -314,8 +357,10 @@ por:
 
 La línea de "Salir" y el comentario existente del `Toolbar` no cambian.
 
+Comprobación: `grep -n "color: 'primary" src/app/AppLayout.tsx` → sin salida (el texto activo no se pinta de morado).
+
 Run: `pnpm exec vitest run src/app/AppLayout.test.tsx`
-Expected: 8 tests PASS.
+Expected: 10 tests PASS.
 
 - [ ] **Step 2.3: Tests del rol con MUI (rojo)**
 
@@ -353,7 +398,12 @@ test('changes a user role through the MUI select', async () => {
 ```
 
 Run: `pnpm exec vitest run src/users/UsersPage.test.tsx`
-Expected: FAIL en 3 tests: `lists the tenant users` (el texto hoy es `Ana — admin`), `the invitation role is an MUI select, not a native one` (hay `<select>` nativos) y `changes a user role through the MUI select` (no hay `combobox` "Rol de Ana" con ese contenido); 2 pasan.
+Expected: FAIL en 3 tests (mensajes verificados por el planner):
+- `lists the tenant users`: `Unable to find an element with the text: Ana` (hoy la fila dice `Ana — admin`).
+- `the invitation role is an MUI select, not a native one`: `expected <select …(3)>…(2)</select> to be null`.
+- `changes a user role through the MUI select`: `Found multiple elements with the role "option" and name "Solo lectura"` (los `<option>` nativos de los dos selects).
+
+2 pasan.
 
 - [ ] **Step 2.4: Implementar los selects de MUI**
 
@@ -440,7 +490,7 @@ git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-i-users-auth.md src/ap
 ```
 
 ```bash
-git -C $WT commit -m "fix: theme the users role selectors and the main navigation (#15)" -m "Per the owner's decision, no redesign: both role controls become MUI selects, the user list stops echoing the raw role, and the section links sit in a Principal nav landmark with the current one in the theme's primary color." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
+git -C $WT commit -m "fix: theme the users role selectors and the main navigation (#15)" -m "Per the owner's decision, no redesign: both role controls become MUI selects, the user list stops echoing the raw role, and the section links sit in a Principal nav landmark. The current section, Jugadores included on player pages, gets aria-current plus a primary underline and bold text; the text keeps the AppBar color for contrast." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
 ```
 
 ---
@@ -451,7 +501,7 @@ git -C $WT commit -m "fix: theme the users role selectors and the main navigatio
 - Modify (reemplazo completo): `src/users/UsersPage.test.tsx`
 - Modify (reemplazo completo): `src/users/UsersPage.tsx`
 
-Los tres puntos del issue: (1) sin prefijo `Error:`; (2) severidad explícita, no derivada del texto; (3) `loadUsers` (hoy `fetchUsers`) se traga el error de la consulta. Además `changeRole` ignora el error del `update` (mismo problema, misma pantalla): también se atiende aquí (ver Discrepancias). Un código de error desconocido de `invite-user` (p. ej. `internal_error`, que agrega Task 5) se muestra como `No se pudo enviar la invitación (internal_error).` para no perder el diagnóstico.
+Los tres puntos del issue: (1) sin prefijo `Error:`; (2) severidad explícita, no derivada del texto; (3) `loadUsers` (hoy `fetchUsers`) se traga el error de la consulta. Además `changeRole` ignora el error del `update` (mismo problema, misma pantalla): también se atiende aquí (ver Discrepancias). Un código de error desconocido de `invite-user` (p. ej. `internal_error`, que agrega Task 5) se muestra como `No se pudo enviar la invitación (internal_error).` para no perder el diagnóstico, pero **solo si parece un código** (`/^[a-z_]+$/`): `inviteUser` también puede devolver el `message` en texto libre de supabase-js (p. ej. `Edge Function returned a non-2xx status code`), y ese no se muestra; queda solo el mensaje en español.
 
 - [ ] **Step 3.1: Reescribir los tests (rojo)**
 
@@ -543,6 +593,16 @@ test('an invite error without a code shows the generic alert alone', async () =>
   expect(await screen.findByRole('alert')).toHaveTextContent(/^No se pudo enviar la invitación\.$/)
 })
 
+test('an invite error that is not a code shows the generic alert without the text', async () => {
+  mocks.inviteUser.mockResolvedValue({ ok: false, error: 'Edge Function returned a non-2xx status code' })
+  const user = userEvent.setup()
+  render(<UsersPage />)
+  await screen.findByText(/Ana/)
+  await fillInvite(user, 'x@b.com', 'X')
+  await user.click(screen.getByRole('button', { name: 'Invitar' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent(/^No se pudo enviar la invitación\.$/)
+})
+
 test('the invitation role is an MUI select, not a native one', async () => {
   const user = userEvent.setup()
   const { container } = render(<UsersPage />)
@@ -602,7 +662,7 @@ test('a failed reload after inviting keeps the success message and offers Reinte
 ```
 
 Run: `pnpm exec vitest run src/users/UsersPage.test.tsx`
-Expected: FAIL en 6 tests: `a known invite error …`, `an unknown invite error …`, `an invite error without a code …`, `a failed role change …`, `a failed list load …`, `a failed reload after inviting …`; los 4 restantes pasan.
+Expected: FAIL en 7 tests: `a known invite error …`, `an unknown invite error …`, `an invite error without a code …`, `an invite error that is not a code …`, `a failed role change …`, `a failed list load …`, `a failed reload after inviting …`; los 4 restantes pasan.
 
 - [ ] **Step 3.2: Implementar**
 
@@ -654,7 +714,8 @@ const INVITE_ERROR_MESSAGES: Record<string, string> = {
 
 function inviteErrorText(code: string | undefined): string {
   if (code && INVITE_ERROR_MESSAGES[code]) return INVITE_ERROR_MESSAGES[code]
-  return code ? `No se pudo enviar la invitación (${code}).` : 'No se pudo enviar la invitación.'
+  // only machine codes are shown; free-text errors (e.g. supabase-js messages) stay out of the UI
+  return code && /^[a-z_]+$/.test(code) ? `No se pudo enviar la invitación (${code}).` : 'No se pudo enviar la invitación.'
 }
 
 async function fetchUsers(): Promise<ProfileRow[]> {
@@ -804,7 +865,7 @@ Notas: `fetchUsers` sale del componente (ya no necesita `useCallback`); después
 Comprobación: `grep -n "Error:\|startsWith" src/users/UsersPage.tsx` → sin salida.
 
 Run: `pnpm exec vitest run src/users/UsersPage.test.tsx`
-Expected: 10 tests PASS.
+Expected: 11 tests PASS.
 
 Run: `pnpm exec tsc -b` → exit 0. `pnpm exec eslint src/users` → exit 0.
 
@@ -1131,7 +1192,7 @@ Expected: exit 0 sin salida (el planner corrió exactamente esto contra este `in
 
 - [ ] **Step 5.5: Suite completa, tipos y lint**
 
-Run (en `$WT`): `pnpm exec vitest run` → `B_files + 2` archivos, `B_tests + 17` tests (Task 1: 4; Task 2: 3; Task 3: 5; Task 4: 1; Task 5: 4), todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0 (ESLint sí lintea `index.ts`).
+Run (en `$WT`): `pnpm exec vitest run` → `B_files + 2` archivos, `B_tests + 20` tests (Task 1: 4; Task 2: 5 — AppLayout 4, UsersPage 1 —; Task 3: 6; Task 4: 1; Task 5: 4), todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0 (ESLint sí lintea `index.ts`).
 
 - [ ] **Step 5.6: Commit**
 
@@ -1155,9 +1216,18 @@ Desde el checkout principal `/Users/arturoortiz/Proyectos/Personales/ligaspequen
 FN=https://eksbaugyypadtanyjcje.supabase.co/functions/v1/invite-user
 ```
 
-- [ ] **O1. PR** a `develop` con `Closes #13`, `Closes #15`, `Closes #39`, `Closes #41`, `Closes #42`; merge tras revisión limpia.
+- [ ] **O1. PR** a `develop` con `Closes #13`, `Closes #15`, `Closes #39`, `Closes #41`, `Closes #42`; merge tras revisión limpia. El cuerpo declara dos decisiones del plan: (a) #13 también hace que un cambio de rol fallido muestre `No se pudo cambiar el rol.` (antes fallaba en silencio); (b) #15 quita el `— admin` crudo de cada fila porque el `Select` de esa misma fila ya muestra el rol traducido.
 
-- [ ] **O2. Línea base en vivo (antes del deploy, opcional pero recomendada).** Con el `ADMIN_JWT` del paso O4.c, corre el mismo curl de O4.c contra la versión actual: se espera `HTTP/2 500` **sin** `access-control-allow-origin` (y cuerpo que no es `{"error":"internal_error"}`). Así queda demostrado el bug antes del fix. Anota la versión actual: `pnpm exec supabase functions list --project-ref eksbaugyypadtanyjcje`.
+- [ ] **O1.b Token de admin sin exponerlo** (lo usan O2 y O4.c). En la sesión persistente de Playwright (pestaña de `http://localhost:5173` con sesión admin), escribe el header a un archivo privado **desde el propio script**, sin imprimir el token ni devolverlo como resultado de la herramienta:
+
+```js
+const token = await page.evaluate(() => JSON.parse(localStorage.getItem('sb-eksbaugyypadtanyjcje-auth-token')).access_token)
+require('fs').writeFileSync(process.env.HDR, `Authorization: Bearer ${token}\n`, { mode: 0o600 })
+```
+
+con `HDR` = un archivo nuevo dentro del scratchpad del orquestador (p. ej. `$SCRATCH/invite-auth.hdr`). En shell, `HDR=<esa ruta>`. curl lo lee con `-H @"$HDR"`, así el token no aparece en la línea de comandos, en `ps` ni en el historial. Nunca hagas `cat`/`echo` del archivo ni pegues el token en el PR, en issues o en el chat. Expira en ~1 h; al terminar O4: `rm -f "$HDR"`.
+
+- [ ] **O2. Línea base en vivo (antes del deploy, opcional pero recomendada).** Con el header de O1.b, corre el mismo curl de O4.c contra la versión actual: se espera **cualquier 5xx sin** `access-control-allow-origin` (el cuerpo exacto depende del runtime y no es `{"error":"internal_error"}`). Así queda demostrado el bug antes del fix. Anota la versión actual: `pnpm exec supabase functions list --project-ref eksbaugyypadtanyjcje`.
 
 - [ ] **O3. Deploy desde `develop` actualizado:**
 
@@ -1183,37 +1253,40 @@ Esperado: `HTTP/2 200`, `access-control-allow-origin: http://localhost:5173`, `v
 
 b. Origen ajeno (camino normal): mismo comando con `-H "Origin: https://evil.example"` → `HTTP/2 403` y **sin** `access-control-allow-origin`.
 
-c. **Camino de error forzado (#42).** Saca un `access_token` de admin de la sesión persistente de Playwright (`await page.evaluate(() => JSON.parse(localStorage.getItem('sb-eksbaugyypadtanyjcje-auth-token')).access_token)` en una pestaña de `http://localhost:5173` con sesión admin; expira en ~1 h) y expórtalo como `ADMIN_JWT`. Manda un body JSON `null`: pasa todos los chequeos (origen, bearer, `getUser`, perfil admin) y `body.email` sobre `null` lanza **antes** de invitar a nadie, así que no crea usuarios ni perfiles:
+c. **Camino de error forzado (#42).** Con el header de O1.b, manda un body JSON `null`: pasa todos los chequeos (origen, bearer, `getUser`, perfil admin) y `body.email` sobre `null` lanza **antes** de invitar a nadie, así que no crea usuarios ni perfiles:
 
 ```bash
-curl -s -i -X POST "$FN" -H "Origin: http://localhost:5173" -H "Authorization: Bearer $ADMIN_JWT" -H "Content-Type: application/json" -d 'null'
+curl -s -i -X POST "$FN" -H "Origin: http://localhost:5173" -H @"$HDR" -H "Content-Type: application/json" -d 'null'
 ```
 
 Esperado: `HTTP/2 500`, `access-control-allow-origin: http://localhost:5173`, `content-type: application/json`, cuerpo `{"error":"internal_error"}`. Opcional: en los logs de la función (MCP `get_logs`, servicio `edge-function`, solo lectura) aparece `invite-user unexpected error` con el mensaje del `TypeError`. Después, la query de línea base del spec §5 sigue en 3 profiles / 3 users.
 
-d. Bearer malformado (camino normal, igual que en #14):
+d. Bearer malformado (camino normal, igual que en #14; no hace falta el token real):
 
 ```bash
-curl -s -i -X POST "$FN" -H "Origin: http://localhost:5173" -H "Authorization: Basic $ADMIN_JWT" -H "Content-Type: application/json" -d '{}'
+curl -s -i -X POST "$FN" -H "Origin: http://localhost:5173" -H "Authorization: Basic not-a-token" -H "Content-Type: application/json" -d '{}'
 ```
 
 Esperado: `401` con `{"error":"invalid_authorization"}` y `access-control-allow-origin: http://localhost:5173` (handler) **o** un 401 del gateway (`verify_jwt`); ambos válidos.
 
 - [ ] **O5. Navegador** (Playwright, sesión admin persistente, dev server en `http://localhost:5173`; viewport desktop 1280×800 y móvil 390×844):
-  1. **Navegación:** los cuatro links de sección dentro del `navigation` "Principal"; en `/equipos` el link Equipos se ve morado (`#BD93F9`) con subrayado y los demás no; "Salir" fuera del `nav`. A 390 px el nombre ocupa su renglón y los links envuelven sin scroll horizontal (`document.documentElement.scrollWidth <= 390`).
+  0. **Antes del merge** (desde `develop` sin el lote, o desde `main` desplegado): captura del `AppBar` en `/equipos` y `/usuarios` a 1280 px y a 390 px, y anota la altura del `AppBar` (`(await page.locator('header').boundingBox()).height`) y cuántos renglones ocupan sus botones a 390 px.
+  1. **Navegación:** los cuatro links de sección dentro del `navigation` "Principal"; "Salir" fuera del `nav`. En `/equipos` el link Equipos tiene `aria-current="page"`, subrayado morado y negrita; los demás no. En `/` **y** en la ficha de un jugador (`/jugadores/<id>`) la sección actual es Jugadores.
+     - **Contraste:** el color de texto del link activo sigue siendo el del `AppBar` (no morado). Mide con `getComputedStyle` el `color` del link y el `background-color` efectivo del `AppBar` y calcula el ratio WCAG: ≥ 4.5:1. El subrayado (`box-shadow` 2 px `#BD93F9`) es indicador no textual: ≥ 3:1 contra el fondo del `AppBar`.
+     - **390 px contra el "antes":** compara con las capturas del paso 0: mismo número de renglones de botones y altura del `AppBar` igual o con diferencia ≤ 4 px (el `gap` del `nav` y la negrita no deben empujar un botón a un renglón nuevo), sin scroll horizontal (`document.documentElement.scrollWidth <= 390`). Si cambia el número de renglones, es un hallazgo para el owner, no se ajusta sobre la marcha.
   2. **Usuarios:** la lista muestra solo nombres (sin `— admin`); cada fila tiene un select MUI "Rol de <nombre>" con el rol actual. Abre el menú de un usuario, comprueba las opciones "Solo lectura" y "Administrador", y ciérralo con Escape **sin cambiar** el rol (cambiarlo es una escritura sobre usuarios reales: solo con permiso del owner). El select "Rol de la invitación" abre su menú igual. **No** envíes invitaciones (manda un correo real). A 390 px el formulario apila sus campos y los selects no desbordan.
   3. Sin errores en la consola del navegador.
 
-- [ ] **O6. Rollback operativo si O4 falla:** `git revert` del merge del lote en una rama `fix/*` nueva → PR → merge → redeploy con el comando de O3 (vuelve a la versión anterior). Luego reintentar en otra rama; nunca parchar hacia adelante.
+- [ ] **O6. Rollback operativo si O4 falla:** en una rama `fix/*` nueva, `git revert -m 1 <sha del merge commit del PR del lote>` (es un merge: `-m 1` conserva el lado de `develop`) → PR → merge → redeploy con el comando de O3 (vuelve a la versión anterior). Luego reintentar en otra rama; nunca parchar hacia adelante.
 
 ---
 
 ## Discrepancias
 
 - **#15 dice "plain `<select>`".** En `origin/develop` el rol ya es `TextField select` de MUI, pero con `native: true`, que renderiza un `<select>` nativo (por eso el issue lo llama así). La decisión del owner lo pasa a `Select` de MUI no nativo; el test lo fija con `container.querySelector('select') === null`.
-- **#15 "nav was not styled with the Dracula MUI theme":** el nav ya usa `Button` de MUI dentro del `AppBar` temado; lo que faltaba es que se note la sección actual y la semántica de navegación. Sin rediseño (owner): se agrega el landmark `nav` y el estado activo con `primary.main`. El orquestador lo valida en navegador; si el owner quiere otro tratamiento visual, es un issue nuevo.
+- **#15 "nav was not styled with the Dracula MUI theme":** el nav ya usa `Button` de MUI dentro del `AppBar` temado; lo que faltaba es que se note la sección actual y la semántica de navegación. Sin rediseño (owner): se agrega el landmark `nav` y el estado activo (subrayado `primary.main` + negrita + `aria-current`). La revisión adversarial descartó pintar el texto de morado: `#BD93F9` sobre el `AppBar` oscuro queda en ~2.9:1. También señaló que `NavLink to="/"` no marcaba Jugadores en las fichas (`/jugadores/*`); se calcula con `useLocation()`. El orquestador lo valida en navegador; si el owner quiere otro tratamiento visual, es un issue nuevo.
 - **#15, lista de usuarios:** hoy cada fila dice `Ana — admin` (el valor crudo de la base). Con el select mostrando "Administrador" al lado, el texto crudo era redundante y sin traducir; la fila queda solo con el nombre. Es el único cambio de contenido visible fuera de los selects y el nav.
 - **#13 dice "`loadUsers` swallows the query error";** la función se llama `fetchUsers` en `origin/develop` (`UsersPage.tsx:36-39`). Mismo problema. El plan también hace que `changeRole` deje de ignorar el error del `update` (hoy `UsersPage.tsx:67-70` no lo lee): es el mismo defecto de "error handling" en la misma pantalla que nombra el título del issue. Si la revisión lo considera fuera de alcance, se separa en un issue nuevo.
-- **#13, códigos desconocidos:** antes se mostraba `Error: <código crudo>`; ahora `No se pudo enviar la invitación (<código>).`, que conserva el código para diagnóstico (p. ej. `internal_error` de #42) sin el prefijo.
+- **#13, códigos desconocidos:** antes se mostraba `Error: <código crudo>`; ahora `No se pudo enviar la invitación (<código>).` solo cuando el error parece un código (`/^[a-z_]+$/`, p. ej. `internal_error` de #42), y el mensaje en español a secas cuando es texto libre de supabase-js.
 - **Runner de la Edge Function (spec §5 decía "`deno test` o el runner que use el repo"):** el repo usa Vitest para los módulos puros de `invite-user` (`tsconfig.functions.json` incluye `vitest/globals`; no hay `deno.json` ni `deno` instalado) y excluye `index.ts` del typecheck. Por eso #42 vive en `http.ts` (probado) y `index.ts` solo lo envuelve.
 - **Camino de error forzado en vivo:** no hay forma de hacer fallar `getUser` o el insert desde fuera sin romper la base. Un body JSON `null` es una excepción real del handler (`body.email` sobre `null`), alcanzable con un JWT de admin y sin efectos (lanza antes de invitar). Validar ese caso como `400 invalid_json` sería otro cambio de comportamiento: se propone como issue nuevo (ver preguntas abiertas en el reporte), no en este lote.

@@ -4,9 +4,9 @@
 
 > **Antes de despachar:** este plan y el spec `docs/superpowers/specs/2026-11-18-tech-debt-sweep-design.md` se mergean a `develop` en el PR de docs del barrido **antes** de despachar. El implementer los lee desde su worktree y marca `- [x]` en su copia del plan al terminar cada paso.
 
-**Goal:** En la ficha del jugador, el formulario y su Guardar van primero y Foto, Documentos y Pagos van debajo como secciones que guardan solas (#54.1); hay un solo Snackbar (#54.2); el aviso de éxito no reaparece al recargar (#61); al quitar la foto la imagen firmada se suelta antes del refetch (#62); la foto muestra un spinner mientras guarda (#58.2) y pide recargar los documentos si falla (#50, foto); la página recarga los documentos cuando un cambio de documento falla (#50, página); y los tests fijan la guardia de la foto, el re-firmado, el cableado de la página, la traducción de errores de Storage y el cambio de equipo en vuelo (#57, #58.1, #35).
+**Goal:** En la ficha del jugador, el formulario y su Guardar van primero y Equipo, Foto, Documentos y Pagos van debajo como controles y secciones que guardan solos (#54.1); hay un solo Snackbar, y un toast que reemplaza a otro dura sus 4 s completos (#54.2); el aviso de éxito no reaparece al recargar (#61); al quitar la foto la imagen firmada se suelta antes del refetch (#62); la foto muestra un spinner mientras guarda (#58.2) y pide recargar los documentos si falla (#50, foto); la página recarga los documentos cuando un cambio de documento falla (#50, página); y los tests fijan la guardia de la foto, el re-firmado, el cableado de la página, la traducción de errores de Storage y el cambio de equipo en vuelo (#57, #58.1, #35).
 
-**Architecture:** `PlayerFormPage` deja de ser un `<form>` entero: un `Box` con `Stack` contiene el `h1`, el `<form>` (campos, Equipo, mensaje, Guardar) y después tres secciones fuera del form: Foto (sección nueva con `h2` "Foto" que envuelve a `PlayerPhoto`), Documentos y Pagos. Un único estado `toast` alimenta el único Snackbar; el flash del alta se lee una vez en el `useState` inicial (la instancia es nueva por `key={id}`) y se borra del historial con `navigate(pathname, { replace: true, state: null })`; guardar una edición ya no navega, solo muestra el toast. `PlayerPhoto` gana `onReload?`, un `CircularProgress` mientras `busy` y limpia `url` en cuanto `removePlayerPhoto` responde `ok`.
+**Architecture:** `PlayerFormPage` deja de ser un `<form>` entero: un `Box` con `Stack` contiene el `h1`, el `<form>` (campos, mensaje, Guardar) y después, fuera del form, el select de Equipo y tres secciones: Foto (sección nueva con `h2` "Foto" que envuelve a `PlayerPhoto`), Documentos y Pagos. Un único estado `toast` alimenta el único Snackbar, con `key={toastKey}` (un contador que sube en cada `showToast`) para que un mensaje nuevo remonte el Snackbar y reinicie su `autoHideDuration`; el flash del alta se lee una vez en el `useState` inicial (la instancia es nueva por `key={id}`) y se borra del historial con `navigate(pathname, { replace: true, state: null })`; guardar una edición ya no navega, solo muestra el toast. `PlayerPhoto` gana `onReload?`, un `CircularProgress` mientras `busy` y limpia `url` en cuanto `removePlayerPhoto` responde `ok`.
 
 **Tech Stack:** React 19 / React Router 7 (`createMemoryRouter` en tests) / MUI 9 / Vitest 4 + Testing Library / TypeScript (`tsc -b`) / ESLint / pnpm; Playwright (orquestador).
 
@@ -29,19 +29,20 @@ Layout actual (`PlayerFormPage.tsx` l.237–343, todo dentro de un `<form>`): `h
 
 Layout nuevo, de arriba abajo:
 1. `h1` "Jugador" / "Nuevo jugador" (fuera del form).
-2. `<form>`: campos de `PlayerForm` → Equipo (solo edición) → mensaje (`Alert`) → **Guardar**.
-3. Sección **Foto** (`h2` "Foto" + avatar y botones) — solo edición.
-4. Sección **Documentos** (o su `LoadError`) — solo edición.
-5. Sección **Pagos** — solo edición.
-6. Un único Snackbar.
+2. `<form>`: campos de `PlayerForm` → mensaje (`Alert`) → **Guardar**.
+3. **Equipo** (select o su `LoadError`), fuera del form — solo edición. Guarda al cambiar (decisión del owner del 2026-11-18, revisión del plan).
+4. Sección **Foto** (`h2` "Foto" + avatar y botones) — solo edición.
+5. Sección **Documentos** (o su `LoadError`) — solo edición.
+6. Sección **Pagos** — solo edición.
+7. Un único Snackbar.
 
-Equipo se queda dentro del form, en su lugar relativo de hoy (después de los campos, donde vive la categoría que lo condiciona), aunque guarda al cambiar: el owner nombró solo Foto, Documentos y Pagos. Ver "Preguntas abiertas".
+El `Alert` de mensaje se queda en el form, encima de Guardar: también muestra los errores de Equipo y del refresco tras la foto (comportamiento de hoy).
 
 ## Review Focus
 
 - **Flash del alta (#61):** el toast "Jugador creado" se ve una vez y el historial queda con `state: null` (test de Task 6). Al recargar no hay flash que leer. En `StrictMode` (dev) el efecto corre dos veces: el segundo `navigate(replace)` es inocuo.
 - **Guardar una edición ya no navega:** antes empujaba una entrada nueva al historial con el flash (Back volvía a la misma ficha). Ahora solo muestra el toast; `fetchPlayer` sigue llamándose una sola vez (test existente `saving an edit keeps the same page instance…`).
-- **Un solo Snackbar (#54.2):** un toast nuevo reemplaza el texto del anterior en vez de apilarse (test de Task 6).
+- **Un solo Snackbar (#54.2):** un toast nuevo reemplaza al anterior en vez de apilarse, y gracias al `key` dura sus 4 s completos (el `useSnackbar` de MUI 9 solo reinicia el temporizador cuando cambian `open` o `autoHideDuration`). Tests de Task 6; el del temporizador falla sin el `key` (verificado).
 - **Foto quitada (#62):** la imagen firmada desaparece en cuanto `removePlayerPhoto` responde `ok`, antes del refetch del padre (test de Task 3). La hipótesis del 400 no está probada (ver Discrepancias); la verificación en navegador lo confirma o lo descarta.
 - **Recarga tras fallo (#50):** foto y documentos llaman `refreshDocuments` tras un fallo, sin toast de éxito; si la recarga misma falla, la sección cae al `LoadError` de documentos (comportamiento existente de `refreshDocuments`).
 
@@ -307,7 +308,7 @@ git -C $WT commit -m "fix: reload the documents after a failed photo change (#50
 
 ---
 
-## Task 5: Formulario y Guardar primero; Foto, Documentos y Pagos fuera del form (#54.1)
+## Task 5: Formulario y Guardar primero; Equipo, Foto, Documentos y Pagos fuera del form (#54.1)
 
 **Files:**
 - Modify: `src/players/PlayerFormPage.test.tsx`
@@ -326,17 +327,18 @@ function follows(first: Element, second: Element): boolean {
 Al final del archivo:
 
 ```ts
-test('the form and its Guardar come first; Foto, Documentos and Pagos follow outside the form', async () => {
+test('the form and its Guardar come first; Equipo, Foto, Documentos and Pagos follow outside the form', async () => {
   renderAt('/jugadores/p1')
   const documentsHeading = await screen.findByRole('heading', { name: 'Documentos' })
   const save = screen.getByRole('button', { name: 'Guardar' })
   const photoHeading = screen.getByRole('heading', { name: 'Foto' })
   const paymentsHeading = screen.getByRole('heading', { name: 'Pagos' })
+  const team = await screen.findByLabelText('Equipo')
   expect(save.closest('form')).not.toBeNull()
-  expect(screen.getByLabelText('Equipo').closest('form')).toBe(save.closest('form'))
-  for (const heading of [photoHeading, documentsHeading, paymentsHeading]) expect(heading.closest('form')).toBeNull()
+  for (const el of [team, photoHeading, documentsHeading, paymentsHeading]) expect(el.closest('form')).toBeNull()
   expect(screen.getByLabelText('Subir foto', { selector: 'input' }).closest('form')).toBeNull()
-  expect(follows(save, photoHeading)).toBe(true)
+  expect(follows(save, team)).toBe(true)
+  expect(follows(team, photoHeading)).toBe(true)
   expect(follows(photoHeading, documentsHeading)).toBe(true)
   expect(follows(documentsHeading, paymentsHeading)).toBe(true)
 })
@@ -358,11 +360,11 @@ Reemplaza el `return (` final de `PlayerFormContent` (desde `<Box component="for
         <Box component="form" onSubmit={handleSubmit}>
           <Stack spacing={2}>
             <PlayerForm values={values} onChange={setValues} disabled={!canEdit} categoryText={categoryText} />
-            {/* the Equipo TextField block (teamsLoadError ? LoadError : TextField select …), unchanged */}
             {/* the message Alert block, unchanged */}
             {/* the canEdit && Guardar Button block, unchanged */}
           </Stack>
         </Box>
+        {/* the Equipo block (editing && row && (teamsLoadError ? LoadError : TextField select …)), unchanged, now outside the form */}
         {editing && row && (
           <Box component="section" aria-labelledby="photo-heading">
             <Typography id="photo-heading" variant="h6" component="h2" gutterBottom>
@@ -387,13 +389,15 @@ Reemplaza el `return (` final de `PlayerFormContent` (desde `<Box component="for
 
 Los comentarios `{/* … */}` de arriba son marcadores para este plan: pon en su lugar los bloques existentes **tal cual** (mismo código, solo reindentado) y no dejes esos comentarios en el archivo. El `h1` pierde `gutterBottom` (el `Stack spacing={3}` da el aire).
 
-Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx` → todo PASS (incluye `registering a payment never submits the player form`, ahora trivialmente cierto porque Pagos ya no está dentro del form).
+Borra el test `registering a payment never submits the player form`: con Pagos fuera del form es trivialmente cierto, y lo que protegía (que Pagos no esté dentro del form) ya lo fija el test de layout de arriba (`paymentsHeading.closest('form')` es `null`). El conteo de la tarea queda en 0 (+1 −1).
+
+Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx` → todo PASS. (Verificado al planear: el test de cambio de equipo existente y el de #35 de Task 7 siguen pasando con Equipo fuera del form.)
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerFormPage.tsx src/players/PlayerFormPage.test.tsx
-git -C $WT commit -m "fix: put the player form and Guardar first, then the self-saving sections (#54)" -m "Photo, documents and payments save on their own but sat inside the player form above Guardar, suggesting Guardar saved them and pushing it below six document rows on mobile. They now follow the form as separate sections, with a Foto heading for the photo." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
+git -C $WT commit -m "fix: put the player form and Guardar first, then the self-saving controls (#54)" -m "Team, photo, documents and payments save on their own but sat inside the player form above Guardar, suggesting Guardar saved them and pushing it below six document rows on mobile. They now follow the form, with a Foto heading for the photo." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
 ```
 
 ---
@@ -475,6 +479,7 @@ function flashOf(state: unknown): string | null {
 
 ```tsx
       <Snackbar
+        key={toastKey}
         open={toast !== null}
         autoHideDuration={4000}
         onClose={() => setToast(null)}
@@ -486,14 +491,59 @@ function flashOf(state: unknown): string | null {
       </Snackbar>
 ```
 
+6. Junto al `useState` de `toast` agrega el contador y súbelo en `showToast`:
+
+```ts
+  // a new key per message remounts the Snackbar, so a replacing toast gets its full autoHideDuration
+  const [toastKey, setToastKey] = useState(0)
+```
+
+```ts
+  function showToast(text: string) {
+    setToastKey((k) => k + 1)
+    setToast(text)
+  }
+```
+
+(Cerrar el toast no cambia el `key`, así que la transición de salida sigue igual.)
+
 Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx` → todo PASS (incluye `creating shows…`, `editing shows…` y `saving an edit keeps the same page instance…`). `pnpm lint` → exit 0 (el efecto no llama `setState`, así que `react-hooks/set-state-in-effect` no aplica).
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Test del temporizador del toast que reemplaza a otro, y su mutación**
+
+Agrega `fireEvent` al import de Testing Library (`import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'`) y `onTestFinished` al de Vitest (`import { beforeEach, expect, onTestFinished, vi } from 'vitest'`). Al final del archivo:
+
+```ts
+test('a toast that replaces another gets its own full display time', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  onTestFinished(() => { vi.useRealTimers() })
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  renderAt('/jugadores/p1')
+  const curp = await screen.findByRole('listitem', { name: 'CURP' })
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+  expect(await screen.findByText('Cambios guardados')).toBeInTheDocument()
+  act(() => vi.advanceTimersByTime(3000))
+  // fireEvent, not a click: a click elsewhere is a Snackbar clickaway, which closes and reopens it anyway
+  fireEvent.change(within(curp).getByRole('combobox'), { target: { value: 'fisico' } })
+  expect(await screen.findByText('Documento actualizado')).toBeInTheDocument()
+  act(() => vi.advanceTimersByTime(2000))
+  expect(screen.getByText('Documento actualizado')).toBeInTheDocument()
+})
+```
+
+Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx -t "full display time"` → PASS.
+La mutación de este test va **después** del commit (Step 5), para poder restaurar con `checkout`.
+
+- [ ] **Step 4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/players/PlayerFormPage.tsx src/players/PlayerFormPage.test.tsx
-git -C $WT commit -m "fix: one toast for the player page and no flash after a reload (#54, #61)" -m "The flash and the section toast were two Snackbars at the same anchor and stacked. The flash also rode history state, which survives a reload, so Jugador creado reappeared. The page now keeps one toast, reads the create flash once and replaces the history entry without it; saving an edit just shows the toast." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
+git -C $WT commit -m "fix: one toast for the player page and no flash after a reload (#54, #61)" -m "The flash and the section toast were two Snackbars at the same anchor and stacked; each message now remounts the single Snackbar so a replacing toast gets its full time. The flash also rode history state, which survives a reload, so Jugador creado reappeared. The page now keeps one toast, reads the create flash once and replaces the history entry without it; saving an edit just shows the toast." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
 ```
+
+- [ ] **Step 5: Mutación del `key`**
+
+Borra la línea `        key={toastKey}` del Snackbar. Run `pnpm exec vitest run src/players/PlayerFormPage.test.tsx -t "full display time"` → FAIL (el toast nuevo se cierra a los 4 s del primero; verificado al planear). Restaura: `git -C $WT checkout -- src/players/PlayerFormPage.tsx`.
 
 ---
 
@@ -595,7 +645,7 @@ git -C $WT commit -m "test: pin the photo page wiring and the in-flight team cha
 
 - [ ] **Step 7: Suite completa, tipos y lint (antes de Task 8)**
 
-Run: `pnpm exec vitest run` → `B_files` archivos, `B_tests + 12` tests (Task 1: 3; Task 2: 1; Task 3: 1; Task 4: 2; Task 5: 1; Task 6: 3; Task 7: 1), todo verde (esperado 45 / 461). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
+Run: `pnpm exec vitest run` → `B_files` archivos, `B_tests + 12` tests (Task 1: 3; Task 2: 1; Task 3: 1; Task 4: 2; Task 5: +1 −1 = 0; Task 6: 4; Task 7: 1), todo verde (esperado 45 / 461 si la base es `24c14a4`; si E u otro lote ya se mergeó en tu base, el esperado es `B_tests + 12`). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
 ---
 
@@ -610,7 +660,7 @@ Run: `pnpm exec vitest run` → `B_files` archivos, `B_tests + 12` tests (Task 1
 
 - [ ] **Step 1: Traer el lote C**
 
-`git -C $WT fetch origin`; `git -C $WT log origin/develop --oneline --grep "#50"` debe mostrar `fix: let the documents section reload its rows after a failed change (#50)`. Si no, **detente y reporta**. Si está: `git -C $WT rebase origin/develop` (tus commits no tocan archivos de C: no hay conflictos). Si el hook de git bloquea el rebase, detente y reporta. Después: `pnpm exec vitest run` y anota `B2_files`/`B2_tests` (esperado 45 / 469: los 461 de este lote más los 8 de C).
+`git -C $WT fetch origin`; `git -C $WT log origin/develop --oneline --grep "#50"` debe mostrar `fix: let the documents section reload its rows after a failed change (#50)`. Si no, **detente y reporta**. Si está: `git -C $WT rebase origin/develop` (tus commits no tocan archivos de C: no hay conflictos). Si el hook de git bloquea el rebase, detente y reporta. Después: `pnpm exec vitest run` y anota `B2_files`/`B2_tests`. Usa **siempre los conteos medidos**: si solo entró C, el esperado es 45 / 469 (461 + 8 de C); si E (u otro lote) se mergeó antes, la base sube (E suma +1 archivo y +7 tests) y los números absolutos de este plan ya no aplican: vale `B2_tests + 1` en el Step 3.
 
 - [ ] **Step 2: Test (rojo)**
 
@@ -633,7 +683,7 @@ Run: `pnpm exec vitest run src/players/PlayerFormPage.test.tsx -t "failed docume
 
 En `<PlayerDocumentsSection … />` agrega `onReload={refreshDocuments}` después del `onChanged`.
 
-Run: `pnpm exec vitest run` → `B2_files` archivos, `B2_tests + 1` tests, todo verde (esperado 45 / 470). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
+Run: `pnpm exec vitest run` → `B2_files` archivos, `B2_tests + 1` tests, todo verde (con solo C en la base, 45 / 470). `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
 - [ ] **Step 4: Commit**
 
@@ -642,20 +692,23 @@ git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-d-player-page.md src/p
 git -C $WT commit -m "fix: reload the player's documents when a document change fails (#50)" -m "A consent update can land before its file removal fails; without a reload the page kept the stale consent, leaving the upload buttons enabled and reporting Storage rejections as a permission error." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
 ```
 
-**Reporte al orquestador:** SHAs, `B_files`/`B_tests`, `B2_*` y conteos finales; salida de cada rojo (Tasks 2–6 y 8), de cada mutación (Tasks 1 y 7) y de cada verde.
+**Reporte al orquestador:** SHAs, `B_files`/`B_tests`, `B2_*` y conteos finales; salida de cada rojo (Tasks 2–6 y 8), de cada mutación (Tasks 1, 6 y 7) y de cada verde.
 
 ---
 
 ## Verificación en navegador (orquestador, después de la revisión limpia)
 
-Dev server en `$WT`, sesión admin persistente de Playwright. Datos (spec §5, baseline 2026-11-18): 1 jugador, 6 documentos, 0 pagos, 1 objeto en `player-files`. Los jugadores no se pueden borrar (#44): **no** uses el flujo de alta en el navegador (lo cubre el test de Task 6). Antes de empezar, anota el estatus de los 6 documentos y si el jugador tiene foto (`photo_path`); al terminar todo debe quedar igual.
+Dev server en `$WT`, sesión admin persistente de Playwright. **Nunca se toca al jugador real.** Todo se hace sobre un jugador de prueba que crea el orquestador y que borra al final.
 
-- [ ] **Layout escritorio (1280×800):** en `/jugadores/<id>`, de arriba abajo: `h1` Jugador → campos → Equipo → Guardar → `h2` Foto → `h2` Documentos → `h2` Pagos. Guardar se ve sin pasar por las filas de documentos. `document.querySelector('form').contains(document.getElementById('documents-heading'))` → `false`.
-- [ ] **Layout móvil (390×844):** mismo orden; `document.documentElement.scrollWidth <= 390` (sin scroll horizontal). Captura de pantalla de ambos tamaños para el PR.
-- [ ] **Un solo toast (#54.2):** Guardar (sin cambiar campos; reescribe los mismos valores) → "Cambios guardados"; antes de 4 s cambia un documento no de consentimiento de Pendiente a Físico → solo hay un `.MuiSnackbar-root` en el DOM y dice "Documento actualizado". Regresa el documento a su estatus original.
-- [ ] **Flash al recargar (#61):** después de Guardar, `history.state?.usr` es `null`/`undefined` (React Router guarda el `state` en `usr`) y al recargar (F5) no aparece ningún toast.
-- [ ] **Foto sin 400 (#62):** solo si el jugador **no** tiene foto y sus dos consentimientos no están en Pendiente (si están en Pendiente, ponlos en Físico y anótalo para revertir). Con `page.on('response')` y `page.on('console')` registrando toda respuesta `>= 400` y todo `console.error`: sube una imagen JPG pequeña → aparece; Quitar → Quitar foto → el avatar pasa a iniciales **en cuanto** termina el borrado; espera 3 s y recarga. Esperado: ninguna respuesta `>= 400` ni "Failed to load resource" en todo el ciclo. Si aparece un 400, anota la URL exacta (decide si la hipótesis de #62 era la equivocada; ver Discrepancias). Si el jugador ya tiene foto, **no** la quites: reporta al owner y salta este punto.
-- [ ] **Estado final:** documentos con los estatus anotados, sin foto si no tenía, `player-files` con el mismo número de objetos que al inicio.
+- [ ] **Baseline antes:** con la baseline query del spec §5, anota: 1 tenant, 3 profiles, 3 users, 1 jugador, 6 documentos, 0 pagos, 1 objeto en `player-files`.
+- [ ] **Alta y flash al recargar (#61):** en `/jugadores/nuevo` crea el jugador de prueba por la UI con un nombre único (p. ej. `ZZ Prueba D <fecha-hora>`) → aparece el toast "Jugador creado" → `history.state?.usr` es `null`/`undefined` (React Router guarda el `state` en `usr`) → F5 → **no** aparece ningún toast. Anota el id (de la URL) y el nombre exacto.
+- [ ] **Preparar:** en la ficha del jugador de prueba pon "Consentimiento de imagen" y "Aviso de privacidad" en Físico.
+- [ ] **Layout escritorio (1280×800):** de arriba abajo: `h1` Jugador → campos → Guardar → Equipo → `h2` Foto → `h2` Documentos → `h2` Pagos. `document.querySelector('form').contains(document.querySelector('[id="documents-heading"]'))` → `false`, y lo mismo para el select de Equipo (`document.querySelector('form').contains(<select de Equipo>)` → `false`).
+- [ ] **Layout móvil (390×844):** mismo orden; `document.documentElement.scrollWidth <= 390` (sin scroll horizontal). Captura de ambos tamaños para el PR.
+- [ ] **Un solo toast (#54.2):** Guardar (sin cambiar campos) → "Cambios guardados"; antes de 4 s cambia un documento no de consentimiento de Pendiente a Físico **con `locator.selectOption` o con el teclado, no con clic** (un clic fuera del Snackbar es un clickaway y lo cierra, lo que falsearía la prueba) → solo hay un `.MuiSnackbar-root` en el DOM, dice "Documento actualizado" y sigue visible ~4 s después del cambio (no se cierra a los 4 s del primero).
+- [ ] **Foto sin 400 (#62):** con `page.on('response')` y `page.on('console')` registrando toda respuesta `>= 400` y todo `console.error`: sube una imagen JPG pequeña → aparece; Quitar → Quitar foto → el avatar pasa a iniciales **en cuanto** termina el borrado; espera 3 s y recarga. Esperado: ninguna respuesta `>= 400` ni "Failed to load resource" en todo el ciclo. Si aparece un 400, anota la URL exacta (ver Discrepancias).
+- [ ] **Limpieza:** si quedó algún objeto en `player-files` bajo `<tenant>/<id del jugador de prueba>/`, bórralo por la API de Storage. Después, como `postgres` por MCP: `delete from public.players where id = '<id>' and full_name = '<nombre exacto>';` (debe borrar 1 fila; documentos y demás caen por `on delete cascade`).
+- [ ] **Baseline después:** la misma query devuelve 1 tenant, 3 profiles, 3 users, 1 jugador, 6 documentos, 0 pagos, 1 objeto.
 
 ## Discrepancias
 
@@ -666,5 +719,4 @@ Dev server en `$WT`, sesión admin persistente de Playwright. Datos (spec §5, b
 
 ## Preguntas abiertas
 
-- **Equipo** también guarda al cambiar, pero el owner solo nombró Foto, Documentos y Pagos. Este plan lo deja dentro del form, encima de Guardar (su lugar de hoy). Si el owner quiere sacarlo también, es mover un bloque más debajo de Guardar en Task 5 y ajustar la aserción `Equipo … closest('form')` del test.
 - El mensaje de error de "no se pudo actualizar la vista" tras cambiar la foto sigue saliendo en el `Alert` del form (encima de Guardar), lejos de la sección Foto. No cambia comportamiento; se puede pulir en otro issue.

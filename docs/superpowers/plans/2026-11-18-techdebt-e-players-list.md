@@ -484,7 +484,7 @@ git -C $WT commit -m "fix: return focus to Exportar a Excel after the render tha
 
 Dev server en `$WT`, sesión admin persistente de Playwright (Chromium). Datos de hoy: 1 jugador (spec §5). Nada de esto escribe en la base.
 
-- [ ] **Foco al exportar (#85):** en `/`, enfoca "Exportar a Excel" con el teclado (Tab hasta el botón; `document.activeElement.textContent` → `Exportar a Excel`) y pulsa Enter, esperando la descarga con `page.waitForEvent('download')`. Después de la descarga, espera a que el botón tenga `aria-busy="false"` y comprueba `document.activeElement.textContent === 'Exportar a Excel'` (antes del arreglo quedaba en `BODY`). Repite con clic de ratón: el foco también vuelve al botón.
+- [ ] **Foco al exportar (#85):** en `/`, enfoca "Exportar a Excel" con el teclado (Tab hasta el botón; `document.activeElement.textContent` → `Exportar a Excel`) y pulsa Enter, esperando la descarga con `page.waitForEvent('download')`. Después de la descarga, espera con `page.waitForFunction(() => document.activeElement?.textContent === 'Exportar a Excel')` (con timeout de unos segundos; antes del arreglo el foco quedaba en `BODY` y esta espera vence). Repite con clic de ratón: el foco también vuelve al botón.
 - [ ] **Filtros sin coincidencias (#76):** elige un valor de Pago que el jugador no tenga (p. ej. "Al corriente" si está "Sin pagos") → se ve "Sin jugadores con estos filtros." y no hay lista; regresa Pago a "Todos" → el jugador vuelve y el mensaje desaparece.
 - [ ] El archivo descargado abre en Excel/Numbers con el jugador (sanidad, sin cambios esperados).
 

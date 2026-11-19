@@ -4,6 +4,8 @@
 
 > **Antes de despachar:** este plan y su spec se mergean a `develop` en un PR de docs **antes** de despachar al implementer. El implementer los lee desde su propio worktree (cortado de `origin/develop`) y marca `- [x]` ahí, en su copia del plan, al terminar cada paso.
 
+> **Depende del lote K:** esta rama edita `docs/ops/backups.md` ("Restaurar la base", paso 2), que también edita el lote K (`fix/backups-review-minors`). El orquestador despacha este plan **solo después de que el PR de K esté mergeado** en `develop`, y el implementer lo comprueba en su Step 0 (gate) antes de tocar nada; si su rama se cortó antes, la rebasea sobre `origin/develop`.
+
 **Goal:** Cerrar la deuda de base de datos del lote A del barrido: quitar el `EXECUTE` sobrante de `private.player_consent_granted` (#48.1), buscar al jugador por PK en `private.player_file_path_allowed` sin perder nada de 0018 (#48.2), dejar autocontenidos los tests SQL canónicos que dependían de un plan, de un `reset()` inexistente o de un schema `tests` que no existe (#48.3, #69, #91), sumar los casos de Storage y de exención que faltaban (#47) y corregir los dos nits de los tests de 0017/0018 (#111).
 
 **Architecture:** Una migración nueva, `0019_harden_player_file_helpers.sql`: `revoke execute … from authenticated` sobre el helper de consentimiento y un `create or replace` del helper de rutas idéntico a 0018 salvo dos líneas (guard de uuid canónico en minúsculas + `p.id = v_parts[2]::uuid`). Un test nuevo `0019_*.test.sql` que es rojo hoy y verde después de aplicar. El resto son ediciones de tests canónicos (`0002`, `0012`, `0013`, `0014`, `0015`, `0016`, `0017`, `0018`) para que cada uno corra tal cual con el harness `tap` por MCP, más el spec de documentos. Sin cambios de frontend.
@@ -83,6 +85,7 @@ select
 - Modify: `supabase/tests/0017_forbid_player_delete.test.sql` (línea 79, #111.1)
 - Modify: `supabase/tests/0018_lock_player_on_file_write.test.sql` (líneas 44–48, aserción 4, #111.2 + #48.2)
 - Modify: `docs/superpowers/specs/2026-10-13-documents-design.md` (§3.2, #48.1 y #48.2)
+- Modify: `docs/ops/backups.md` ("Restaurar la base" paso 2 y "Restaurar producción" punto 1: reaplicar 0018 y 0019 después de 0012)
 
 **Interfaces:**
 - Consumes: `private.current_tenant_id()` (0003); `private.player_consent_granted(uuid)` (0012); `private.player_file_path_allowed(text)` tal como la dejó 0018; triggers `private.enforce_document_rules` y `private.enforce_player_photo_rules` (0013); policies de `storage.objects` (0012, no cambian).
@@ -92,7 +95,15 @@ select
 
 - [ ] **Step 0: Preparar y medir el baseline**
 
-`git -C $WT branch --show-current` → `fix/db-tests-selfcontained`; `git -C $WT log --oneline origin/develop..HEAD` → vacío. Luego, en `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`; anota `B_files` y `B_tests` (todo verde).
+**Gate (lote K mergeado):**
+
+1. `gh pr list --repo aiyangar/ligaspequenas --state merged --head fix/backups-review-minors --json number,mergeCommit` → exactamente 1 PR; anota su `mergeCommit.oid` como `K_SHA`. Si devuelve `[]`, **detente** y avisa al orquestador: el lote K todavía no está en `develop`.
+2. `git -C $WT fetch origin`
+3. `git -C $WT merge-base --is-ancestor <K_SHA> origin/develop` → exit 0.
+4. `git -C $WT merge-base --is-ancestor <K_SHA> HEAD` → si da exit 1 (la rama se cortó antes del merge de K y aún no tiene commits propios), `git -C $WT rebase origin/develop` y repite este punto hasta exit 0.
+5. `grep -c 'if \[ -e /Volumes/backupsdata \]' docs/ops/backups.md` (en `$WT`) → `1` (el runbook ya trae los cambios de K).
+
+Después: `git -C $WT branch --show-current` → `fix/db-tests-selfcontained`; `git -C $WT log --oneline origin/develop..HEAD` → vacío. Luego, en `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`; anota `B_files` y `B_tests` (todo verde).
 
 - [ ] **Step 1: Escribir el test de 0019 (el rojo)**
 
@@ -237,11 +248,11 @@ union all select extensions.is(has_function_privilege('authenticated', 'private.
 
 - [ ] **Step 3: Ajustar la aserción 4 del test de 0018 (#111.2)**
 
-En `supabase/tests/0018_lock_player_on_file_write.test.sql`, la aserción 4 (líneas 44–48) queda así. El regex tolera espacios alrededor de `=`/`and` y acepta tanto la comparación por texto de 0018 como la de uuid de 0019: el test de 0018 vigila el candado, no la forma de la comparación (esa la fija el test de 0019). Resto del archivo sin cambios, `plan(19)` igual:
+En `supabase/tests/0018_lock_player_on_file_write.test.sql`, la aserción 4 (líneas 44–48) queda así. El regex tolera espacios alrededor de `=`/`and` y acepta **solo** las dos formas que compilan: `p.id::text = v_parts[2]` (0018) y `p.id = v_parts[2]::uuid` (0019), no mezclas como `p.id::text = v_parts[2]::uuid`: el test de 0018 vigila el candado, no la forma de la comparación (esa la fija el test de 0019). Resto del archivo sin cambios, `plan(19)` igual:
 
 ```sql
 select extensions.is(
-  (select d ~ 'from public\.players p\s+where\s+p\.id(::text)?\s*=\s*v_parts\[2\](::uuid)?\s+and\s+p\.tenant_id\s*=\s*v_tenant\s+for share;'
+  (select d ~ 'from public\.players p\s+where\s+(p\.id::text\s*=\s*v_parts\[2\]|p\.id\s*=\s*v_parts\[2\]::uuid)\s+and\s+p\.tenant_id\s*=\s*v_tenant\s+for share;'
           and position('for share;' in d) < position('player_consent_granted' in d)
    from (select lower(pg_get_functiondef('private.player_file_path_allowed(text)'::regprocedure)) as d) s),
   true, 'path helper locks the players row FOR SHARE before the consent check');
@@ -249,7 +260,7 @@ select extensions.is(
 
 - [ ] **Step 4: Reescribir `0002_rls.test.sql` autocontenido (#91)**
 
-Reemplaza **todo** el contenido de `supabase/tests/0002_rls.test.sql` por esto. Cambios respecto al original: `tests.act_as` → `pg_temp.act_as` (el remoto no tiene schema `tests`), `select reset();` → reset explícito a `postgres` (no existe `reset()`), pgTAP y tablas calificados por schema, y limpieza antes de `finish()`. Las 6 aserciones, su orden y sus descripciones no cambian:
+Reemplaza **todo** el contenido de `supabase/tests/0002_rls.test.sql` por esto. Cambios respecto al original: `tests.act_as` → `pg_temp.act_as` (el remoto no tiene schema `tests`), `select reset();` → reset explícito a `postgres` y a claims vacíos (no existe `reset()`), pgTAP y tablas calificados por schema, la consulta de la aserción 6 pasa de `where relname = 'players'` a `where oid = 'public.players'::regclass` (mismo resultado, sin depender de que no exista otra tabla `players` en otro schema), y limpieza antes de `finish()`. Las 6 aserciones, su orden y sus descripciones no cambian:
 
 ```sql
 begin;
@@ -703,6 +714,28 @@ En `docs/superpowers/specs/2026-10-13-documents-design.md`:
 
 (Verificado al escribir este plan: §3.4 es "Integridad en `documents`" y §3.5 "Integridad en `players`", las dos secciones de los triggers de 0013.)
 
+- [ ] **Step 9b: Runbook de restauración (consecuencia de #48)**
+
+Hoy el paso 2 de "Restaurar la base" en `docs/ops/backups.md` reaplica `0012` después de cargar el dump. Desde 0018 eso deja el cuerpo de 0012 en `player_file_path_allowed` (sin el `for share`), y desde 0019 además le devuelve a `authenticated` el `EXECUTE` sobre `player_consent_granted`. La "Regla" del propio runbook pide agregar toda migración que redefina una función de 0012 o revoque privilegios. Ubica los textos por contenido (el lote K cambió los números de línea de arriba):
+
+1. El bloque `bash` del paso 2 queda:
+
+```bash
+psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0012_player_files_storage.sql
+psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0018_lock_player_on_file_write.sql
+psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0019_harden_player_file_helpers.sql
+psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0016_revoke_anon_privileges.sql
+```
+
+2. Entre la viñeta de `0012` y la de `0016` agrega estas dos (mismo sangrado de 3 espacios):
+
+```markdown
+   - `0018`: 0012 deja `private.player_file_path_allowed` con su cuerpo original; 0018 le vuelve a poner el `for share` sobre el jugador.
+   - `0019`: 0012 le vuelve a dar a `authenticated` el `EXECUTE` sobre `private.player_consent_granted`; 0019 lo quita y deja `player_file_path_allowed` con la búsqueda por uuid. Va después de 0018 porque redefine la misma función.
+```
+
+3. En "Restaurar producción", punto 1, `(base, 0012 y 0016, privilegios, checklist A–D, Storage)` → `(base, 0012, 0018, 0019 y 0016, privilegios, checklist A–D, Storage)`.
+
 - [ ] **Step 10: Verificación estática y frontend**
 
 Corre en `$WT` y anota cada salida para el reporte:
@@ -715,13 +748,14 @@ Corre en `$WT` y anota cada salida para el reporte:
 - `grep -c 'p.id::text' supabase/migrations/0019_harden_player_file_helpers.sql` → `0`; `grep -cx 'volatile' …` → `1`, `grep -cx 'security definer' …` → `1`, `grep -cx '  for share;' …` → `1` (mismo archivo); `grep -c 'stable' supabase/migrations/0019_harden_player_file_helpers.sql` → `0`.
 - `grep -n "player_consent_granted(uuid)', 'EXECUTE'), false" supabase/tests/0016_revoke_anon_privileges.test.sql` → 1 línea (la 72).
 - `grep -rn 'player_consent_granted\|player_file_path_allowed' src supabase/functions` → vacío (ningún cliente llama a los helpers).
+- `grep -c 'migrations/0019_harden_player_file_helpers.sql' docs/ops/backups.md` → `1`; `grep -c 'migrations/0018_lock_player_on_file_write.sql' docs/ops/backups.md` → `1`; `grep -c '0012, 0018, 0019 y 0016' docs/ops/backups.md` → `1`.
 - `pnpm exec vitest run` → `B_files` / `B_tests`, todo verde; `pnpm exec tsc -b` → exit 0; `pnpm lint` → exit 0.
 
 - [ ] **Step 11: Commit**
 
 ```bash
-git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-a-db-tests.md docs/superpowers/specs/2026-10-13-documents-design.md supabase/migrations/0019_harden_player_file_helpers.sql supabase/tests/0019_harden_player_file_helpers.test.sql supabase/tests/0002_rls.test.sql supabase/tests/0012_player_files_storage.test.sql supabase/tests/0013_document_consent_rules.test.sql supabase/tests/0014_player_payment_status_view.test.sql supabase/tests/0015_players_view_status_columns.test.sql supabase/tests/0016_revoke_anon_privileges.test.sql supabase/tests/0017_forbid_player_delete.test.sql supabase/tests/0018_lock_player_on_file_write.test.sql
-git -C $WT commit -m "fix: drop the consent helper grant, look players up by uuid and make the SQL tests self-contained (#47 #48 #69 #91 #111)" -m "Only security definer code calls player_consent_granted, so authenticated loses EXECUTE on it. The path helper checks the uuid shape before casting, so the players lookup uses the primary key without raising 22P02, and keeps everything 0018 added. The canonical pgTAP files now carry their own fixtures and cleanup, so each runs as-is through the MCP harness; 0012/0013 gain the missing Storage move/delete and privacy_notice exemption cases." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
+git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-a-db-tests.md docs/superpowers/specs/2026-10-13-documents-design.md docs/ops/backups.md supabase/migrations/0019_harden_player_file_helpers.sql supabase/tests/0019_harden_player_file_helpers.test.sql supabase/tests/0002_rls.test.sql supabase/tests/0012_player_files_storage.test.sql supabase/tests/0013_document_consent_rules.test.sql supabase/tests/0014_player_payment_status_view.test.sql supabase/tests/0015_players_view_status_columns.test.sql supabase/tests/0016_revoke_anon_privileges.test.sql supabase/tests/0017_forbid_player_delete.test.sql supabase/tests/0018_lock_player_on_file_write.test.sql
+git -C $WT commit -m "fix: drop the consent helper grant, look players up by uuid and make the SQL tests self-contained (#47 #48 #69 #91 #111)" -m "Only security definer code calls player_consent_granted, so authenticated loses EXECUTE on it. The path helper checks the uuid shape before casting, so the players lookup uses the primary key without raising 22P02, and keeps everything 0018 added. The canonical pgTAP files now carry their own fixtures and cleanup, so each runs as-is through the MCP harness; 0012/0013 gain the missing Storage move/delete and privacy_notice exemption cases. The restore runbook reapplies 0018 and 0019 after 0012 so a restored project keeps both." -m "Claude-Session: https://claude.ai/code/session_01XWBoZQLb3ti7U2LQcagZvd"
 ```
 
 (Un comando por llamada: primero el `add`, luego el `commit`.)
@@ -757,6 +791,50 @@ where tgrelid = 'storage.objects'::regclass and not tgisinternal order by 1;
 ```
 
 Anota la salida en el PR.
+
+Y quién depende del helper en el catálogo (un objeto que lo use en una vista, un default o un check seguiría llamándolo con los privilegios del invocador):
+
+```sql
+select classid::regclass, objid, deptype from pg_depend
+where refobjid = 'private.player_consent_granted(uuid)'::regprocedure;
+```
+
+Esperado: ninguna fila con `classid` en `pg_rewrite`, `pg_attrdef` o `pg_constraint` (las de `pg_proc`/ACL u otras de sistema son aceptables; anótalas). Si aparece alguna de esas tres, **detenerse** y escalar al owner.
+
+- [ ] **Step O1b: El worktree trae exactamente el SQL del plan**
+
+Antes de cualquier corrida, compara los archivos del worktree del implementer con los bloques de este plan (sobre la copia del plan en `develop`, no la del implementer):
+
+```bash
+python3 - <<'EOF'
+import re, sys
+plan = open('/Users/arturoortiz/Proyectos/Personales/ligaspequenas/docs/superpowers/plans/2026-11-18-techdebt-a-db-tests.md').read()
+wt = '/Users/arturoortiz/Proyectos/Personales/ligaspequenas-worktrees/db-tests-selfcontained/'
+blocks = re.findall(r"```sql\n(.*?)```", plan, re.S)
+full = {
+  'supabase/tests/0019_harden_player_file_helpers.test.sql': [b for b in blocks if b.startswith('begin;\nselect extensions.plan(32);')],
+  'supabase/tests/0002_rls.test.sql': [b for b in blocks if b.startswith('begin;\nselect extensions.plan(6);')],
+  'supabase/tests/0012_player_files_storage.test.sql': [b for b in blocks if b.startswith('begin;\nselect extensions.plan(28);')],
+  'supabase/tests/0013_document_consent_rules.test.sql': [b for b in blocks if b.startswith('begin;\nselect extensions.plan(22);')],
+  'supabase/migrations/0019_harden_player_file_helpers.sql': [b for b in blocks if b.startswith('-- only security definer code')],
+}
+bad = 0
+for path, found in full.items():
+    assert len(found) == 1, path
+    if open(wt + path).read() != found[0]:
+        bad += 1; print('DIFF', path)
+partial = {
+  'supabase/tests/0016_revoke_anon_privileges.test.sql': [b for b in blocks if 'B3 authenticated no longer executes' in b][0].strip(),
+  'supabase/tests/0018_lock_player_on_file_write.test.sql': [b for b in blocks if 'p\\.id::text\\s*=' in b][0].strip(),
+}
+for path, text in partial.items():
+    if text not in open(wt + path).read():
+        bad += 1; print('MISSING', path)
+print('OK' if bad == 0 else f'{bad} problem(s)')
+EOF
+```
+
+(Primero `git -C /Users/arturoortiz/Proyectos/Personales/ligaspequenas pull --ff-only` en el checkout principal, sobre `develop`, para leer el plan mergeado.) Esperado: `OK`. Cualquier `DIFF`/`MISSING` → detenerse: o el implementer se desvió del plan o el plan cambió; se resuelve antes de O2, nunca se corre un SQL distinto al revisado.
 
 - [ ] **Step O2: Rojo de 0019 (sin aplicar)**
 
@@ -810,7 +888,11 @@ Igual que Step O7 del plan `docs/superpowers/plans/2026-11-17-security-data-debt
 4. **Revocación con archivo:** PATCH directo a la fila `privacy_notice` (`/rest/v1/documents?id=eq.<doc>`, cuerpo `{"status":"pendiente"}`, con el token de la sesión admin dentro de `page.evaluate`) → 4xx con `consent_in_use`.
 5. **Solo el objeto bloquea:** CURP → `Físico` (confirma `Eliminar archivo`) y `Quitar` la foto (confirma `Quitar foto`). Por la API de Storage con la sesión admin (`POST /storage/v1/object/player-files/<tenant>/<player>/birth_certificate` con `x-upsert: true` y el PDF) → `200`. Repite el PATCH del punto 4 → 4xx con `consent_in_use`.
 6. **Después de revocar:** borra ese objeto por la API de Storage (`supabase.storage.from('player-files').remove([...])` en `page.evaluate`), repite el PATCH → `200` y la fila queda `pendiente`. Repite la subida del punto 5 → 4xx con `new row violates row-level security policy`.
-7. **Ruta con uuid en mayúsculas (nuevo, #48.2):** con el consentimiento ya revocado da igual el resultado del candado, así que primero vuelve a poner el Aviso en `Físico` en la UI; luego `POST /storage/v1/object/player-files/<tenant>/<PLAYER EN MAYÚSCULAS>/birth_certificate` con la sesión admin → 4xx con `new row violates row-level security policy` (no 500, no `22P02`). SQL: `select count(*) from storage.objects where lower(name) like '<tenant>/<player>/%'` → `0`.
+7. **Ruta con uuid en mayúsculas (nuevo, #48.2), con control positivo primero:**
+   1. Recarga la página del jugador y pon Aviso de privacidad en `Físico` en la UI. SQL: `select status from public.documents where player_id = '<player>' and doc_type = 'privacy_notice'` → `fisico` (y `image_consent` sigue `fisico`). Si no, no seguir: el control no vale.
+   2. **Control positivo:** `POST /storage/v1/object/player-files/<tenant>/<player>/birth_certificate` (uuid en minúsculas, tal cual) con la sesión admin, `x-upsert: true` y el PDF → `200`. Así el rechazo del punto 4 no puede deberse a falta de consentimiento.
+   3. Borra ese objeto por la API de Storage (`remove([...])` en `page.evaluate`). SQL: `select count(*) from storage.objects where name like '<tenant>/<player>/%'` → `0`.
+   4. **Caso:** el mismo `POST` con el segmento del jugador en MAYÚSCULAS (`<tenant>/<PLAYER EN MAYÚSCULAS>/birth_certificate`) → 4xx con `new row violates row-level security policy` (no 500, no `22P02`). SQL: `select count(*) from storage.objects where lower(name) like '<tenant>/<player>/%'` → `0`.
 8. **Limpieza (siempre, también si falló cualquier punto anterior, y antes de diagnosticar):** objetos solo por la API de Storage con la sesión admin (nunca por SQL). `select count(*) from storage.objects where name like '<tenant>/<player>/%'` → `0`. Luego, como `postgres` por MCP, `delete from public.players where id = '<player>' and full_name = 'E2E Path 0019';` → `select count(*) from public.players where full_name = 'E2E Path 0019'` → `0`. Baseline → igual a O1.
 
 Cualquier fallo en 2–7 es bloqueante: correr la limpieza del punto 8, no mergear y diagnosticar con `superpowers:systematic-debugging` (si lo causa 0019, ver el inverso abajo).
@@ -825,9 +907,10 @@ Después: PR a `develop` con `Closes #47`, `Closes #48`, `Closes #69`, `Closes #
 
 - **#47 no tiene rojo.** Sus tres casos prueban comportamiento que ya existe desde 0012/0013 (policies de Storage y exención de consentimiento), así que pasan antes y después de 0019. Su evidencia es O2b y O6, no un ciclo rojo→verde. El caso (a) fija el mensaje completo de RLS para que un `42501` por otra causa (por ejemplo, un trigger de Storage) no lo haga pasar.
 - **0016 B3 cambia.** El spec no lo menciona, pero `0016_revoke_anon_privileges.test.sql` l.72 afirma que `authenticated` ejecuta `player_consent_granted`: con #48.1 esa aserción se invierte (Step 2). Las B3 de los otros tres helpers no cambian.
-- **La aserción 4 de 0018 acepta las dos formas.** El spec pide ajustarla "en el mismo cambio"; aquí se ajusta para que tolere espacios (#111.2) y acepte tanto `p.id::text = v_parts[2]` como `p.id = v_parts[2]::uuid`. Así el test de 0018 sigue vigilando el candado y no se vuelve rojo antes de aplicar; la forma nueva la fija el test de 0019 (aserciones 4–6).
+- **La aserción 4 de 0018 acepta las dos formas.** El spec pide ajustarla "en el mismo cambio"; aquí se ajusta para que tolere espacios (#111.2) y acepte solo `p.id::text = v_parts[2]` o `p.id = v_parts[2]::uuid` (alternativa explícita, no dos grupos opcionales independientes). Así el test de 0018 sigue vigilando el candado y no se vuelve rojo antes de aplicar; la forma nueva la fija el test de 0019 (aserciones 4–6).
 - **Mismo nit que #69 en 0015.** `0015_players_view_status_columns.test.sql` l.4 tiene el mismo comentario "see plan Task 1 fixture block"; se corrige junto con 0014 (Step 7).
 - **#69 punto 2 no requiere cambio.** El issue dice que se cambie a `tests.act_as` solo si algún día hay un schema `tests` compartido; este lote hace lo contrario (0002 deja de usarlo), así que el `set_config` en línea de 0014 se queda.
-- **R-0002/R-0012/R-0013 cambian de forma.** El plan del 2026-10-16 armaba esas regresiones con bloques de fixtures externos. Después de esta rama se corren con la forma MCP del archivo canónico, y sus conteos pasan a 6, 28 y 22.
+- **R-0002/R-0012/R-0013 cambian de forma.** El plan del 2026-10-16 armaba esas regresiones con bloques de fixtures externos. Después de esta rama se corren con la forma MCP del archivo canónico, y sus conteos pasan a 6, 28 y 22. La nota de "obsoleto" en ese plan la agrega el lote B (dueño del archivo), no este lote.
+- **El runbook de restauración no reaplicaba 0018** (hueco previo a este lote, encontrado en la revisión adversarial): el Step 9b lo corrige junto con 0019. Por eso este lote depende del merge de K, que también edita `docs/ops/backups.md`.
 - **0014 y 0015 no reciben limpieza en línea.** El spec pide fixtures en línea (ya los tienen) y nada de `reset()`/`tests`; sus formas R-0014/R-0015 con limpieza siguen en el plan del 2026-10-16. Este lote no los corre porque solo cambia un comentario.
 - Los números de línea que citan los issues (#48 `0012…sql:56`, `:38-40`) coinciden con el código actual; la comparación por texto vive hoy en `0018_lock_player_on_file_write.sql` l.23, no en 0012, y es la que reemplaza 0019.
