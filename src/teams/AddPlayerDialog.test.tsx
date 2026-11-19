@@ -182,3 +182,42 @@ test('each eligible player button sits inside its own list item', async () => {
     expect(button.parentElement?.parentElement?.tagName).toBe('UL')
   }
 })
+
+test('switching source while a move confirmation is open dismisses it', async () => {
+  const user = userEvent.setup()
+  const props = { onAssign: vi.fn(), onMove: vi.fn(), onClose: vi.fn() }
+  const { rerender } = render(<AddPlayerDialog open categoryId="cat1" teamId="A" {...props} />)
+  await user.click(await screen.findByText('Otro Equipo'))
+  expect(await screen.findByText(/Se moverá de MTY AC Azul/)).toBeInTheDocument()
+  mocks.fetchEligiblePlayers.mockReturnValue(deferred<PlayerRow[]>().promise)
+  rerender(<AddPlayerDialog open categoryId="cat2" teamId="B" {...props} />)
+  await waitFor(() => expect(screen.queryByText(/Se moverá de/)).not.toBeInTheDocument())
+  expect(props.onMove).not.toHaveBeenCalled()
+})
+
+test('switching source clears the search', async () => {
+  const user = userEvent.setup()
+  const props = { onAssign: vi.fn(), onMove: vi.fn(), onClose: vi.fn() }
+  const { rerender } = render(<AddPlayerDialog open categoryId="cat1" teamId="A" {...props} />)
+  await screen.findByText('Free Agent')
+  await user.type(screen.getByLabelText(/Buscar/), 'otro')
+  const rows = deferred<PlayerRow[]>()
+  mocks.fetchEligiblePlayers.mockReturnValue(rows.promise)
+  rerender(<AddPlayerDialog open categoryId="cat2" teamId="B" {...props} />)
+  await act(async () => {
+    rows.resolve([p({ id: 'other', full_name: 'Carla Nueva', team_id: null, team_name: null, category_id: 'cat2' })])
+  })
+  expect(await screen.findByText('Carla Nueva')).toBeInTheDocument()
+  expect(screen.getByLabelText(/Buscar/)).toHaveValue('')
+})
+
+test('switching source after a failed load shows Cargando… without the stale error', async () => {
+  mocks.fetchEligiblePlayers.mockRejectedValue(new Error('boom'))
+  const props = { onAssign: vi.fn(), onMove: vi.fn(), onClose: vi.fn() }
+  const { rerender } = render(<AddPlayerDialog open categoryId="cat1" teamId="A" {...props} />)
+  expect(await screen.findByText('No se pudo cargar la información.')).toBeInTheDocument()
+  mocks.fetchEligiblePlayers.mockReturnValue(deferred<PlayerRow[]>().promise)
+  rerender(<AddPlayerDialog open categoryId="cat2" teamId="B" {...props} />)
+  expect(await screen.findByText('Cargando…')).toBeInTheDocument()
+  expect(screen.queryByText('No se pudo cargar la información.')).not.toBeInTheDocument()
+})
