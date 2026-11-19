@@ -93,7 +93,7 @@ select
 
 ### Implementer
 
-- [ ] **Step 0: Preparar y medir el baseline**
+- [x] **Step 0: Preparar y medir el baseline**
 
 **Gate (lote K mergeado):**
 
@@ -105,7 +105,7 @@ select
 
 Después: `git -C $WT branch --show-current` → `fix/db-tests-selfcontained`; `git -C $WT log --oneline origin/develop..HEAD` → vacío. Luego, en `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`; anota `B_files` y `B_tests` (todo verde).
 
-- [ ] **Step 1: Escribir el test de 0019 (el rojo)**
+- [x] **Step 1: Escribir el test de 0019 (el rojo)**
 
 Crea `supabase/tests/0019_harden_player_file_helpers.test.sql` con exactamente este contenido:
 
@@ -238,7 +238,7 @@ rollback;
 
 Rojo esperado (lo corre el orquestador en O2, 0019 sin aplicar): `not ok 4`, `not ok 5`, `not ok 6` (hoy la búsqueda es `p.id::text = v_parts[2]`, sin guard), `not ok 10` (hoy `authenticated` sí ejecuta el helper de consentimiento) y `not ok 16` (la llamada directa devuelve `ok`); las otras 27 `ok`.
 
-- [ ] **Step 2: Ajustar B3 en el test de 0016**
+- [x] **Step 2: Ajustar B3 en el test de 0016**
 
 En `supabase/tests/0016_revoke_anon_privileges.test.sql`, la línea 72 queda así (el resto del archivo no cambia; `plan(22)` sigue igual):
 
@@ -246,7 +246,7 @@ En `supabase/tests/0016_revoke_anon_privileges.test.sql`, la línea 72 queda as�
 union all select extensions.is(has_function_privilege('authenticated', 'private.player_consent_granted(uuid)', 'EXECUTE'), false, 'B3 authenticated no longer executes player_consent_granted (0019)')
 ```
 
-- [ ] **Step 3: Ajustar la aserción 4 del test de 0018 (#111.2)**
+- [x] **Step 3: Ajustar la aserción 4 del test de 0018 (#111.2)**
 
 En `supabase/tests/0018_lock_player_on_file_write.test.sql`, la aserción 4 (líneas 44–48) queda así. El regex tolera espacios alrededor de `=`/`and` y acepta **solo** las dos formas que compilan: `p.id::text = v_parts[2]` (0018) y `p.id = v_parts[2]::uuid` (0019), no mezclas como `p.id::text = v_parts[2]::uuid`: el test de 0018 vigila el candado, no la forma de la comparación (esa la fija el test de 0019). Resto del archivo sin cambios, `plan(19)` igual:
 
@@ -258,7 +258,7 @@ select extensions.is(
   true, 'path helper locks the players row FOR SHARE before the consent check');
 ```
 
-- [ ] **Step 4: Reescribir `0002_rls.test.sql` autocontenido (#91)**
+- [x] **Step 4: Reescribir `0002_rls.test.sql` autocontenido (#91)**
 
 Reemplaza **todo** el contenido de `supabase/tests/0002_rls.test.sql` por esto. Cambios respecto al original: `tests.act_as` → `pg_temp.act_as` (el remoto no tiene schema `tests`), `select reset();` → reset explícito a `postgres` y a claims vacíos (no existe `reset()`), pgTAP y tablas calificados por schema, la consulta de la aserción 6 pasa de `where relname = 'players'` a `where oid = 'public.players'::regclass` (mismo resultado, sin depender de que no exista otra tabla `players` en otro schema), y limpieza antes de `finish()`. Las 6 aserciones, su orden y sus descripciones no cambian:
 
@@ -340,7 +340,7 @@ select * from extensions.finish();
 rollback;
 ```
 
-- [ ] **Step 5: Reescribir `0012_player_files_storage.test.sql` autocontenido + casos de #47 (a) y (b)**
+- [x] **Step 5: Reescribir `0012_player_files_storage.test.sql` autocontenido + casos de #47 (a) y (b)**
 
 Reemplaza **todo** el contenido de `supabase/tests/0012_player_files_storage.test.sql` por esto. Cambios respecto al original: los fixtures del plan de documentos van en línea arriba; los dos comentarios `-- (as postgres) …` se vuelven las sentencias reales; el bloque de rutas fija el rol `authenticated` como admin X y vuelve a `postgres` antes de crear los helpers (como hacía R-0012); `plan(25)` → `plan(28)` con 3 aserciones nuevas (admin Y no borra un objeto de X; admin X no puede mover un archivo a una ruta bloqueada por el candado, con el mensaje completo de RLS; admin X sí mueve a una ruta permitida); limpieza antes de `finish()`. Las 25 aserciones originales conservan orden y descripción:
 
@@ -482,7 +482,7 @@ select * from extensions.finish();
 rollback;
 ```
 
-- [ ] **Step 6: Reescribir `0013_document_consent_rules.test.sql` autocontenido + caso de #47 (c)**
+- [x] **Step 6: Reescribir `0013_document_consent_rules.test.sql` autocontenido + caso de #47 (c)**
 
 Reemplaza **todo** el contenido de `supabase/tests/0013_document_consent_rules.test.sql` por esto. Cambios respecto al original: fixtures en línea arriba (los mismos de 0012, sin cambios de documentos), `plan(21)` → `plan(22)` con una aserción nueva justo después de la de `image_consent` (Q, sin ningún consentimiento, pone `privacy_notice` en `digital` → `ok`), y limpieza antes de `finish()`. Las 21 originales conservan orden y descripción:
 
@@ -631,7 +631,7 @@ select * from extensions.finish();
 rollback;
 ```
 
-- [ ] **Step 7: Comentarios de 0014, 0015 y 0017 (#69, #111.1)**
+- [x] **Step 7: Comentarios de 0014, 0015 y 0017 (#69, #111.1)**
 
 1. `supabase/tests/0014_player_payment_status_view.test.sql` línea 4 queda: `-- tenants A/B, admin A, readonly A, admin B, players P1–P6, payments 1–6`
 2. `supabase/tests/0015_players_view_status_columns.test.sql` línea 4 queda: `-- tenants A/B, admin A, readonly A, admin B, players S1–S5, payments 1–6`
@@ -639,7 +639,7 @@ rollback;
 
 (El segundo punto de #69, cambiar a un helper `tests.act_as` compartido "si algún día existe", no aplica: después del Step 4 ningún test usa un schema `tests`, así que el `set_config` en línea de 0014 se queda.)
 
-- [ ] **Step 8: Escribir la migración 0019**
+- [x] **Step 8: Escribir la migración 0019**
 
 Crea `supabase/migrations/0019_harden_player_file_helpers.sql` con exactamente este contenido. La función es el cuerpo de `0018_lock_player_on_file_write.sql` (líneas 1–37) con dos cambios: el guard de uuid antes del `select` y `p.id = v_parts[2]::uuid` en lugar de `p.id::text = v_parts[2]` (el comentario de 0012 sobre el 22P02 se reemplaza por el del guard):
 
@@ -691,7 +691,7 @@ $$;
 grant execute on function private.player_file_path_allowed(text) to authenticated;
 ```
 
-- [ ] **Step 9: Actualizar el spec de documentos**
+- [x] **Step 9: Actualizar el spec de documentos**
 
 En `docs/superpowers/specs/2026-10-13-documents-design.md`:
 
@@ -714,7 +714,7 @@ En `docs/superpowers/specs/2026-10-13-documents-design.md`:
 
 (Verificado al escribir este plan: §3.4 es "Integridad en `documents`" y §3.5 "Integridad en `players`", las dos secciones de los triggers de 0013.)
 
-- [ ] **Step 9b: Runbook de restauración (consecuencia de #48)**
+- [x] **Step 9b: Runbook de restauración (consecuencia de #48)**
 
 Hoy el paso 2 de "Restaurar la base" en `docs/ops/backups.md` reaplica `0012` después de cargar el dump. Desde 0018 eso deja el cuerpo de 0012 en `player_file_path_allowed` (sin el `for share`), y desde 0019 además le devuelve a `authenticated` el `EXECUTE` sobre `player_consent_granted`. La "Regla" del propio runbook pide agregar toda migración que redefina una función de 0012 o revoque privilegios. Ubica los textos por contenido (el lote K cambió los números de línea de arriba):
 
@@ -736,7 +736,7 @@ psql "$NEW_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0016_revoke_anon_pr
 
 3. En "Restaurar producción", punto 1, `(base, 0012 y 0016, privilegios, checklist A–D, Storage)` → `(base, 0012, 0018, 0019 y 0016, privilegios, checklist A–D, Storage)`.
 
-- [ ] **Step 10: Verificación estática y frontend**
+- [x] **Step 10: Verificación estática y frontend**
 
 Corre en `$WT` y anota cada salida para el reporte:
 
@@ -751,7 +751,7 @@ Corre en `$WT` y anota cada salida para el reporte:
 - `grep -c 'migrations/0019_harden_player_file_helpers.sql' docs/ops/backups.md` → `1`; `grep -c 'migrations/0018_lock_player_on_file_write.sql' docs/ops/backups.md` → `1`; `grep -c '0012, 0018, 0019 y 0016' docs/ops/backups.md` → `1`.
 - `pnpm exec vitest run` → `B_files` / `B_tests`, todo verde; `pnpm exec tsc -b` → exit 0; `pnpm lint` → exit 0.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-a-db-tests.md docs/superpowers/specs/2026-10-13-documents-design.md docs/ops/backups.md supabase/migrations/0019_harden_player_file_helpers.sql supabase/tests/0019_harden_player_file_helpers.test.sql supabase/tests/0002_rls.test.sql supabase/tests/0012_player_files_storage.test.sql supabase/tests/0013_document_consent_rules.test.sql supabase/tests/0014_player_payment_status_view.test.sql supabase/tests/0015_players_view_status_columns.test.sql supabase/tests/0016_revoke_anon_privileges.test.sql supabase/tests/0017_forbid_player_delete.test.sql supabase/tests/0018_lock_player_on_file_write.test.sql
