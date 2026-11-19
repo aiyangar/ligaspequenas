@@ -505,3 +505,26 @@ test('a failed export shows an error, re-enables the button, and a later success
   await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
   expect(mocks.exportPlayersToExcel).toHaveBeenCalledTimes(2)
 })
+
+test('changing a filter clears a stale export error', async () => {
+  mocks.exportPlayersToExcel.mockRejectedValueOnce(new Error('chunk failed'))
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  await user.click(exportButton())
+  expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo generar el archivo de Excel. Intenta de nuevo.')
+  await user.selectOptions(screen.getByLabelText('Estatus'), 'activo')
+  await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+  expect(mocks.exportPlayersToExcel).toHaveBeenCalledTimes(1)
+})
+
+test('typing in the search box also clears a stale export error', async () => {
+  mocks.exportPlayersToExcel.mockRejectedValueOnce(new Error('chunk failed'))
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByText('Ana Ruiz')
+  await user.click(exportButton())
+  expect(await screen.findByRole('alert')).toBeInTheDocument()
+  await user.type(screen.getByLabelText('Buscar por nombre'), 'a')
+  await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+})

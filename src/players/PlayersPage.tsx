@@ -88,6 +88,20 @@ export function PlayersPage() {
     setReloadKey((k) => k + 1)
   }
 
+  function filterSetter<T>(set: (value: T) => void) {
+    return (value: T) => {
+      setExportError(null)
+      set(value)
+    }
+  }
+  const changeSearch = filterSetter(setSearch)
+  const changeCategoryId = filterSetter(setCategoryId)
+  const changeStatus = filterSetter(setStatus)
+  const changeTeamId = filterSetter(setTeamId)
+  const changePaymentState = filterSetter(setPaymentState)
+  const changeDocsFilter = filterSetter(setDocsFilter)
+  const changeAffiliation = filterSetter(setAffiliation)
+
   const categories = useMemo(
     () => uniqueOptions(players.map((p) => [p.category_id, p.category_name])),
     [players],
@@ -175,14 +189,14 @@ export function PlayersPage() {
             <TextField
               label="Buscar por nombre"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => changeSearch(e.target.value)}
               sx={{ flexGrow: 1, minWidth: 200 }}
             />
             <TextField
               select
               label="Categoría"
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
+              onChange={(e) => changeCategoryId(e.target.value)}
               slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
               sx={{ minWidth: 180 }}
             >
@@ -197,7 +211,7 @@ export function PlayersPage() {
               select
               label="Estatus"
               value={status}
-              onChange={(e) => setStatus(e.target.value as '' | PlayerStatus)}
+              onChange={(e) => changeStatus(e.target.value as '' | PlayerStatus)}
               slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
               sx={{ minWidth: 140 }}
             >
@@ -209,7 +223,7 @@ export function PlayersPage() {
               select
               label="Equipo"
               value={teamId}
-              onChange={(e) => setTeamId(e.target.value)}
+              onChange={(e) => changeTeamId(e.target.value)}
               slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
               sx={{ minWidth: 160 }}
             >
@@ -224,7 +238,7 @@ export function PlayersPage() {
               select
               label="Pago"
               value={paymentState}
-              onChange={(e) => setPaymentState(e.target.value as '' | PaymentState)}
+              onChange={(e) => changePaymentState(e.target.value as '' | PaymentState)}
               slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
               sx={{ minWidth: 160 }}
             >
@@ -239,7 +253,7 @@ export function PlayersPage() {
               select
               label="Documentos"
               value={docsFilter}
-              onChange={(e) => setDocsFilter(e.target.value as DocsFilter)}
+              onChange={(e) => changeDocsFilter(e.target.value as DocsFilter)}
               slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
               sx={{ minWidth: 160 }}
             >
@@ -251,7 +265,7 @@ export function PlayersPage() {
               select
               label="Afiliación"
               value={affiliation}
-              onChange={(e) => setAffiliation(e.target.value as '' | AffiliationStatus)}
+              onChange={(e) => changeAffiliation(e.target.value as '' | AffiliationStatus)}
               slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
               sx={{ minWidth: 160 }}
             >

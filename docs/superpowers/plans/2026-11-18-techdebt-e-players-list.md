@@ -265,7 +265,7 @@ git -C $WT commit -m "test: make the Pago plus Documentos test depend on the Doc
 - Modify: `src/players/PlayersPage.test.tsx`
 - Modify: `src/players/PlayersPage.tsx`
 
-- [ ] **Step 1: Tests (rojo)**
+- [x] **Step 1: Tests (rojo)**
 
 Al final del archivo:
 
@@ -296,7 +296,7 @@ test('typing in the search box also clears a stale export error', async () => {
 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx` → FAIL en estos 2 (el `Alert` sigue).
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 Después de `handleRetry` agrega:
 
@@ -320,7 +320,7 @@ y en los 7 `onChange` de los filtros reemplaza el setter por su `change…` (mis
 
 Run: `pnpm exec vitest run src/players/PlayersPage.test.tsx` → todo PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-e-players-list.md src/players/PlayersPage.tsx src/players/PlayersPage.test.tsx
