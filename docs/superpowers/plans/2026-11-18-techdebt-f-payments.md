@@ -33,9 +33,9 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/payments-a11y-tests`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 45 y 449, todo verde).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/payments-a11y-tests`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 45 y 449, todo verde).
 
 ---
 
@@ -47,7 +47,7 @@
 
 El texto visible sigue siendo "Editar"/"Borrar"; el `aria-label` empieza con esa misma palabra (WCAG 2.5.3, *label in name*) y agrega `paymentText(p)`, la fecha y el monto con el mismo formato que la fila (`formatPaymentDate`, `formatMoney`, ya importados), así dos pagos con el mismo concepto y nota tienen nombres distintos. El botón **Borrar del diálogo** de confirmación no cambia (se busca con `within(dialog)`).
 
-- [ ] **Step 1.1: Actualizar los tests (rojo)**
+- [x] **Step 1.1: Actualizar los tests (rojo)**
 
 En `src/payments/PlayerPaymentsSection.test.tsx`, reemplaza el test `admin sees Registrar pago and per-row Editar and Borrar` completo por:
 
@@ -91,7 +91,7 @@ Comprobación: `grep -n "within(item).getByRole('button', { name: '\(Editar\|Bor
 Run: `pnpm exec vitest run src/payments/PlayerPaymentsSection.test.tsx`
 Expected: FAIL en 7 tests: los 6 que buscan un botón de fila por su nombre nuevo (`admin sees … named after the payment`, `editing settles a partial payment`, `Cancelar in the delete confirmation deletes nothing`, `confirming the delete removes it, reloads and reports`, `a failed delete shows an inline alert and closes the confirmation`, `a double click on Borrar deletes once`) con `Unable to find an accessible element with the role "button" and name "… · 04/10/2026 · $150.50"`, y `two payments with the same concept get different button names` (`Unable to find an accessible element with the role "button" and name '/^Editar /'`); 5 pasan.
 
-- [ ] **Step 1.2: Implementar**
+- [x] **Step 1.2: Implementar**
 
 En `src/payments/PlayerPaymentsSection.tsx`, justo antes de `export interface PlayerPaymentsSectionProps {` agrega:
 
@@ -127,7 +127,7 @@ por:
 Run: `pnpm exec vitest run src/payments/PlayerPaymentsSection.test.tsx`
 Expected: 12 tests PASS.
 
-- [ ] **Step 1.3: Commit**
+- [x] **Step 1.3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-f-payments.md src/payments/PlayerPaymentsSection.tsx src/payments/PlayerPaymentsSection.test.tsx
@@ -147,7 +147,7 @@ git -C $WT commit -m "fix: name each payment's Editar and Borrar buttons after t
 
 Hoy `open={confirm !== null}` y el título es `confirm ? … : ''`: al cerrar, `confirm` pasa a `null` antes de la transición de salida de MUI y el diálogo que se desvanece queda con título (y nombre accesible) vacío. El arreglo (`confirmOpen` + limpiar la fila en `onExited`) deja la fila cargada durante el fade, así que el botón Borrar del diálogo seguiría borrando ahí: el guard `!confirmOpen` en `handleDelete` es parte del arreglo. Los dos tests de fade pasan con el código actual (hoy `confirm` ya es `null` durante el fade); su rojo aparece en el Step 2.2, con `confirmOpen` sin guard, que es justo la regresión que fijan.
 
-- [ ] **Step 2.1: Escribir los tests (rojo)**
+- [x] **Step 2.1: Escribir los tests (rojo)**
 
 Agrega al final de `src/payments/PlayerPaymentsSection.test.tsx`:
 
@@ -213,7 +213,7 @@ test('a click during the fade after a successful delete does not delete again', 
 Run: `pnpm exec vitest run src/payments/PlayerPaymentsSection.test.tsx`
 Expected: FAIL en los 2 tests de título (`… after Cancelar`, `… after a successful delete`) en `toHaveAccessibleName` (`Received:` vacío); 14 pasan (incluidos los 2 de fade).
 
-- [ ] **Step 2.2: Implementar `confirmOpen` (todavía sin guard) y ver el rojo de los fades**
+- [x] **Step 2.2: Implementar `confirmOpen` (todavía sin guard) y ver el rojo de los fades**
 
 En `src/payments/PlayerPaymentsSection.tsx`:
 
@@ -275,7 +275,7 @@ por:
 Run: `pnpm exec vitest run src/payments/PlayerPaymentsSection.test.tsx`
 Expected: FAIL en los 2 tests de fade (rojo del guard): `Borrar during the fade after Cancelar does not delete` (`expected "vi.fn()" to not be called at all, but actually been called 1 times`) y `a click during the fade after a successful delete does not delete again` (`expected "vi.fn()" to be called 1 times, but got 2 times`); 14 pasan (los 2 de título ya en verde).
 
-- [ ] **Step 2.3: Agregar el guard**
+- [x] **Step 2.3: Agregar el guard**
 
 En `handleDelete`, cambia:
 
@@ -294,7 +294,7 @@ Comprobación: `grep -n "setConfirm(null)" src/payments/PlayerPaymentsSection.ts
 Run: `pnpm exec vitest run src/payments/PlayerPaymentsSection.test.tsx`
 Expected: 16 tests PASS.
 
-- [ ] **Step 2.4: Commit**
+- [x] **Step 2.4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-f-payments.md src/payments/PlayerPaymentsSection.tsx src/payments/PlayerPaymentsSection.test.tsx
@@ -313,7 +313,7 @@ git -C $WT commit -m "fix: keep the payment delete confirmation titled while it 
 
 La regla ya existe en `validatePayment` (`src/payments/payments.ts:121`) y ya tiene su test unitario en `payments.test.ts`. Lo que faltaba es el cableado del diálogo: no es un `<form>`, así que `required` es solo visual, y nada probaba que el error se muestre y que `onSave` no se llame. El test es de caracterización y pasa al primer intento; el rojo se demuestra con una mutación temporal.
 
-- [ ] **Step 3.1: Escribir el test**
+- [x] **Step 3.1: Escribir el test**
 
 Agrega al final de `src/payments/PaymentDialog.test.tsx`:
 
@@ -333,7 +333,7 @@ test('an empty date blocks the save', async () => {
 Run: `pnpm exec vitest run src/payments/PaymentDialog.test.tsx`
 Expected: 10 tests PASS.
 
-- [ ] **Step 3.2: Mutación (rojo demostrado)**
+- [x] **Step 3.2: Mutación (rojo demostrado)**
 
 Borra temporalmente la línea `  if (values.payment_date === '') errors.payment_date = 'Ingresa la fecha.'` de `src/payments/payments.ts`.
 
@@ -342,7 +342,7 @@ Expected: FAIL solo en `an empty date blocks the save` (no encuentra `Ingresa la
 
 Restaura: `git -C $WT checkout -- src/payments/payments.ts`, y `git -C $WT diff --stat -- src/payments/payments.ts` → vacío. Vuelve a correr el archivo → 10 PASS.
 
-- [ ] **Step 3.3: Commit**
+- [x] **Step 3.3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-f-payments.md src/payments/PaymentDialog.test.tsx
@@ -362,7 +362,7 @@ git -C $WT commit -m "test: pin the empty-date wiring of the payment dialog (#68
 
 Decisión del owner (spec §2): `aria-label` = nombre del jugador, el desglose en `aria-describedby`, sin cambio visual. Como `aria-label` reemplaza todo el contenido del link, la categoría también sale del nombre; por eso la descripción apunta a la categoría **y** al desglose. Se aplica a todos los links de la página (los de Sin pagos y Al corriente quedan con nombre = jugador y descripción = categoría). No toques `GroupSection`, `<List>` ni el resto del markup de lista (#71, lote H).
 
-- [ ] **Step 4.1: Escribir los tests (rojo)**
+- [x] **Step 4.1: Escribir los tests (rojo)**
 
 Agrega al final de `src/payments/DebtorsPage.test.tsx`:
 
@@ -384,7 +384,7 @@ test('a link without open charges is named by the player and described by the ca
 Run: `pnpm exec vitest run src/payments/DebtorsPage.test.tsx`
 Expected: FAIL en los 2 tests nuevos con `Unable to find an accessible element with the role "link" and name "Ana Ruiz"` (y `"Beto Gómez"`); los 8 existentes pasan.
 
-- [ ] **Step 4.2: Implementar**
+- [x] **Step 4.2: Implementar**
 
 En `src/payments/DebtorsPage.tsx`:
 
@@ -421,7 +421,7 @@ El `<div>` no lleva estilos: el `Stack` del desglose sigue siendo su único hijo
 Run: `pnpm exec vitest run src/payments/DebtorsPage.test.tsx`
 Expected: 10 tests PASS (incluido `tapping a player opens the player detail`, que busca `/Beto Gómez/`).
 
-- [ ] **Step 4.3: Commit**
+- [x] **Step 4.3: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-f-payments.md src/payments/DebtorsPage.tsx src/payments/DebtorsPage.test.tsx
@@ -440,7 +440,7 @@ git -C $WT commit -m "fix: announce Quién debe links by the player's name, brea
 
 El issue tiene dos puntos. (1) Falta un test de "Cargando…": se agrega aquí. (2) El test `admin and readonly see the same read-only page` pasa trivialmente porque `DebtorsPage` no lee `TenantContext`; el issue dice explícitamente "no change needed" (es una guarda contra acoplar el rol en el futuro). Se deja tal cual y el PR lo cita al cerrar #74.
 
-- [ ] **Step 5.1: Escribir el test**
+- [x] **Step 5.1: Escribir el test**
 
 Agrega al final de `src/payments/DebtorsPage.test.tsx`:
 
@@ -458,7 +458,7 @@ test('shows Cargando… while the three reads are pending', async () => {
 Run: `pnpm exec vitest run src/payments/DebtorsPage.test.tsx`
 Expected: 11 tests PASS.
 
-- [ ] **Step 5.2: Mutación (rojo demostrado)**
+- [x] **Step 5.2: Mutación (rojo demostrado)**
 
 En `src/payments/DebtorsPage.tsx`, en la rama `groups === null` del ternario, reemplaza temporalmente `<Typography sx={{ mt: 2 }}>Cargando…</Typography>` por `null` (la página no muestra nada mientras carga: la regresión que el test debe atrapar).
 
@@ -467,11 +467,11 @@ Expected: FAIL solo en `shows Cargando… while the three reads are pending` (`U
 
 Restaura la línea exacta `        <Typography sx={{ mt: 2 }}>Cargando…</Typography>` (elipsis `…`, U+2026); `git -C $WT diff -- src/payments/DebtorsPage.tsx` debe mostrar solo los cambios de Task 4. Vuelve a correr → 11 PASS.
 
-- [ ] **Step 5.3: Suite completa, tipos y lint**
+- [x] **Step 5.3: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `B_tests + 9` tests (Task 1: 1; Task 2: 4; Task 3: 1; Task 4: 2; Task 5: 1), todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 5.4: Commit**
+- [x] **Step 5.4: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-f-payments.md src/payments/DebtorsPage.test.tsx
