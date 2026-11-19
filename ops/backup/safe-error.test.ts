@@ -84,3 +84,10 @@ test.each([...INTERNAL_CODES])('the internal code %s passes through', (code) => 
   expect(errorLine(new CodedError(code))).toBe(`error: ${code}`)
   expect(errorLine({ code })).toBe(`error: ${code}`)
 })
+
+test('a Node-shaped code outside the known list is never printed', () => {
+  expect(errorLine({ code: 'ERR_SB_SECRET_ABCDEFGHIJKLMNOP' })).toBe('error: unknown')
+  expect(errorLine({ code: 'ERR_AGE_SECRET_KEY_1QQQ' })).toBe('error: unknown')
+  expect(errorLine({ code: 'UND_ERR_SB_SECRET_ABCDEFGH' })).toBe('error: unknown')
+  expect(errorLine(new TypeError('fetch failed', { cause: { code: 'ERR_SB_SECRET_ABCDEFGH' } }))).toBe('error: unknown')
+})

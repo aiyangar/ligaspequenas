@@ -63,9 +63,9 @@ Los tres que ya tiene el test `the system code %s passes through` (`ERR_INVALID_
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `fix/backups-node-code`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde). `pnpm exec vitest run ops/backup` → 5 archivos, 113 tests.
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `fix/backups-node-code`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (esperado hoy: 48 y 538, todo verde). `pnpm exec vitest run ops/backup` → 5 archivos, 113 tests.
 
 ---
 
@@ -78,7 +78,7 @@ Los tres que ya tiene el test `the system code %s passes through` (`ERR_INVALID_
 **Interfaces:**
 - Produces: `export const NODE_ERROR_CODES: readonly string[]` en `ops/backup/lib/safe-error.ts` (Task 2 lo importa).
 
-- [ ] **Step 1.1: Escribir el test (rojo)**
+- [x] **Step 1.1: Escribir el test (rojo)**
 
 Al final de `ops/backup/safe-error.test.ts`:
 
@@ -94,7 +94,7 @@ test('a Node-shaped code outside the known list is never printed', () => {
 Run: `pnpm exec vitest run ops/backup/safe-error.test.ts`
 Expected: FAIL solo en `a Node-shaped code outside the known list is never printed` con `expected 'error: ERR_SB_SECRET_ABCDEFGHIJKLMNOP' to be 'error: unknown'` (verificado por el planner); 32 pasan.
 
-- [ ] **Step 1.2: Implementar**
+- [x] **Step 1.2: Implementar**
 
 En `ops/backup/lib/safe-error.ts`:
 
@@ -132,7 +132,7 @@ Comprobación: `grep -n "NODE_CODE\b" ops/backup/lib/safe-error.ts` → sin sali
 
 Run: `pnpm exec vitest run ops/backup/safe-error.test.ts` → 33 tests PASS (incluido `the system code %s passes through` con `ERR_INVALID_URL`, `UND_ERR_SOCKET`, `UND_ERR_CONNECT_TIMEOUT`).
 
-- [ ] **Step 1.3: Commit**
+- [x] **Step 1.3: Commit**
 
 `git -C $WT status -s` → solo `safe-error.ts`, `safe-error.test.ts` y este plan.
 
