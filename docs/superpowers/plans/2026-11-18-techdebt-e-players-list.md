@@ -33,8 +33,8 @@
 
 ## Task 0: Preparar y medir el baseline
 
-- [ ] **Step 1:** `git -C $WT branch --show-current` → `fix/players-list-export-polish`; `git -C $WT log --oneline origin/develop..HEAD` → vacío.
-- [ ] **Step 2:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests`.
+- [x] **Step 1:** `git -C $WT branch --show-current` → `fix/players-list-export-polish`; `git -C $WT log --oneline origin/develop..HEAD` → vacío.
+- [x] **Step 2:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests`.
 
 ---
 
@@ -44,7 +44,7 @@
 - Modify: `src/lib/fetchAllRows.test.ts`
 - Modify: `src/lib/fetchAllRows.ts`
 
-- [ ] **Step 1: Tests**
+- [x] **Step 1: Tests**
 
 Al final de `src/lib/fetchAllRows.test.ts`:
 
@@ -66,12 +66,12 @@ test('a response that ignores the range throws instead of paging forever', async
 
 (El segundo mock corta solo a partir de `from > 100` para que el rojo sea un fallo y no un bucle infinito: con el código actual, un mock que siempre responde `[0, 1]` agota la memoria del worker.)
 
-- [ ] **Step 2: Verificar el rojo**
+- [x] **Step 2: Verificar el rojo**
 
 Run: `pnpm exec vitest run src/lib/fetchAllRows.test.ts`
 Expected: FAIL solo en `a response that ignores the range…` con `expected … to throw error including 'the server ignored the requested range' but got 'runaway paging'`. El de "tolerated" pasa (es la guarda de que el arreglo no corte de más).
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 En `fetchAllRows`, después de `let offset = 0` agrega `let staleBlocks = 0`, y reemplaza el bloque desde `offset += data.length` hasta el cierre del `for (;;)` por:
 
@@ -90,11 +90,11 @@ En `fetchAllRows`, después de `let offset = 0` agrega `let staleBlocks = 0`, y 
   }
 ```
 
-- [ ] **Step 4: Verificar el verde**
+- [x] **Step 4: Verificar el verde**
 
 Run: `pnpm exec vitest run src/lib/fetchAllRows.test.ts src/players/players.test.ts src/payments/payments.test.ts` → todo PASS (los tests de dedupe de jugadores y pagos siguen pasando).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git -C $WT add docs/superpowers/plans/2026-11-18-techdebt-e-players-list.md src/lib/fetchAllRows.ts src/lib/fetchAllRows.test.ts
