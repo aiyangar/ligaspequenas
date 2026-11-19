@@ -207,7 +207,7 @@ git -C $WT commit -m "fix: answer a non-object invite-user JSON body with 400 in
 - Modify: `src/users/UsersPage.test.tsx` (mocks l.6–26; tests `changes a user role through the MUI select` y `a failed role change shows an alert and keeps the previous role`; 1 test nuevo antes de `a failed list load shows LoadError and Reintentar reloads`)
 - Modify: `src/users/UsersPage.tsx` (`changeRole`, l.104–112)
 
-- [ ] **Step 2.1: Ajustar los mocks y escribir el test (rojo)**
+- [x] **Step 2.1: Ajustar los mocks y escribir el test (rojo)**
 
 En `src/users/UsersPage.test.tsx`:
 
@@ -245,7 +245,7 @@ test('a role change that RLS filters out (zero rows) shows a permission alert an
 Run: `pnpm exec vitest run src/users/UsersPage.test.tsx`
 Expected: FAIL en 3 tests (verificado por el planner): `changes a user role through the MUI select` (`expected "vi.fn()" to be called with arguments: [ 'id' ]`), `a failed role change shows an alert…` y `a role change that RLS filters out…` (ambos `Unable to find role="alert"`: hoy `changeRole` no encadena `.select`); 9 pasan.
 
-- [ ] **Step 2.2: Implementar**
+- [x] **Step 2.2: Implementar**
 
 En `src/users/UsersPage.tsx`, dentro de `changeRole`, reemplaza:
 
@@ -277,11 +277,11 @@ por:
 Run: `pnpm exec vitest run src/users/UsersPage.test.tsx`
 Expected: 12 tests PASS.
 
-- [ ] **Step 2.3: Suite completa, tipos y lint**
+- [x] **Step 2.3: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files` archivos, `B_tests + 9` tests, todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0 (ESLint sí lintea `index.ts`).
 
-- [ ] **Step 2.4: Commit**
+- [x] **Step 2.4: Commit**
 
 `git -C $WT status -s` → solo `UsersPage.tsx`, `UsersPage.test.tsx` y este plan.
 

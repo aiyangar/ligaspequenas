@@ -103,9 +103,14 @@ export function UsersPage() {
 
   async function changeRole(id: string, newRole: Role) {
     setNotice(null)
-    const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', id)
+    const { data, error } = await supabase.from('profiles').update({ role: newRole }).eq('id', id).select('id')
     if (error) {
       setNotice({ severity: 'error', text: 'No se pudo cambiar el rol.' })
+      return
+    }
+    // RLS filters the row instead of raising, so a forbidden change looks like a success on zero rows
+    if (!data || data.length === 0) {
+      setNotice({ severity: 'error', text: 'No tienes permiso para esta acción.' })
       return
     }
     reload()
