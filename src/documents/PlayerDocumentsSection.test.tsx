@@ -123,11 +123,13 @@ test('Pendiente on consents is also disabled when only the photo exists', () => 
 
 test('uploading a file calls uploadDocument and reports success', async () => {
   const user = userEvent.setup()
-  const { onChanged } = renderSection({ documents: docs(granted) })
+  const onReload = vi.fn()
+  const { onChanged } = renderSection({ documents: docs(granted), onReload })
   const f = new File(['x'], 'curp.pdf', { type: 'application/pdf' })
   await user.upload(within(row('CURP')).getByLabelText('Subir archivo'), f)
   await waitFor(() => expect(mocks.uploadDocument).toHaveBeenCalledWith(expect.objectContaining({ doc_type: 'curp' }), f, true))
   expect(onChanged).toHaveBeenCalledWith('Documento actualizado')
+  expect(onReload).not.toHaveBeenCalled()
 })
 
 test('a failed upload shows the translated error and does not report success', async () => {
