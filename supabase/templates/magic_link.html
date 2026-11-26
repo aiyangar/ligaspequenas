@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tu enlace de acceso</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f4f4f5;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;padding:32px 24px;border-radius:8px;">
+            <tr>
+              <td style="font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+                <h1 style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:22px;">Tu enlace de acceso</h1>
+                <p style="margin:0 0 24px;font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:15px;line-height:1.5;">Pediste entrar a Little Baseball Club con {{ .Email }}.</p>
+                <p style="margin:0 0 24px;">
+                  <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#6d28d9;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:6px;font-family:Arial,Helvetica,sans-serif;">Entrar</a>
+                </p>
+                <p style="margin:0 0 8px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#4b5563;">Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+                <p style="margin:0 0 24px;font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:13px;word-break:break-all;">{{ .ConfirmationURL }}</p>
+                <p style="margin:0 0 24px;font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:14px;line-height:1.5;">El enlace es válido por 1 hora y solo se puede usar una vez. Si ya no sirve, pide otro desde la pantalla de inicio de sesión.</p>
+                <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 16px;">
+                <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#6b7280;line-height:1.5;">Si no esperabas este correo, puedes ignorarlo.<br>Este buzón no recibe respuestas.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

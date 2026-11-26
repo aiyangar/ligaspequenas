@@ -38,9 +38,9 @@
 
 ## Task 0 [repo / implementer]: Preparar y medir el baseline
 
-- [ ] **Step 0.1:** `git -C $WT branch --show-current` → `update/custom-smtp-templates`.
-- [ ] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío. `ls $WT/docs/superpowers/plans/2026-11-25-custom-smtp-littlebase.md` existe (el plan ya está en `develop`).
-- [ ] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (todo verde).
+- [x] **Step 0.1:** `git -C $WT branch --show-current` → `update/custom-smtp-templates`.
+- [x] **Step 0.2:** `git -C $WT log --oneline origin/develop..HEAD` → vacío. `ls $WT/docs/superpowers/plans/2026-11-25-custom-smtp-littlebase.md` existe (el plan ya está en `develop`).
+- [x] **Step 0.3:** En `$WT`: `pnpm install --frozen-lockfile` y `pnpm exec vitest run`. Anota `B_files` y `B_tests` (todo verde).
 
 ---
 
@@ -56,11 +56,11 @@
 - Consumes: nada.
 - Produces: los tres archivos HTML y los tres bloques `[auth.email.template.<name>]` que el owner copia al Dashboard en Task 6; la Task 2 (runbook) los cita por ruta.
 
-- [ ] **Step 1.1: Incluir la suite en `tsc -b`**
+- [x] **Step 1.1: Incluir la suite en `tsc -b`**
 
 En `tsconfig.ops.json`, `include` pasa de `["ops/backup/**/*.ts"]` a `["ops/backup/**/*.ts", "supabase/templates/**/*.ts"]`. Es el único proyecto de `tsc -b` con tipos `node` y `vitest/globals`, que es lo que la suite usa (spec §5.4: "dentro de un tsconfig que ya cubra `tsc -b`").
 
-- [ ] **Step 1.2: Escribir la suite (rojo)**
+- [x] **Step 1.2: Escribir la suite (rojo)**
 
 `supabase/templates/templates.test.ts`, primera línea `// @vitest-environment node` (igual que `ops/backup/*.test.ts`). Lee con `readFileSync(new URL('./<name>.html', import.meta.url), 'utf8')` y `readFileSync(new URL('../config.toml', import.meta.url), 'utf8')`; nada de `process.cwd()`. Cada HTML se lee **dentro** de su test, no al cargar el módulo: si no, un `ENOENT` tumba el archivo entero y el rojo no muestra los 25 tests.
 
@@ -116,13 +116,13 @@ Total: 8 × 3 + 1 = **25 tests**.
 Run: `pnpm exec vitest run supabase/templates`
 Expected: `Tests  24 failed | 1 passed (25)`. Las 21 de HTML fallan con `ENOENT`, las 3 de `config.toml declares…` con un `AssertionError` (`expected undefined to be …`), y pasa solo `config.toml keeps otp_expiry at 3600` (es un pin del valor que ya existe). Si alguna otra pasa, el parser no está ignorando el bloque comentado: corrígelo antes de seguir.
 
-- [ ] **Step 1.3: Asuntos en `config.toml`**
+- [x] **Step 1.3: Asuntos en `config.toml`**
 
 Reemplaza las cuatro líneas que empiezan en `# Uncomment to customize email template` (l.246-249) por los tres bloques del spec §5.2, sin comentarios, en este orden: `invite`, `magic_link`, `confirmation`, cada uno con `subject` y `content_path` exactamente como en el spec. Deja intactos `otp_expiry = 3600`, el bloque comentado `[auth.email.smtp]` y el de `[auth.email.notification.password_changed]`.
 
 Comprobación: `git -C $WT diff -- supabase/config.toml` muestra solo ese bloque (4 líneas fuera, 11 dentro incluidas 2 líneas en blanco entre bloques).
 
-- [ ] **Step 1.4: Las tres plantillas**
+- [x] **Step 1.4: Las tres plantillas**
 
 Mismo esqueleto para las tres; solo cambian `title`, `body`, `button` y `note` de la tabla de datos del Step 1.2:
 
@@ -132,15 +132,15 @@ Mismo esqueleto para las tres; solo cambian `title`, `body`, `button` y `note` d
 - Cada oración del copy va completa dentro de un mismo elemento, sin etiquetas en medio (nada de `<strong>{{ .Email }}</strong>`), para que la búsqueda literal funcione.
 - Sin `<style>` en `<head>`, sin imágenes, sin `<script>`, sin enlaces externos.
 
-- [ ] **Step 1.5: Verde**
+- [x] **Step 1.5: Verde**
 
 Run: `pnpm exec vitest run supabase/templates` → `Tests  25 passed (25)`.
 
-- [ ] **Step 1.6: Suite completa, tipos y lint**
+- [x] **Step 1.6: Suite completa, tipos y lint**
 
 Run (en `$WT`): `pnpm exec vitest run` → `B_files + 1` archivos, `B_tests + 25` tests, todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 1.7: Commit**
+- [x] **Step 1.7: Commit**
 
 `git -C $WT status -s` → solo los 6 archivos de esta task y este plan.
 
@@ -166,7 +166,7 @@ git -C $WT commit -m "feat: version Spanish auth email templates in the repo (Re
 - Consumes: rutas y asuntos de Task 1.
 - Produces: el runbook que el owner y el orquestador siguen en Tasks 3 a 9.
 
-- [ ] **Step 2.1: Runbook**
+- [x] **Step 2.1: Runbook**
 
 `docs/ops/auth-email.md`, mismo estilo que `docs/ops/backups.md` (título `# Correos de Auth por Resend (#7) — Runbook`, primera línea con enlaces al spec y a este plan). Secciones, en este orden:
 
@@ -180,7 +180,7 @@ git -C $WT commit -m "feat: version Spanish auth email templates in the repo (Re
 
 Comprobación: `grep -nE 're_[A-Za-z0-9]|sb_secret_|service_role|eyJ' $WT/docs/ops/auth-email.md` → vacío.
 
-- [ ] **Step 2.2: Docs al dominio nuevo**
+- [x] **Step 2.2: Docs al dominio nuevo**
 
 1. `docs/security/pre-real-data-checklist.md` l.86: `base=https://ligaspequenas.vercel.app` → `base=https://littlebase.club`.
 2. `docs/plan2-bootstrap-admin.md`: en el paso 1, "Captura email + contraseña (o usa "Send invitation")" pasa a "Usa **Send invitation** (manda la invitación en español; la app no usa contraseñas)". En "Redirect allowlist", la lista queda `http://localhost:5173/auth/callback` y `https://littlebase.club/auth/callback`. El bullet **Email** pasa a: "SMTP propio por Resend; ver `docs/ops/auth-email.md`."
@@ -190,11 +190,11 @@ Comprobación:
 - `grep -rn 'vercel.app' $WT/docs/security/pre-real-data-checklist.md $WT/docs/plan2-bootstrap-admin.md $WT/.env.example $WT/docs/ops/auth-email.md` → solo menciones de la ventana de transición en el runbook (pasos 5, 6, 7, 11 y R2/R5), ninguna en los otros tres archivos.
 - `grep -nE 'sb_secret_|service_role|SERVICE_ROLE' $WT/.env.example` → vacío (check (3) del checklist sigue verde).
 
-- [ ] **Step 2.3: Suite, tipos y lint**
+- [x] **Step 2.3: Suite, tipos y lint**
 
 Run: `pnpm exec vitest run` → mismos conteos que en 1.6, todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 2.4: Commit**
+- [x] **Step 2.4: Commit**
 
 `git -C $WT status -s` → solo los 4 archivos de esta task y este plan.
 

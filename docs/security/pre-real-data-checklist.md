@@ -83,7 +83,7 @@ grep -rnE 'sb_secret_|service_role|SERVICE_ROLE' src .env.example
 ```bash
 # (4) bundle desplegado en producción (entry + chunks lazy)
 PAT='sb_secret_[A-Za-z0-9_-]+|service_role|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'
-base=https://ligaspequenas.vercel.app
+base=https://littlebase.club
 entries=$(curl -s "$base/" | grep -oE '/assets/[^"]+\.js' | sort -u)
 chunks=$(for a in $entries; do curl -s "$base$a" | grep -oE '(assets/|["'"'"'`]\./)[A-Za-z0-9_.-]+\.js' | sed -E 's#^(assets/|.\./)#/assets/#'; done | sort -u)
 all=$(printf '%s\n' $entries $chunks | sort -u)
