@@ -7,6 +7,7 @@ const TEMPLATES = {
     title: 'Te dieron acceso a Little Baseball Club',
     body: 'Un administrador te invitó a la app de Little Baseball Club con el correo {{ .Email }}. Para entrar, abre este enlace:',
     button: 'Aceptar invitación',
+    preheader: 'Acepta tu invitación a Little Baseball Club. El enlace es válido por 1 hora.',
     note: 'El enlace es válido por 1 hora y solo se puede usar una vez. Después, para entrar, pide un enlace nuevo en la pantalla de inicio de sesión.',
   },
   magic_link: {
@@ -14,6 +15,7 @@ const TEMPLATES = {
     title: 'Tu enlace de acceso',
     body: 'Pediste entrar a Little Baseball Club con {{ .Email }}.',
     button: 'Entrar',
+    preheader: 'Tu enlace para entrar a Little Baseball Club. Es válido por 1 hora.',
     note: 'El enlace es válido por 1 hora y solo se puede usar una vez. Si ya no sirve, pide otro desde la pantalla de inicio de sesión.',
   },
   confirmation: {
@@ -21,6 +23,7 @@ const TEMPLATES = {
     title: 'Confirma tu correo',
     body: 'Para activar tu acceso a Little Baseball Club con {{ .Email }}, abre este enlace:',
     button: 'Confirmar y entrar',
+    preheader: 'Confirma tu correo para entrar a Little Baseball Club. El enlace es válido por 1 hora.',
     note: 'El enlace es válido por 1 hora y solo se puede usar una vez.',
   },
 } as const
@@ -77,6 +80,26 @@ test.each(NAMES)('%s.html links {{ .ConfirmationURL }} as a button and as plain 
   )
   expect(flat(html)).toMatch(button)
   expect(html.replace(/href="\{\{ \.ConfirmationURL \}\}"/g, '')).toContain('{{ .ConfirmationURL }}')
+})
+
+test.each(NAMES)('%s.html wraps the button in a bgcolor cell for Outlook', (name) => {
+  expect(flat(readTemplate(name))).toMatch(
+    /<td\b[^>]*\bbgcolor="#6d28d9"[^>]*>\s*<a\b[^>]*href="\{\{ \.ConfirmationURL \}\}"/,
+  )
+})
+
+test.each(NAMES)('%s.html gives the card a fixed width for Outlook and a fluid width elsewhere', (name) => {
+  expect(readTemplate(name)).toMatch(
+    /<table\b(?=[^>]*\bwidth="480")(?=[^>]*\bstyle="(?:[^"]*;)?width:100%;[^"]*max-width:480px)[^>]*>/,
+  )
+})
+
+test.each(NAMES)('%s.html starts the body with its hidden preheader', (name) => {
+  expect(flat(readTemplate(name))).toMatch(
+    new RegExp(
+      `<body\\b[^>]*>\\s*<div\\b(?=[^>]*display:none)(?=[^>]*mso-hide:all)[^>]*>${escapeRegExp(TEMPLATES[name].preheader)}</div>`,
+    ),
+  )
 })
 
 test.each(NAMES)('%s.html uses only allowed template variables', (name) => {
