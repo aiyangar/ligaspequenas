@@ -8,8 +8,8 @@ vez, fuera de banda. No existe ningún code path en la app que auto-otorgue admi
 ## Pasos (una sola vez)
 
 1. **Crear el usuario** en el dashboard de Supabase: Authentication → Users →
-   Add user. Captura email + contraseña (o usa "Send invitation"). Copia el
-   `id` (uuid) del usuario creado.
+   Add user. Usa **Send invitation** (manda la invitación en español; la app
+   no usa contraseñas). Copia el `id` (uuid) del usuario creado.
 2. **Insertar su profile como admin** (vía MCP `execute_sql` contra `main`),
    sustituyendo `<auth-user-id>` y `<Nombre>`:
 
@@ -25,9 +25,8 @@ vez, fuera de banda. No existe ningún code path en la app que auto-otorgue admi
 ## Configuración operativa requerida (Supabase Auth)
 
 - **Redirect allowlist**: agrega las URLs de `/auth/callback` de la app
-  (dev `http://localhost:5173/auth/callback` y la URL de producción de Vercel)
+  (`http://localhost:5173/auth/callback` y `https://littlebase.club/auth/callback`)
   en Authentication → URL Configuration → Redirect URLs. Sin esto, tanto el
   link de invitación (`inviteUserByEmail`) como el magic link (`signInWithOtp`)
   caen al Site URL y no aterrizan en la app.
-- **Email**: el v1 usa el email integrado de Supabase (rate-limited, para bajo
-  volumen). SMTP propio se difiere a cuando haya volumen real.
+- **Email**: SMTP propio por Resend; ver `docs/ops/auth-email.md`.

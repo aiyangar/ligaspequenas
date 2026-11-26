@@ -19,5 +19,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["ops/backup/**/*.ts"]
+  "include": ["ops/backup/**/*.ts", "supabase/templates/**/*.ts"]
 }
