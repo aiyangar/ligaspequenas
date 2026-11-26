@@ -212,9 +212,9 @@ git -C $WT commit -m "docs: runbook for Resend auth email and the littlebase.clu
 
 ## Task 3 [orchestrator]: Revisión, PR y gates previos (spec §8 pasos 0 y 1)
 
-- [ ] **Step 3.1:** Revisión pre-PR del branch `update/custom-smtp-templates` (ciclo implementer → reviewer, máximo 3 vueltas). Abrir los tres HTML en Playwright (`file://`) y tomar captura de cada uno para la revisión visual.
-- [ ] **Step 3.2 (paso 0):** PR a `develop` con `Refs #7`; CI verde; merge. Comprobación: `git -C <checkout> log origin/develop -1` contiene el merge y `pnpm exec vitest run supabase/templates` en `develop` → 25 passed.
-- [ ] **Step 3.3 (paso 1):** DNS de Resend:
+- [x] **Step 3.1:** Revisión pre-PR del branch `update/custom-smtp-templates` (ciclo implementer → reviewer, máximo 3 vueltas). Abrir los tres HTML en Playwright (`file://`) y tomar captura de cada uno para la revisión visual.
+- [x] **Step 3.2 (paso 0):** PR a `develop` con `Refs #7`; CI verde; merge. Comprobación: `git -C <checkout> log origin/develop -1` contiene el merge y `pnpm exec vitest run supabase/templates` en `develop` → 25 passed.
+- [x] **Step 3.3 (paso 1):** DNS de Resend:
 
 ```bash
 dig +short TXT resend._domainkey.littlebase.club
@@ -225,7 +225,9 @@ dig +short TXT _dmarc.littlebase.club
 
 Esperado: una clave DKIM `p=…`; `10 feedback-smtp.us-east-1.amazonses.com.`; `"v=spf1 include:amazonses.com ~all"`; `"v=DMARC1; p=none;"`. Si algo no coincide, **detente** y avisa al owner; no se avanza.
 
-- [ ] **Step 3.4 (baseline CORS):** correr el script del spec §10.1 **antes** de tocar el secreto. Esperado hoy: `localhost:5173` y `ligaspequenas.vercel.app` → 200 con su origen; `littlebase.club` y `evil.example` → 403. Esta salida es la referencia de R4 (valor previo de `ALLOWED_ORIGINS` = `http://localhost:5173,https://ligaspequenas.vercel.app`; confirmarlo con la salida). Guardarla para el handoff.
+  > Done differently: Resend now uses CNAMEs — `send` → `send.forge.rmta.net` and `rsend` → `rsend.forge.rmta.net` — replacing the MX/TXT records on `send` (#176). DKIM and `_dmarc` unchanged; `dig` confirmed all records.
+
+- [x] **Step 3.4 (baseline CORS):** correr el script del spec §10.1 **antes** de tocar el secreto. Esperado hoy: `localhost:5173` y `ligaspequenas.vercel.app` → 200 con su origen; `littlebase.club` y `evil.example` → 403. Esta salida es la referencia de R4 (valor previo de `ALLOWED_ORIGINS` = `http://localhost:5173,https://ligaspequenas.vercel.app`; confirmarlo con la salida). Guardarla para el handoff.
 
 ---
 
@@ -233,14 +235,14 @@ Esperado: una clave DKIM `p=…`; `10 feedback-smtp.us-east-1.amazonses.com.`; `
 
 El orquestador le pasa al owner estos pasos y espera su confirmación de cada uno.
 
-- [ ] **Step 4.1 (paso 2):** Resend → Domains → `littlebase.club` → **Verify** (región `us-east-1`). Confirmar que click tracking y open tracking están **apagados**. Crear la API key: permiso **Sending access**, restringida a `littlebase.club`, nombre `supabase-auth-smtp`. No se copia a ningún lado salvo al campo SMTP password del paso 7 (Task 6). Comprobación: el dominio aparece *Verified*. Si no verifica: no avanzar; revisar Task 3.3.
-- [ ] **Step 4.2 (paso 3):** Vercel → proyecto de la app → Settings → Domains: agregar `littlebase.club` y `www.littlebase.club` con redirección **308** a `littlebase.club`. **No** tocar env vars. Comprobación: Task 5.1. Rollback si falla: R2.
+- [x] **Step 4.1 (paso 2):** Resend → Domains → `littlebase.club` → **Verify** (región `us-east-1`). Confirmar que click tracking y open tracking están **apagados**. Crear la API key: permiso **Sending access**, restringida a `littlebase.club`, nombre `supabase-auth-smtp`. No se copia a ningún lado salvo al campo SMTP password del paso 7 (Task 6). Comprobación: el dominio aparece *Verified*. Si no verifica: no avanzar; revisar Task 3.3.
+- [x] **Step 4.2 (paso 3):** Vercel → proyecto de la app → Settings → Domains: agregar `littlebase.club` y `www.littlebase.club` con redirección **308** a `littlebase.club`. **No** tocar env vars. Comprobación: Task 5.1. Rollback si falla: R2.
 
 ---
 
 ## Task 5 [orchestrator]: Dominio vivo y CORS (spec §8 pasos 4 y 5)
 
-- [ ] **Step 5.1 (paso 4):**
+- [x] **Step 5.1 (paso 4):**
 
 ```bash
 curl -sI https://littlebase.club/ | head -1
@@ -251,19 +253,20 @@ diff <(curl -s https://littlebase.club/ | grep -oE '/assets/[^"]+\.js' | sort -u
 
 Esperado: `HTTP/2 200`; `HTTP/2 200`; `HTTP/2 308` con `location: https://littlebase.club/`; `diff` vacío. Si algo falla: **R2** (no seguir).
 
-- [ ] **Step 5.2 (paso 5, secreto):** `pnpm exec supabase secrets set ALLOWED_ORIGINS="http://localhost:5173,https://ligaspequenas.vercel.app,https://littlebase.club" --project-ref eksbaugyypadtanyjcje`.
-- [ ] **Step 5.3 (paso 5, redeploy):** desde un worktree limpio en `origin/develop` actualizado (sin cambios de código en la función): `pnpm exec supabase functions deploy invite-user --project-ref eksbaugyypadtanyjcje --use-api`.
-- [ ] **Step 5.4 (paso 5, CORS):** script del spec §10.1. Esperado: `littlebase.club`, `ligaspequenas.vercel.app` y `localhost:5173` → 200 con su propio `Access-Control-Allow-Origin`; `evil.example` → 403 sin esa cabecera. Guardar la salida tal cual para el handoff. Si un origen legítimo da 403: **R4** (volver al valor de Task 3.4 y repetir).
+- [x] **Step 5.2 (paso 5, secreto):** `pnpm exec supabase secrets set ALLOWED_ORIGINS="http://localhost:5173,https://ligaspequenas.vercel.app,https://littlebase.club" --project-ref eksbaugyypadtanyjcje`.
+- [x] **Step 5.3 (paso 5, redeploy):** desde un worktree limpio en `origin/develop` actualizado (sin cambios de código en la función): `pnpm exec supabase functions deploy invite-user --project-ref eksbaugyypadtanyjcje --use-api`.
+- [x] **Step 5.4 (paso 5, CORS):** script del spec §10.1. Esperado: `littlebase.club`, `ligaspequenas.vercel.app` y `localhost:5173` → 200 con su propio `Access-Control-Allow-Origin`; `evil.example` → 403 sin esa cabecera. Guardar la salida tal cual para el handoff. Si un origen legítimo da 403: **R4** (volver al valor de Task 3.4 y repetir).
 
 ---
 
 ## Task 6 [owner]: Supabase Auth (spec §8 pasos 6 a 9)
 
-- [ ] **Step 6.1 (paso 6):** Authentication → URL Configuration → Redirect URLs: **agregar** `https://littlebase.club/auth/callback`; conservar `https://ligaspequenas.vercel.app/auth/callback` y `http://localhost:5173/auth/callback`. Site URL **no** se cambia todavía. Comprobación: la lista tiene las 3 URLs.
-- [ ] **Step 6.2 (paso 7):** Authentication → Emails → SMTP Settings: activar SMTP propio; sender email `no-reply@littlebase.club`, sender name `Little Baseball Club`, host `smtp.resend.com`, port `465`, username `resend`, password = API key de Task 4.1, minimum interval 60 s. Guardar. Inmediatamente, pedir un magic link desde `https://ligaspequenas.vercel.app/login` con el correo del owner. Comprobación: llega de `Little Baseball Club <no-reply@littlebase.club>` y el enlace loguea. Si no llega en 2 minutos: **R1**.
-- [ ] **Step 6.3 (paso 8, plantillas):** Authentication → Emails → Templates: para *Invite user*, *Magic link* y *Confirm signup*, pegar el `subject` de `supabase/config.toml` y el HTML completo del archivo correspondiente de `develop` (el orquestador puede pasarle al owner la ruta o el contenido del archivo; no hay secretos). Guardar cada una. Si una plantilla rompe el enlace: **R3**.
-- [ ] **Step 6.4 (paso 8, vencimiento y límite):** Authentication → Providers → Email → "Email OTP Expiration" = `3600`. Authentication → Rate Limits → "Rate limit for sending emails" = `30`.
-- [ ] **Step 6.5 (paso 9):** Site URL → `https://littlebase.club`. Comprobación: Task 7. Si el dominio nuevo falla: **R2**.
+- [x] **Step 6.1 (paso 6):** Authentication → URL Configuration → Redirect URLs: **agregar** `https://littlebase.club/auth/callback`; conservar `https://ligaspequenas.vercel.app/auth/callback` y `http://localhost:5173/auth/callback`. Site URL **no** se cambia todavía. Comprobación: la lista tiene las 3 URLs.
+- [x] **Step 6.2 (paso 7):** Authentication → Emails → SMTP Settings: activar SMTP propio; sender email `no-reply@littlebase.club`, sender name `Little Baseball Club`, host `smtp.resend.com`, port `465`, username `resend`, password = API key de Task 4.1, minimum interval 60 s. Guardar. Inmediatamente, pedir un magic link desde `https://ligaspequenas.vercel.app/login` con el correo del owner. Comprobación: llega de `Little Baseball Club <no-reply@littlebase.club>` y el enlace loguea. Si no llega en 2 minutos: **R1**.
+- [x] **Step 6.3 (paso 8, plantillas):** Authentication → Emails → Templates: para *Invite user*, *Magic link* y *Confirm signup*, pegar el `subject` de `supabase/config.toml` y el HTML completo del archivo correspondiente de `develop` (el orquestador puede pasarle al owner la ruta o el contenido del archivo; no hay secretos). Guardar cada una. Si una plantilla rompe el enlace: **R3**.
+  > Done differently: the orchestrator applied the 3 Spanish templates and subjects via the Supabase Management API (`PATCH /v1/projects/{ref}/config/auth`) with owner approval, instead of the Dashboard; verified byte-identical to `develop`.
+- [x] **Step 6.4 (paso 8, vencimiento y límite):** Authentication → Providers → Email → "Email OTP Expiration" = `3600`. Authentication → Rate Limits → "Rate limit for sending emails" = `30`.
+- [x] **Step 6.5 (paso 9):** Site URL → `https://littlebase.club`. Comprobación: Task 7. Si el dominio nuevo falla: **R2**.
 
 ---
 
@@ -271,17 +274,20 @@ Esperado: `HTTP/2 200`; `HTTP/2 200`; `HTTP/2 308` con `location: https://little
 
 Playwright del orquestador con Chromium persistente: un contexto para el admin y otro para el usuario readonly de prueba, ambos sobre `https://littlebase.club` (son sesiones nuevas: `localStorage` es por origen). Los enlaces de correo los abre el owner desde su bandeja **dentro** de la ventana de Playwright correspondiente; nunca se pegan en el chat. Cada paso se marca solo con su evidencia.
 
-- [ ] **Step 7.1 (admin):** magic link del admin en `https://littlebase.club/login` → entra y ve **Usuarios** (spec §10.2.5; va primero porque la invitación lo necesita).
-- [ ] **Step 7.2 (invitación):** como admin → Usuarios → invitar `<owner>+lp-smtp1@gmail.com`, rol readonly. Evidencia de red: `invite-user` → 200 con `Access-Control-Allow-Origin: https://littlebase.club`. El owner confirma: bandeja de entrada (no spam), remitente `Little Baseball Club <no-reply@littlebase.club>`, asunto `Te invitaron a Little Baseball Club`, copy de §5.3 incluido "válido por 1 hora".
-- [ ] **Step 7.3 (cabeceras):** el owner copia de Gmail → "Mostrar original" las líneas `SPF: PASS`, `DKIM: PASS` (`d=littlebase.club`) y `DMARC: PASS`, y `Authentication-Results` con `smtp.mailfrom=…send.littlebase.club`. Van al handoff.
-- [ ] **Step 7.4 (aterrizaje):** el enlace de la invitación, abierto en el contexto readonly, pasa por `…supabase.co/auth/v1/verify` y termina en `https://littlebase.club/auth/callback#access_token=…`; la app navega a `/` como readonly: sin pestaña Usuarios y sin acciones de escritura.
-- [ ] **Step 7.5 (magic link recurrente):** cerrar sesión readonly → `/login` con el mismo correo → llega `Tu enlace para entrar a Little Baseball Club` → el enlace loguea.
-- [ ] **Step 7.6 (origen viejo):** login por magic link desde `https://ligaspequenas.vercel.app` → aterriza en `https://ligaspequenas.vercel.app/auth/callback` y entra.
-- [ ] **Step 7.7 (`www`):** `https://www.littlebase.club/login` → redirige a `https://littlebase.club/login`.
-- [ ] **Step 7.8 (correo desconocido):** pedir enlace para un correo inexistente → mensaje neutral; el owner confirma que el log de Resend no muestra envío.
-- [ ] **Step 7.9 (invitado sin confirmar):** invitar `<owner>+lp-smtp2@gmail.com` (readonly), **no** abrir esa invitación, pedir enlace desde `/login` para ese alias. `LoginPage` muestra el mensaje neutral. Registrar en el handoff cuál ocurrió: (a) sin correo ni envío en Resend → re-invitar y comprobar que llega `Te invitaron a Little Baseball Club` y loguea; (b) llega `Confirma tu correo en Little Baseball Club` en español y loguea como readonly; (c) llega la plantilla de magic link y loguea. Cualquier otro resultado (inglés, enlace que no loguea, error visible) es rojo: se investiga con `superpowers:systematic-debugging` antes de cerrar #7.
-- [ ] **Step 7.10 (limpieza):** borrar los usuarios `+lp-smtp1` y `+lp-smtp2` y sus profiles con el procedimiento de datos de prueba vigente. Comprobación (Supabase MCP `execute_sql`): `select count(*) from auth.users where email like '%+lp-smtp%'` → 0 y lo mismo en `profiles` por esos ids → 0.
-- [ ] **Step 7.11 (handoff):** comentario en #7 con: salidas de Task 3.4 y 5.4, cabeceras de 7.3, resultado de 7.9 y la lista de verificaciones manuales hechas por el owner. Esperar su aprobación explícita.
+- [x] **Step 7.1 (admin):** magic link del admin en `https://littlebase.club/login` → entra y ve **Usuarios** (spec §10.2.5; va primero porque la invitación lo necesita).
+- [x] **Step 7.2 (invitación):** como admin → Usuarios → invitar `<owner>+lp-smtp1@gmail.com`, rol readonly. Evidencia de red: `invite-user` → 200 con `Access-Control-Allow-Origin: https://littlebase.club`. El owner confirma: bandeja de entrada (no spam), remitente `Little Baseball Club <no-reply@littlebase.club>`, asunto `Te invitaron a Little Baseball Club`, copy de §5.3 incluido "válido por 1 hora".
+- [x] **Step 7.3 (cabeceras):** el owner copia de Gmail → "Mostrar original" las líneas `SPF: PASS`, `DKIM: PASS` (`d=littlebase.club`) y `DMARC: PASS`, y `Authentication-Results` con `smtp.mailfrom=…send.littlebase.club`. Van al handoff.
+- [x] **Step 7.4 (aterrizaje):** el enlace de la invitación, abierto en el contexto readonly, pasa por `…supabase.co/auth/v1/verify` y termina en `https://littlebase.club/auth/callback#access_token=…`; la app navega a `/` como readonly: sin pestaña Usuarios y sin acciones de escritura.
+- [x] **Step 7.5 (magic link recurrente):** cerrar sesión readonly → `/login` con el mismo correo → llega `Tu enlace para entrar a Little Baseball Club` → el enlace loguea.
+  > Note: GoTrue served the cached English magic_link template for ~7–27 min after the change, then switched to Spanish (#176).
+- [x] **Step 7.6 (origen viejo):** login por magic link desde `https://ligaspequenas.vercel.app` → aterriza en `https://ligaspequenas.vercel.app/auth/callback` y entra.
+- [x] **Step 7.7 (`www`):** `https://www.littlebase.club/login` → redirige a `https://littlebase.club/login`.
+- [x] **Step 7.8 (correo desconocido):** pedir enlace para un correo inexistente → mensaje neutral; el owner confirma que el log de Resend no muestra envío.
+- [x] **Step 7.9 (invitado sin confirmar):** invitar `<owner>+lp-smtp2@gmail.com` (readonly), **no** abrir esa invitación, pedir enlace desde `/login` para ese alias. `LoginPage` muestra el mensaje neutral. Registrar en el handoff cuál ocurrió: (a) sin correo ni envío en Resend → re-invitar y comprobar que llega `Te invitaron a Little Baseball Club` y loguea; (b) llega `Confirma tu correo en Little Baseball Club` en español y loguea como readonly; (c) llega la plantilla de magic link y loguea. Cualquier otro resultado (inglés, enlace que no loguea, error visible) es rojo: se investiga con `superpowers:systematic-debugging` antes de cerrar #7.
+  > Outcome: case (b) — the Spanish *Confirm signup* email arrived and its link logged in.
+- [x] **Step 7.10 (limpieza):** borrar los usuarios `+lp-smtp1` y `+lp-smtp2` y sus profiles con el procedimiento de datos de prueba vigente. Comprobación (Supabase MCP `execute_sql`): `select count(*) from auth.users where email like '%+lp-smtp%'` → 0 y lo mismo en `profiles` por esos ids → 0.
+- [x] **Step 7.11 (handoff):** comentario en #7 con: salidas de Task 3.4 y 5.4, cabeceras de 7.3, resultado de 7.9 y la lista de verificaciones manuales hechas por el owner. Esperar su aprobación explícita.
+  > Handoff comment posted on #7; owner approval is the gate for 9.2.
 
 ---
 
@@ -293,10 +299,11 @@ Playwright del orquestador con Chromium persistente: un contexto para el admin y
 
 ## Task 9 [orchestrator]: Seguimientos y cierre de #7
 
-- [ ] **Step 9.1:** abrir los issues del spec §11 y agregarlos al board `aiyangar/projects/2`:
+- [x] **Step 9.1:** abrir los issues del spec §11 y agregarlos al board `aiyangar/projects/2`:
   1. **Dominio del enlace y pre-fetch de Safe Links** — `{{ .ConfirmationURL }}` apunta a `eksbaugyypadtanyjcje.supabase.co`; opciones: add-on Custom Domain de Supabase (pago) o enlaces `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=…` con `verifyOtp` en `AuthCallbackPage`.
   2. **Endurecer DMARC** — `rua=mailto:<buzón externo>` y `p=quarantine` tras 2 a 4 semanas de pases limpios.
   3. **Cerrar la ventana de transición de `ligaspequenas.vercel.app` (T+14 días)** — incluye el paso 11 del spec §8 (secreto `ALLOWED_ORIGINS="http://localhost:5173,https://littlebase.club"` + curl §10.1 con vercel.app → 403, y el owner quita `https://ligaspequenas.vercel.app/auth/callback` de Redirect URLs; condición: *Last sign in* de los usuarios activos posterior al paso 9; rollback R5) y la redirección por host en `vercel.json` del spec §11.3 (rama y PR propios, verificación `curl -sI https://ligaspequenas.vercel.app/login` → 308 a `https://littlebase.club/login`, confirmar antes en la documentación vigente de Vercel que `has` con `type: "host"` aplica al dominio `vercel.app` de producción). Fecha objetivo: 2026-12-09 o después, nunca antes de 24 h después de Task 6.5.
+  > Filed as #177 (link domain / Safe Links), #178 (DMARC) and #179 (step 11 + vercel.app redirect, not before 2026-12-09).
 - [ ] **Step 9.2:** cerrar #7 cuando se cumplen **todos**: PR de Task 1-2 mergeado a `develop`; Tasks 3 a 7 marcadas con evidencia; el owner aprobó el handoff de 7.11; Task 7.9 terminó en (a), (b) o (c); limpieza de 7.10 en cero; los tres issues de 9.1 abiertos. El paso 11 **no** bloquea el cierre: vive en el issue 9.1.3.
 - [ ] **Step 9.3:** mergear la rama de progreso `update/smtp-littlebase-progress` (este plan con las marcas `- [x]` de Tasks 3 a 9) a `develop` por PR.
 
