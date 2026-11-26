@@ -166,7 +166,7 @@ git -C $WT commit -m "feat: version Spanish auth email templates in the repo (Re
 - Consumes: rutas y asuntos de Task 1.
 - Produces: el runbook que el owner y el orquestador siguen en Tasks 3 a 9.
 
-- [ ] **Step 2.1: Runbook**
+- [x] **Step 2.1: Runbook**
 
 `docs/ops/auth-email.md`, mismo estilo que `docs/ops/backups.md` (título `# Correos de Auth por Resend (#7) — Runbook`, primera línea con enlaces al spec y a este plan). Secciones, en este orden:
 
@@ -180,7 +180,7 @@ git -C $WT commit -m "feat: version Spanish auth email templates in the repo (Re
 
 Comprobación: `grep -nE 're_[A-Za-z0-9]|sb_secret_|service_role|eyJ' $WT/docs/ops/auth-email.md` → vacío.
 
-- [ ] **Step 2.2: Docs al dominio nuevo**
+- [x] **Step 2.2: Docs al dominio nuevo**
 
 1. `docs/security/pre-real-data-checklist.md` l.86: `base=https://ligaspequenas.vercel.app` → `base=https://littlebase.club`.
 2. `docs/plan2-bootstrap-admin.md`: en el paso 1, "Captura email + contraseña (o usa "Send invitation")" pasa a "Usa **Send invitation** (manda la invitación en español; la app no usa contraseñas)". En "Redirect allowlist", la lista queda `http://localhost:5173/auth/callback` y `https://littlebase.club/auth/callback`. El bullet **Email** pasa a: "SMTP propio por Resend; ver `docs/ops/auth-email.md`."
@@ -190,11 +190,11 @@ Comprobación:
 - `grep -rn 'vercel.app' $WT/docs/security/pre-real-data-checklist.md $WT/docs/plan2-bootstrap-admin.md $WT/.env.example $WT/docs/ops/auth-email.md` → solo menciones de la ventana de transición en el runbook (pasos 5, 6, 7, 11 y R2/R5), ninguna en los otros tres archivos.
 - `grep -nE 'sb_secret_|service_role|SERVICE_ROLE' $WT/.env.example` → vacío (check (3) del checklist sigue verde).
 
-- [ ] **Step 2.3: Suite, tipos y lint**
+- [x] **Step 2.3: Suite, tipos y lint**
 
 Run: `pnpm exec vitest run` → mismos conteos que en 1.6, todo verde. `pnpm exec tsc -b` → exit 0. `pnpm lint` → exit 0.
 
-- [ ] **Step 2.4: Commit**
+- [x] **Step 2.4: Commit**
 
 `git -C $WT status -s` → solo los 4 archivos de esta task y este plan.
 
