@@ -76,8 +76,9 @@ git ls-files | grep -E '(^|/)\.env' | grep -v '^\.env\.example$'
 # (2) variables VITE_ usadas en src — verde: exactamente VITE_SUPABASE_PUBLISHABLE_KEY y VITE_SUPABASE_URL
 grep -rnoE '(^|[^A-Za-z0-9_])VITE_[A-Z0-9_]+' src | sed 's/.*VITE_/VITE_/' | sort -u
 
-# (3) secretos en src — verde: vacío
-grep -rnE 'sb_secret_|service_role|SERVICE_ROLE' src .env.example
+# (3) secretos: cualquier mención en src y valores en .env.example — verde: vacío
+grep -rnE 'sb_secret_|service_role|SERVICE_ROLE' src
+grep -nE 'sb_secret_[A-Za-z0-9_-]{8,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|SERVICE_ROLE_KEY[[:space:]]*=[[:space:]]*[^[:space:]]' .env.example
 ```
 
 ```bash
